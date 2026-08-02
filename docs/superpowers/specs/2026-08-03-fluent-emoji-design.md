@@ -26,7 +26,7 @@ Buttons, form labels, badges, table cells, and other small utility UI remain unc
 
 The intended semantic asset set is:
 
-- `qr-code.png`
+- `mobile-phone.png`
 - `hourglass-not-done.png`
 - `warning.png`
 - `receipt.png`
@@ -60,7 +60,7 @@ CSS classes define three presentation sizes:
 
 Add a typed React `FluentEmoji` component. It accepts an allowlisted semantic name, size/presentation variant, and optional class name. It always emits fixed width and height.
 
-Empty states use the existing `EmptyMedia` layout with the Fluent Emoji image replacing the Lucide placeholder. Page headings, alerts, confirmation dialogs, loading groups, and Sonner notifications use the same three visual sizes as the customer UI.
+Empty states use the existing `EmptyMedia` layout with the Fluent Emoji image replacing the Lucide placeholder. Page headings, alerts, confirmation dialogs, loading groups, and Sonner notifications use the same three visual sizes as the customer UI. `AdminShell` displays each route label in both the top bar and the content `<h1>`; only the content `<h1>` receives an emoji so each section has one visual accent.
 
 ### Accessibility
 
@@ -76,7 +76,7 @@ Images have explicit dimensions to prevent layout shift. Existing live regions, 
 
 | Surface | Current text or state | Fluent Emoji | Placement and rationale |
 |---|---|---|---|
-| Customer client state | `Требуется QR-код` | Qr code | 56 px above the title; directly represents the required action. |
+| Customer client state | `Требуется QR-код` | Mobile phone | 56 px above the title; represents the phone used to scan the table QR code. |
 | Customer client state | `Загружаем меню`, `Загружаем заказ` | Hourglass not done | 56 px above the title; consistent waiting state. |
 | Customer client state | `Меню недоступно`, order refresh error | Warning | 56 px above the title; requires attention. |
 | Customer order status | `Заказ: …` while active | Receipt | 56 px above the title; represents an existing order. |
@@ -91,7 +91,7 @@ Images have explicit dimensions to prevent layout shift. Existing live regions, 
 | Admin session gate | `Проверяем сессию…` | Hourglass not done | 56 px above loading text. |
 | Admin login | `Вход в панель управления` | Locked | 56 px above the form heading. |
 | Admin shell heading | `Управление меню` | Fork and knife with plate | 28 px before the page heading. |
-| Admin shell heading | `Столы и QR-коды` | Qr code | 28 px before the page heading. |
+| Admin shell content heading | `Столы и QR-коды` | Mobile phone | 28 px before the content `<h1>`; represents QR scanning without duplicating the top-bar label. |
 | Admin shell heading | `Статистика` | Bar chart | 28 px before the page heading. |
 | Admin unknown route | `Запрошенная страница не существует` | Compass | 56 px above the message. |
 | Menu administration | Initial skeleton group | Hourglass not done | One 48–56 px image above the complete loading group. |
@@ -100,7 +100,7 @@ Images have explicit dimensions to prevent layout shift. Existing live regions, 
 | Category administration | `В этой категории пока нет блюд` | Fork and knife with plate | 48–56 px above the empty title. |
 | Tables administration | Initial loading card | Hourglass not done | One 48–56 px image above the complete loading card. |
 | Tables administration | `Столы не загружены` | Warning | 24 px beside the alert title. |
-| Tables administration | `Столов пока нет` | Qr code | 56 px above the empty title. |
+| Tables administration | `Столов пока нет` | Mobile phone | 56 px above the empty title; represents the QR-based table flow. |
 | Statistics administration | Initial loading group | Hourglass not done | One 48–56 px image above the complete loading group. |
 | Statistics administration | `Статистику загрузить не удалось` | Warning | 24 px beside the alert title. |
 | Statistics administration | `За выбранный период статистики нет` | Bar chart | 56 px above the empty title. |
@@ -114,7 +114,7 @@ Repeating an emoji is allowed only when the repeated surfaces express the same m
 
 The customer client-state image changes whenever the title/status changes:
 
-- QR required → Qr code;
+- QR required → Mobile phone;
 - loading → Hourglass not done;
 - unavailable/error → Warning;
 - active order → Receipt;
@@ -122,7 +122,7 @@ The customer client-state image changes whenever the title/status changes:
 
 The customer toast API gains a semantic variant (`success`, `error`, or `info`) while keeping message text unchanged. Existing call sites are classified explicitly.
 
-Administration page headings map route types to a fixed emoji. Unknown routes use Compass in the body and do not invent a route heading mapping.
+Administration content `<h1>` headings map route types to a fixed emoji. The duplicate compact route label in the top bar remains text-only. Unknown routes use Compass in the body and do not invent a route heading mapping.
 
 ## Error handling
 
@@ -137,7 +137,7 @@ Administration page headings map route types to a fixed emoji. Unknown routes us
 Follow test-driven development:
 
 1. Add failing customer contract tests for local asset paths, decorative attributes, state mappings, toast variants, and synchronized `index.html`/`menu.html`.
-2. Add failing React tests for the shared component and representative loading, empty, error, heading, dialog, and toast placements.
+2. Add failing data-driven React tests for every administration mapping in the inventory, including all headings, loading/empty/error states, dialogs, notifications, and state transitions.
 3. Implement the minimum code required to pass.
 4. Run focused tests, then `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
 5. Run browser checks at mobile and desktop widths for the customer states and all admin routes.
