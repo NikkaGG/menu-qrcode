@@ -3,19 +3,12 @@ const { isUuid, money } = require('../../_lib/public-api');
 const { json, methodNotAllowed } = require('../../_lib/response');
 const { BILL_SQL } = require('./bill');
 
-const PAYMENT_LABELS = {
-  cash: 'Наличные',
-  kaspi: 'Kaspi QR',
-  card: 'Банковская карта',
-};
-
 async function notifyBotBillRequest({
   env = process.env,
   fetchImpl = globalThis.fetch,
   sessionId,
   tableNumber,
   total,
-  paymentMethod,
   ordersCount,
   itemsCount,
 }) {
@@ -23,7 +16,6 @@ async function notifyBotBillRequest({
   const secret = env.BOT_INTERNAL_API_SECRET;
   if (!baseUrl || !secret || typeof fetchImpl !== 'function') return;
 
-  const paymentLabel = PAYMENT_LABELS[paymentMethod] || 'Оплата счёта';
   try {
     await fetchImpl(
       `${baseUrl.replace(/\/+$/, '')}/internal/tables/bill-request`,
@@ -37,15 +29,13 @@ async function notifyBotBillRequest({
           sessionId,
           tableNumber,
           total,
-          paymentMethod,
-          paymentLabel,
           ordersCount,
           itemsCount,
         }),
       }
     );
   } catch (err) {
-    console.error('Failed to notify bot about bill request:', err.message);
+    console.error('Failed to notify bot about waiter call:', err.message);
   }
 }
 
@@ -57,14 +47,6 @@ function createBillRequestHandler({
     if (request.method !== 'POST') return methodNotAllowed(response, ['POST']);
     const id = request.query?.id;
     if (!isUuid(id)) return json(response, 400, { error: 'Invalid session id' });
-
-    let paymentMethod = 'kaspi';
-    if (request.body && typeof request.body === 'object') {
-      const pm = request.body.paymentMethod;
-      if (['cash', 'kaspi', 'card'].includes(pm)) {
-        paymentMethod = pm;
-      }
-    }
 
     try {
       const rows = await (query || getQuery())(BILL_SQL, [id]);
@@ -84,7 +66,6 @@ function createBillRequestHandler({
         sessionId: row.session_id,
         tableNumber: row.table_number,
         total: money(row.total),
-        paymentMethod,
         ordersCount: orders.length,
         itemsCount: totalItems,
       });
@@ -94,8 +75,6 @@ function createBillRequestHandler({
         sessionId: row.session_id,
         tableNumber: row.table_number,
         total: money(row.total),
-        paymentMethod,
-        paymentLabel: PAYMENT_LABELS[paymentMethod] || 'Kaspi QR',
       });
     } catch {
       return json(response, 500, { error: 'Unable to process bill request' });
@@ -111,5 +90,4 @@ module.exports = Object.assign(handler, {
   handler,
   createBillRequestHandler,
   notifyBotBillRequest,
-  PAYMENT_LABELS,
 });

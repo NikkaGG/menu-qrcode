@@ -133,27 +133,18 @@ test('Live Table Billing: customer requests bill with payment method and handles
     await page.locator('#orderStatusPill').click();
     await page.waitForSelector('#orderRoadmapOv.on', { state: 'visible' });
 
-    console.log('[Playwright] 4. Clicking "Попросить счёт" button in roadmap...');
-    const billBtn = page.locator('.roadmap-btn-bill');
+    console.log('[Playwright] 4. Clicking "Позвать официанта / Счёт" button in roadmap...');
+    const billBtn = page.locator('#callWaiterBtn');
     assert.equal(await billBtn.isVisible(), true);
     await billBtn.click();
 
-    console.log('[Playwright] 5. Verifying payment method modal...');
-    await page.waitForSelector('#requestBillOv.on', { state: 'visible' });
-    const kaspiCard = page.locator('.bill-opt-card').first();
-    assert.match(await kaspiCard.textContent(), /Kaspi/);
-
-    console.log('[Playwright] 6. Confirming bill request...');
-    await page.locator('#confirmBillBtn').click();
-
-    console.log('[Playwright] 7. Verifying server received bill request...');
+    console.log('[Playwright] 5. Verifying server received bill request and banner updated...');
     await page.waitForFunction(() => {
       const banner = document.getElementById('rsbTitle')?.textContent || '';
-      return banner.includes('Официант несёт счёт');
+      return banner.includes('Официант скоро подойдёт');
     }, { timeout: 5000 });
 
-    assert.equal(billRequestedPayload.paymentMethod, 'kaspi');
-
+    assert.equal(await billBtn.textContent(), '🔔 Официант вызван к столу');
     console.log('[Playwright] 8. Emulating waiter closes the table on backend...');
     await page.evaluate(() => {
       handleTableClosed(3400);

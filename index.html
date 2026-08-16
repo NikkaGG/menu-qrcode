@@ -1953,58 +1953,8 @@ body.modal-lock .order-status-pill-shell{
     </div>
 
     <div class="roadmap-footer">
-      <button class="roadmap-btn-bill" type="button" onclick="openRequestBillModal()">💳 Попросить счёт</button>
+      <button class="roadmap-btn-bill" id="callWaiterBtn" type="button" onclick="callWaiter()">🔔 Позвать официанта / Счёт</button>
       <button class="roadmap-btn-primary" type="button" onclick="closeOv('orderRoadmapOv')">Продолжить выбор блюд</button>
-    </div>
-  </div>
-</div>
-
-<!-- REQUEST BILL OVERLAY -->
-<div class="ov" id="requestBillOv" role="dialog" aria-modal="true" aria-labelledby="billSheetTitle" onclick="bgClose(event,'requestBillOv')">
-  <div class="sheet" onclick="event.stopPropagation()">
-    <div class="handle"></div>
-    <div class="roadmap-head">
-      <div class="roadmap-title-group">
-        <div class="roadmap-title" id="billSheetTitle">Запрос счёта</div>
-        <div class="roadmap-subtitle" id="billSheetSubtitle">Стол · Выберите способ оплаты</div>
-      </div>
-      <button class="roadmap-close" type="button" onclick="closeOv('requestBillOv')" aria-label="Закрыть">
-        <span class="ui-icon svg-slot" data-icon="x"></span>
-      </button>
-    </div>
-    <div class="roadmap-body-scroll">
-      <div class="bill-options-list">
-        <label class="bill-opt-card active" onclick="selectBillPayment('kaspi', this)">
-          <input type="radio" name="billPayment" value="kaspi" checked hidden>
-          <div class="boc-icon"><img class="boc-img" src="/emoji/receipt.png" alt=""></div>
-          <div class="boc-info">
-            <div class="boc-title">Kaspi QR / Перевод</div>
-            <div class="boc-desc">Официант принесёт QR-код для Kaspi</div>
-          </div>
-          <div class="boc-check">✓</div>
-        </label>
-        <label class="bill-opt-card" onclick="selectBillPayment('cash', this)">
-          <input type="radio" name="billPayment" value="cash" hidden>
-          <div class="boc-icon">💵</div>
-          <div class="boc-info">
-            <div class="boc-title">Наличные</div>
-            <div class="boc-desc">Оплата наличными официанту</div>
-          </div>
-          <div class="boc-check">✓</div>
-        </label>
-        <label class="bill-opt-card" onclick="selectBillPayment('card', this)">
-          <input type="radio" name="billPayment" value="card" hidden>
-          <div class="boc-icon">💳</div>
-          <div class="boc-info">
-            <div class="boc-title">Банковская карта</div>
-            <div class="boc-desc">Официант принесёт платёжный терминал</div>
-          </div>
-          <div class="boc-check">✓</div>
-        </label>
-      </div>
-    </div>
-    <div class="roadmap-footer">
-      <button class="roadmap-btn-primary" id="confirmBillBtn" type="button" onclick="sendBillRequest()">Позвать официанта со счётом</button>
     </div>
   </div>
 </div>
@@ -3839,51 +3789,31 @@ function renderRoadmapContent(order,orders){
   }
 }
 
-let selectedBillPaymentMethod='kaspi';
-let billRequested=false;
-
-function openRequestBillModal(){
-  if(!currentQrContext)return;
-  const tableNum=currentQrContext.tableNumber||'';
-  document.getElementById('billSheetSubtitle').textContent=`Стол №${tableNum} · Выберите способ оплаты`;
-  openOv('requestBillOv');
-}
-
-function selectBillPayment(method,element){
-  selectedBillPaymentMethod=method;
-  document.querySelectorAll('.bill-opt-card').forEach(c=>c.classList.remove('active'));
-  if(element)element.classList.add('active');
-}
-
-async function sendBillRequest(){
+async function callWaiter(){
   if(!currentQrContext||!currentQrContext.sessionId)return;
-  const btn=document.getElementById('confirmBillBtn');
-  if(btn){btn.disabled=true;btn.textContent='Отправляем запрос…';}
+  const btn=document.getElementById('callWaiterBtn');
+  if(btn){btn.disabled=true;btn.textContent='Вызываем официанта…';}
   try{
     const res=await fetch(`/api/sessions/${encodeURIComponent(currentQrContext.sessionId)}/bill-request`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({paymentMethod:selectedBillPaymentMethod})
+      body:JSON.stringify({action:'call_waiter'})
     });
     const data=await res.json().catch(()=>({}));
     if(res.ok){
-      billRequested=true;
-      closeOv('requestBillOv',false);
-      const paymentLabel=data.paymentLabel||'Kaspi QR';
-      showToast(`Официант уведомлен и несёт счёт (${paymentLabel})`);
+      showToast('Официант уведомлен и скоро подойдёт к вам!');
       const bTitle=document.getElementById('rsbTitle');
       const bDesc=document.getElementById('rsbDesc');
-      if(bTitle)bTitle.textContent=`Официант несёт счёт (${paymentLabel}) 🔔`;
-      if(bDesc)bDesc.textContent='Счёт формируется, официант скоро подойдёт к вашему столу.';
-      const billBtn=document.querySelector('.roadmap-btn-bill');
-      if(billBtn){billBtn.textContent='🔔 Счёт запрошен ('+paymentLabel+')';billBtn.disabled=true;}
+      if(bTitle)bTitle.textContent='Официант скоро подойдёт к вам 🔔';
+      if(bDesc)bDesc.textContent='Вызов принят, официант уже направляется к вашему столику.';
+      if(btn){btn.textContent='🔔 Официант вызван к столу';btn.disabled=true;}
     }else{
-      showToast(data.error||'Не удалось отправить запрос');
+      showToast(data.error||'Не удалось вызвать официанта');
+      if(btn){btn.disabled=false;btn.textContent='🔔 Позвать официанта / Счёт';}
     }
   }catch(e){
     showToast('Ошибка связи с сервером');
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent='Позвать официанта со счётом';}
+    if(btn){btn.disabled=false;btn.textContent='🔔 Позвать официанта / Счёт';}
   }
 }
 

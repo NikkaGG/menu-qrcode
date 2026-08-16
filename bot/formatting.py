@@ -150,13 +150,11 @@ def format_closed_bill(bill: dict[str, Any]) -> str:
 def format_bill_request(data: dict[str, Any]) -> str:
     table = _truncate(data.get("tableNumber", "?"), 80)
     total = _total(data.get("total", "0.00"))
-    payment = _truncate(data.get("paymentLabel", "Kaspi QR"), 80)
     orders_count = data.get("ordersCount", 1)
     items_count = data.get("itemsCount", 0)
     lines = [
-        f"🔔 Запрос счёта: Стол №{table}",
-        f"💳 Способ оплаты: {payment}",
-        f"💰 К оплате: {total} ₸ ({orders_count} зак., {items_count} блюд)",
+        f"🔔 Вызов официанта: Стол №{table}",
+        f"💰 Текущий счёт: {total} ₸ ({orders_count} зак., {items_count} блюд)",
     ]
     return "\n".join(lines)
 
