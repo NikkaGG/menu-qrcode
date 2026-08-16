@@ -11,6 +11,7 @@ async function notifyBotBillRequest({
   total,
   ordersCount,
   itemsCount,
+  items = [],
 }) {
   const baseUrl = env.BOT_INTERNAL_API_URL;
   const secret = env.BOT_INTERNAL_API_SECRET;
@@ -31,6 +32,7 @@ async function notifyBotBillRequest({
           total,
           ordersCount,
           itemsCount,
+          items,
         }),
       }
     );
@@ -57,8 +59,14 @@ function createBillRequestHandler({
       }
 
       const orders = Array.isArray(row.orders) ? row.orders : [];
-      const totalItems = orders.reduce(
-        (sum, o) => sum + (Array.isArray(o.items) ? o.items.reduce((s, i) => s + (i.quantity || 1), 0) : 0),
+      const allItems = [];
+      orders.forEach(o => {
+        if (Array.isArray(o.items)) {
+          o.items.forEach(it => allItems.push(it));
+        }
+      });
+      const totalItems = allItems.reduce(
+        (sum, i) => sum + (Number(i.quantity) || 1),
         0
       );
 
@@ -68,8 +76,8 @@ function createBillRequestHandler({
         total: money(row.total),
         ordersCount: orders.length,
         itemsCount: totalItems,
+        items: allItems,
       });
-
       return json(response, 200, {
         ok: true,
         sessionId: row.session_id,

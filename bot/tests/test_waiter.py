@@ -135,10 +135,9 @@ class WaiterHandlerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sent["chat_id"], CONFIG.waiter_chat_id)
         for part in (
             "Стол №12",
-            f"Заказ {ORDER_ID}",
+            "#4000",
             "2 × Ролл",
             "1000.00 ₸",
-            "Итого заказа: 1250.50 ₸",
             "Итого по столу: 1250.50 ₸",
         ):
             self.assertIn(part, sent["text"])

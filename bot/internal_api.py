@@ -76,7 +76,7 @@ async def _new_order(request: web.Request) -> web.Response:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="▶️ Начать готовить",
+                    text="🍳 Начать готовить",
                     callback_data=callback_data,
                 )
             ]

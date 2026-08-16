@@ -130,15 +130,15 @@ class InternalApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call.kwargs["chat_id"], -100123)
         self.assertNotIn("parse_mode", call.kwargs)
         text = call.kwargs["text"]
-        self.assertIn("СТОЛ 12", text)
-        self.assertIn("Заказ 123e4567-e89b-12d3-a456-426614174000", text)
+        self.assertIn("СТОЛ №12", text)
+        self.assertIn("#4000", text)
         self.assertIn("2 × Филадельфия <special>", text)
         self.assertIn("Итого: 1250.50 ₸", text)
         self.assertIn("Статус: Принят", text)
         self.assertNotIn("Статус: new", text)
         markup = call.kwargs["reply_markup"]
         button = markup.inline_keyboard[0][0]
-        self.assertEqual(button.text, "▶️ Начать готовить")
+        self.assertEqual(button.text, "🍳 Начать готовить")
         self.assertEqual(
             button.callback_data,
             "order:cooking:123e4567-e89b-12d3-a456-426614174000",

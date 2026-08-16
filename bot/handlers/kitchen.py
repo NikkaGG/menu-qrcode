@@ -48,7 +48,7 @@ def _keyboard(order_id: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="✅ Готово", callback_data=f"order:ready:{order_id}"
+                    text="✅ Готово к выдаче", callback_data=f"order:ready:{order_id}"
                 )
             ]
         ]

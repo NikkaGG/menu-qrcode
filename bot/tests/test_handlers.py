@@ -159,10 +159,9 @@ class HandlerRouterTests(unittest.IsolatedAsyncioTestCase):
         kwargs = event.message.edit_text.await_args.kwargs
         self.assertIn("Статус: Готовится", kwargs["text"])
         button = kwargs["reply_markup"].inline_keyboard[0][0]
-        self.assertEqual(button.text, "✅ Готово")
+        self.assertEqual(button.text, "✅ Готово к выдаче")
         self.assertEqual(button.callback_data, f"order:ready:{ORDER_ID}")
         self.assertLessEqual(len(button.callback_data.encode()), 64)
-
     async def test_ready_transition_edits_card_and_notifies_waiter(self):
         backend = SimpleNamespace(
             get_order=AsyncMock(return_value=order("cooking")),
@@ -192,14 +191,13 @@ class HandlerRouterTests(unittest.IsolatedAsyncioTestCase):
         event.bot.send_message.assert_awaited_once()
         send_kwargs = event.bot.send_message.await_args.kwargs
         self.assertEqual(send_kwargs["chat_id"], CONFIG.waiter_chat_id)
-        self.assertIn("СТОЛ 12", send_kwargs["text"])
+        self.assertIn("СТОЛ №12", send_kwargs["text"])
         self.assertIn("2 × Ролл", send_kwargs["text"])
-        self.assertIn(ORDER_ID, send_kwargs["text"])
+        self.assertIn("#4000", send_kwargs["text"])
         button = send_kwargs["reply_markup"].inline_keyboard[0][0]
         self.assertEqual(button.text, "Показать счёт")
         self.assertEqual(button.callback_data, f"bill:{SESSION_ID}")
         self.assertLessEqual(len(button.callback_data.encode()), 64)
-
     async def test_duplicate_or_advanced_status_is_idempotent(self):
         for handler, action, status in (
             (handle_cooking, "cooking", "cooking"),

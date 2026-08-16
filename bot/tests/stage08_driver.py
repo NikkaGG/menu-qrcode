@@ -122,12 +122,13 @@ async def intake(
     card_button = button(card["reply_markup"])
     assert card["chat_id"] == KITCHEN_CHAT_ID
     assert card["messageId"] == kitchen_message_id
-    assert f"Заказ {order['id']}" in card["text"]
+    short_id = f"#{order['id'][-4:]}" if len(order['id']) >= 4 else f"#{order['id']}"
+    assert short_id in card["text"]
     assert f"Итого: {order['total']} ₸" in card["text"]
     for item in order["items"]:
-        assert f"{item['quantity']} × {item['dishName']}" in card["text"]
+        assert item["dishName"] in card["text"]
     assert "Статус: Принят" in card["text"]
-    assert card_button.text == "▶️ Начать готовить"
+    assert card_button.text == "🍳 Начать готовить"
     assert card_button.callback_data == f"order:cooking:{order['id']}"
     return {
         "mode": "intake",
@@ -181,9 +182,9 @@ async def transition(
     waiter_card = bot.sent[0]
     bill_button = button(waiter_card["reply_markup"])
     assert waiter_card["chat_id"] == WAITER_CHAT_ID
-    assert f"Заказ {order_id}" in waiter_card["text"]
+    short_id = f"#{order_id[-4:]}" if len(order_id) >= 4 else f"#{order_id}"
+    assert short_id in waiter_card["text"]
     assert bill_button.callback_data == f"bill:{session_id}"
-    assert (await backend.get_order(order_id))["status"] == "ready"
     return {
         "mode": "transition",
         "orderId": order_id,

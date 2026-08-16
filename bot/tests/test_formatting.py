@@ -22,9 +22,10 @@ class NewOrderFormattingTests(unittest.TestCase):
 
         self.assertEqual(
             text,
-            "🔔 НОВЫЙ ЗАКАЗ — СТОЛ 12\n"
-            "Заказ 123e4567-e89b-12d3-a456-426614174000\n\n"
-            "2 × Ролл <Тест>\n\n"
+            "🍣 НОВЫЙ ЗАКАЗ — СТОЛ №12 · #4000\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "• 2 × Ролл <Тест>\n"
+            "━━━━━━━━━━━━━━━━━━\n"
             "Итого: 1250.50 ₸\n"
             "Статус: Принят",
         )
@@ -68,9 +69,10 @@ class NewOrderFormattingTests(unittest.TestCase):
         self.assertNotIn("new", ready)
         self.assertEqual(
             waiter,
-            "✅ ЗАКАЗ ГОТОВ — СТОЛ 12\n"
-            "Заказ 123e4567-e89b-12d3-a456-426614174000\n\n"
-            "2 × Ролл <Тест>",
+            "✅ ЗАКАЗ ГОТОВ — СТОЛ №12\n"
+            "Заказ #4000\n"
+            "━━━━━━━━━━━━━━━━━━\n"
+            "• 2 × Ролл <Тест>",
         )
         for text in (cooking, ready, waiter):
             self.assertLessEqual(len(text), 4000)
