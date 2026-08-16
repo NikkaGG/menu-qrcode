@@ -203,8 +203,8 @@ html,body{background:#fff;color:#111;font-family:'Manrope','Segoe UI',Roboto,Ari
 .ci-weight{font-size:12px;color:#aaa;margin-bottom:4px}
 .ci-price{font-size:15px;font-weight:800}
 .qty-row{display:flex;align-items:center;gap:12px}
-.qb{width:30px;height:30px;border-radius:50%;border:1.5px solid #e0e0e0;background:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:.12s;font-family:inherit}
-.qb:hover{background:#f0f0f0}
+.qb{width:30px;height:30px;border-radius:50%;border:1.5px solid #e0e0e0;background:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:.12s;font-family:inherit;color:#111}
+.qb .ui-icon{width:14px;height:14px;stroke-width:2.5;color:#111;stroke:#111;display:block}
 .qn{font-size:15px;font-weight:800;min-width:18px;text-align:center}
 .del-block{padding:16px 20px}
 .del-label{font-size:14px;font-weight:800;margin-bottom:10px}
@@ -1616,6 +1616,8 @@ body.client-catalog-ready .page{display:block}
 .client-state{min-height:100dvh;padding:calc(32px + env(safe-area-inset-top,0px)) calc(20px + env(safe-area-inset-right,0px)) calc(32px + env(safe-area-inset-bottom,0px)) calc(20px + env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:center;background:#fff}
 .client-state[hidden]{display:none}
 .client-state-card{width:min(440px,100%);padding:28px 22px;border:1px solid #e5e5ea;border-radius:18px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.client-state-icon{width:64px;height:64px;margin:0 auto 16px;display:block;object-fit:contain}
+.client-state-icon[hidden]{display:none}
 .client-state-title{font-size:25px;font-weight:800;margin-bottom:10px}
 .client-state-message{font-size:16px;line-height:1.5;color:#555}
 .client-state-meta{margin-top:16px;font-size:15px;font-weight:700}
@@ -1625,7 +1627,130 @@ body.client-catalog-ready .page{display:block}
 .unavailable-list{margin:14px 0 0;padding-left:22px;text-align:left}
 #unavailableOv .sheet{padding:0 20px calc(20px + env(safe-area-inset-bottom,0px))}
 #unavailableOv .client-state-action{width:100%}
+/* ── FLOATING ORDER STATUS BAR ── */
+.order-status-pill-shell{
+  position:fixed!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  bottom:16px!important;
+  z-index:35!important;
+  width:min(var(--catalog-shell-width), calc(100vw - var(--catalog-side-gap) - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))!important;
+  display:flex!important;
+  justify-content:center!important;
+  pointer-events:none!important;
+  transition:bottom .25s cubic-bezier(.16,1,.3,1), opacity .2s ease;
+}
+.order-status-pill-shell[hidden]{display:none!important}
+body.has-cart-pill .order-status-pill-shell{
+  bottom:calc(74px + env(safe-area-inset-bottom, 0px))!important;
+}
+body.modal-lock .order-status-pill-shell{
+  display:none!important;
+}
+.order-status-pill{
+  pointer-events:auto!important;
+  width:100%!important;
+  height:52px!important;
+  padding:0 16px 0 12px!important;
+  border-radius:16px!important;
+  background:#1c1c1e!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  box-shadow:0 8px 28px rgba(0,0,0,.25)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  cursor:pointer!important;
+  text-align:left!important;
+  font-family:inherit!important;
+  transition:transform .12s, box-shadow .12s!important;
+}
+.order-status-pill:active{transform:scale(0.985)!important}
+.osp-left{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.osp-pulse-wrap{position:relative;width:10px;height:10px;display:flex;align-items:center;justify-content:center;margin-left:2px}
+.osp-pulse-dot{width:8px;height:8px;border-radius:50%;background:#34c759}
+.osp-pulse-ring{position:absolute;inset:-4px;border-radius:50%;border:2px solid #34c759;animation:ospPulse 2s infinite ease-out;opacity:0}
+.osp-cooking .osp-pulse-dot{background:#ff9f0a}
+.osp-cooking .osp-pulse-ring{border-color:#ff9f0a}
+.osp-ready .osp-pulse-dot{background:#30d158}
+.osp-ready .osp-pulse-ring{border-color:#30d158;animation-duration:1.2s}
+@keyframes ospPulse{0%{transform:scale(0.6);opacity:0.9}100%{transform:scale(1.8);opacity:0}}
+.osp-icon{width:26px;height:26px;object-fit:contain;flex-shrink:0}
+.osp-text{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.osp-title{font-size:13.5px;font-weight:800;line-height:1.2;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.osp-subtitle{font-size:11.5px;font-weight:500;line-height:1.2;color:rgba(255,255,255,.68);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.osp-right{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:10px}
+.osp-action-label{font-size:12px;font-weight:700;color:#0a84ff;background:rgba(10,132,255,.18);padding:4px 10px;border-radius:999px;letter-spacing:0.2px}
+.osp-chevron{width:14px;height:14px;stroke:rgba(255,255,255,.6)}
 
+/* ── ORDER ROADMAP BOTTOM SHEET ── */
+#orderRoadmapOv{align-items:flex-end!important;padding:0!important}
+#orderRoadmapOv .sheet{
+  width:min(var(--catalog-shell-width), calc(100vw - var(--catalog-side-gap) - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))!important;
+  max-width:var(--catalog-shell-width)!important;
+  height:auto!important;
+  max-height:calc(92dvh - env(safe-area-inset-top, 0px))!important;
+  border-radius:22px 22px 0 0!important;
+  background:#fff!important;
+}
+.roadmap-head{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 8px;border-bottom:1px solid #f0f0f2}
+.roadmap-title-group{display:flex;flex-direction:column}
+.roadmap-title{font-size:20px;font-weight:800;color:#111}
+.roadmap-subtitle{font-size:13px;font-weight:600;color:#666;margin-top:2px}
+.roadmap-close{width:36px;height:36px;border-radius:50%;border:0;background:#f2f2f7;color:#333;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s}
+.roadmap-close:active{transform:scale(0.92);background:#e5e5ea}
+.roadmap-body-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px 24px}
+
+/* Roadmap Timeline Card */
+.roadmap-timeline-card{background:#f9f9fb;border:1px solid #e5e5ea;border-radius:18px;padding:20px 16px;margin-bottom:20px}
+.roadmap-steps{display:flex;align-items:flex-start;justify-content:space-between;position:relative;margin-bottom:18px}
+.rm-step{display:flex;flex-direction:column;align-items:center;text-align:center;width:76px;z-index:2}
+.rm-step-dot{width:48px;height:48px;border-radius:50%;background:#fff;border:2px solid #d1d1d6;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:all .2s ease}
+.rm-step-emoji{width:26px;height:26px;object-fit:contain;filter:grayscale(0.6);opacity:0.65;transition:all .2s ease}
+.rm-step-label{font-size:13px;font-weight:700;color:#8e8e93;margin-top:8px;line-height:1.2}
+.rm-step-desc{font-size:10.5px;color:#aeaeb2;margin-top:2px;line-height:1.2}
+.rm-step-line{flex:1;height:3px;background:#e5e5ea;margin:24px -10px 0;z-index:1;border-radius:2px;transition:background .25s ease}
+
+/* Active and Completed Step States */
+.rm-step.active .rm-step-dot{border-color:#007aff;background:#f0f7ff;box-shadow:0 0 0 4px rgba(0,122,255,.18), 0 4px 12px rgba(0,122,255,.2)}
+.rm-step.active .rm-step-emoji{filter:none;opacity:1;transform:scale(1.1)}
+.rm-step.active .rm-step-label{color:#007aff;font-weight:800}
+.rm-step.completed .rm-step-dot{border-color:#34c759;background:#f0fff4}
+.rm-step.completed .rm-step-emoji{filter:none;opacity:1}
+.rm-step.completed .rm-step-label{color:#34c759}
+.rm-step-line.completed{background:#34c759}
+
+.roadmap-status-banner{background:#fff;border:1px solid #e5e5ea;border-radius:12px;padding:12px 14px;text-align:center}
+.rsb-title{font-size:14.5px;font-weight:800;color:#111}
+.rsb-desc{font-size:12.5px;color:#666;margin-top:3px;line-height:1.4}
+
+/* Order Items List */
+.roadmap-section-title{font-size:15px;font-weight:800;color:#111;margin-bottom:10px}
+.roadmap-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
+.roadmap-item-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border:1px solid #f0f0f2;border-radius:12px}
+.rir-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.rir-img{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#f2f2f7;flex-shrink:0}
+.rir-info{display:flex;flex-direction:column;min-width:0}
+.rir-name{font-size:13.5px;font-weight:700;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rir-qty-price{font-size:12px;color:#777;margin-top:2px}
+.rir-subtotal{font-size:14px;font-weight:800;color:#111;flex-shrink:0;margin-left:12px}
+
+/* Summary Card */
+.roadmap-summary-card{background:#f9f9fb;border:1px solid #e5e5ea;border-radius:14px;padding:14px 16px;margin-bottom:20px}
+.rsc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:13.5px;color:#666}
+.rsc-val{font-weight:700;color:#111}
+.rsc-divider{height:1px;background:#e5e5ea;margin:10px 0}
+.rsc-total-row{margin-bottom:0;font-size:16px;font-weight:800;color:#111}
+.rsc-total-val{font-size:18px;font-weight:800;color:#111}
+
+/* Multi-order Tabs */
+.roadmap-tabs{display:flex;gap:8px;overflow-x:auto;padding:8px 20px 12px;border-bottom:1px solid #f0f0f2;-webkit-overflow-scrolling:touch}
+.roadmap-tab{padding:7px 14px;border-radius:999px;border:1px solid #e5e5ea;background:#fff;font-size:13px;font-weight:700;color:#666;cursor:pointer;white-space:nowrap;transition:all .15s}
+.roadmap-tab.active{background:#1c1c1e;color:#fff;border-color:#1c1c1e}
+
+.roadmap-footer{padding:12px 20px calc(14px + env(safe-area-inset-bottom, 0px));border-top:1px solid #f0f0f2;background:#fff;border-radius:0 0 22px 22px}
+.roadmap-btn-primary{width:100%;height:48px;border-radius:999px;border:0;background:#1c1c1e;color:#fff;font:700 15px inherit;cursor:pointer;transition:transform .12s}
+.roadmap-btn-primary:active{transform:scale(0.98)}
 </style>
 </head>
 <body>
@@ -1692,6 +1817,7 @@ body.client-catalog-ready .page{display:block}
 
 <main class="client-state" id="clientState" role="status" aria-live="polite">
   <div class="client-state-card">
+    <img class="client-state-icon" id="clientStateIcon" src="/emoji/camera.png" alt="" aria-hidden="true" width="64" height="64">
     <div class="client-state-title" id="clientStateTitle">Требуется QR-код</div>
     <div class="client-state-message" id="clientStateMessage">Для заказа отсканируйте QR-код на столе.</div>
     <div class="client-state-meta" id="clientStateMeta"></div>
@@ -1703,6 +1829,27 @@ body.client-catalog-ready .page{display:block}
 <div class="cookie-bar" id="cookieBar">
   <span>Используем cookie для стабильной работы сайта и аналитики.</span>
   <button type="button" class="cookie-ok" onclick="acceptCookies()">Ок</button>
+</div>
+
+<!-- FLOATING ORDER STATUS BAR -->
+<div class="order-status-pill-shell" id="orderStatusShell" hidden>
+  <button class="order-status-pill" id="orderStatusPill" type="button" onclick="openOrderRoadmap()" aria-label="Статус заказа">
+    <div class="osp-left">
+      <div class="osp-pulse-wrap">
+        <div class="osp-pulse-ring"></div>
+        <div class="osp-pulse-dot"></div>
+      </div>
+      <img class="osp-icon" id="ospIcon" src="/emoji/receipt.png" alt="" aria-hidden="true">
+      <div class="osp-text">
+        <div class="osp-title" id="ospTitle">Заказ: Принят</div>
+        <div class="osp-subtitle" id="ospSubtitle">Стол · 0 ₸</div>
+      </div>
+    </div>
+    <div class="osp-right">
+      <span class="osp-action-label">Детали</span>
+      <svg class="osp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+    </div>
+  </button>
 </div>
 
 <!-- CART PILL -->
@@ -1717,6 +1864,75 @@ body.client-catalog-ready .page{display:block}
     </div>
     <span class="cp-price" id="cpTotal">0 ₸</span>
   </button>
+</div>
+
+<!-- ORDER ROADMAP OVERLAY -->
+<div class="ov" id="orderRoadmapOv" role="dialog" aria-modal="true" aria-labelledby="roadmapSheetTitle" onclick="bgClose(event,'orderRoadmapOv')">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="handle"></div>
+    <div class="roadmap-head">
+      <div class="roadmap-title-group">
+        <div class="roadmap-title" id="roadmapSheetTitle">Отслеживание заказа</div>
+        <div class="roadmap-subtitle" id="roadmapSheetSubtitle">Стол 4</div>
+      </div>
+      <button class="roadmap-close" type="button" onclick="closeOv('orderRoadmapOv')" aria-label="Закрыть">
+        <span class="ui-icon svg-slot" data-icon="x"></span>
+      </button>
+    </div>
+
+    <div class="roadmap-tabs" id="roadmapTabs" hidden></div>
+
+    <div class="roadmap-body-scroll" id="roadmapBody">
+      <div class="roadmap-timeline-card">
+        <div class="roadmap-steps" id="roadmapSteps">
+          <div class="rm-step active" id="rmStepNew">
+            <div class="rm-step-dot"><img class="rm-step-emoji" src="/emoji/receipt.png" alt=""></div>
+            <div class="rm-step-label">Принят</div>
+            <div class="rm-step-desc">Передан</div>
+          </div>
+          <div class="rm-step-line" id="rmLine1"></div>
+          <div class="rm-step" id="rmStepCooking">
+            <div class="rm-step-dot"><img class="rm-step-emoji" src="/emoji/cooking.png" alt=""></div>
+            <div class="rm-step-label">Готовится</div>
+            <div class="rm-step-desc">Кухня</div>
+          </div>
+          <div class="rm-step-line" id="rmLine2"></div>
+          <div class="rm-step" id="rmStepReady">
+            <div class="rm-step-dot"><img class="rm-step-emoji" src="/emoji/party.png" alt=""></div>
+            <div class="rm-step-label">Готов</div>
+            <div class="rm-step-desc">К подаче</div>
+          </div>
+        </div>
+        <div class="roadmap-status-banner" id="roadmapStatusBanner">
+          <div class="rsb-title" id="rsbTitle">Заказ передан на кухню</div>
+          <div class="rsb-desc" id="rsbDesc">Повара скоро начнут готовить ваши блюда.</div>
+        </div>
+      </div>
+
+      <div class="roadmap-section-title">Состав заказа</div>
+      <div class="roadmap-items-list" id="roadmapItemsList"></div>
+
+      <div class="roadmap-summary-card">
+        <div class="rsc-row">
+          <span class="rsc-label">Стол</span>
+          <span class="rsc-val" id="rscTable">№ 4</span>
+        </div>
+        <div class="rsc-row">
+          <span class="rsc-label">Номер заказа</span>
+          <span class="rsc-val" id="rscOrderId">#1</span>
+        </div>
+        <div class="rsc-divider"></div>
+        <div class="rsc-row rsc-total-row">
+          <span class="rsc-total-label">Итого</span>
+          <span class="rsc-total-val" id="rscTotal">0 ₸</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="roadmap-footer">
+      <button class="roadmap-btn-primary" type="button" onclick="closeOv('orderRoadmapOv')">Продолжить выбор блюд</button>
+    </div>
+  </div>
 </div>
 
 <!-- PRODUCT OVERLAY -->
@@ -2329,9 +2545,9 @@ function updatePill(){
     pill.classList.add('on');
     document.getElementById('cpBadge').textContent=cnt;
     document.getElementById('cpTotal').textContent=fmt(total);
-  } else {
     pill.classList.remove('on');
   }
+  if(typeof syncFloatingStatusBar==='function') syncFloatingStatusBar();
 }
 function openCart(){renderCart();openOv('cartOv');}
 function renderCart(){
@@ -2350,25 +2566,29 @@ function renderCart(){
             <div class="ci-name">${htmlText(item.n)}</div>
             <div class="ci-weight">${htmlText(item.w)}</div>
           </div>
-          <div class="ci-price">${fmt(item.p*qty)}<span>${fmt(item.p)} за шт.</span></div>
+          <div class="ci-price">${fmt(item.p*qty)}</div>
         </div>
         <div class="ci-bottom-row">
-          <div class="ci-mini-note">Количество</div>
+          <div class="ci-mini-note"></div>
           <div class="qty-row">
-            <button class="qb" data-dish-id="${id}" onclick="chQ(this.dataset.dishId,-1)" aria-label="Уменьшить количество">${svgIcon('minus','svg-icon plus-icon')}</button>
-            <div class="qn">${qty}</div>
-            <button class="qb" data-dish-id="${id}" onclick="chQ(this.dataset.dishId,1)" aria-label="Увеличить количество">${svgIcon('plus','svg-icon plus-icon')}</button>
+            <button class="qb" onclick="chQ('${item.id}',-1)" aria-label="Уменьшить количество">${svgIcon('minus','ui-icon')}</button>
+            <span class="qn">${qty}</span>
+            <button class="qb" onclick="chQ('${item.id}',1)" aria-label="Увеличить количество">${svgIcon('plus','ui-icon')}</button>
           </div>
         </div>
       </div>
     </div>`;
   });
-  document.getElementById('cartItems').innerHTML=html;
-  const total=keys.reduce((s,id)=>{
-    const item=getItem(id);
-    return s+(item&&cart[id]?item.p*cart[id]:0);
-  },0);
-  document.getElementById('csTotal').textContent=fmt(total);
+  const total=keys.reduce((s,id)=>{const item=getItem(id);return s+(item?item.p*cart[id]:0);},0);
+  const cartItemsEl=document.getElementById('cartItems');
+  if(cartItemsEl){
+    cartItemsEl.innerHTML=html;
+    if(typeof injectIcons==='function') injectIcons(cartItemsEl);
+  }
+  const csTotalEl=document.getElementById('csTotal')||document.getElementById('csTotalAmt');
+  if(csTotalEl) csTotalEl.textContent=fmt(total);
+  const csTotalAmtEl=document.getElementById('csTotalAmt');
+  if(csTotalAmtEl&&csTotalAmtEl!==csTotalEl) csTotalAmtEl.textContent=fmt(total);
   persistQrContext();
   updateOrderState();
 }
@@ -2564,6 +2784,12 @@ async function submitQrOrder(){
     currentQrContext.sessionId=result.sessionId;
     currentQrContext.cart={};
     currentQrContext.activeOrderId=result.order.id;
+    if(!Array.isArray(currentQrContext.activeOrders)){
+      currentQrContext.activeOrders=[];
+    }
+    const existingIdx=currentQrContext.activeOrders.findIndex(o=>o&&o.id===result.order.id);
+    if(existingIdx>=0) currentQrContext.activeOrders[existingIdx]=result.order;
+    else currentQrContext.activeOrders.push(result.order);
     cart={};
     QrOrdering.writeContext(qrStorage,currentQrContext);
     updatePill();
@@ -2580,7 +2806,7 @@ async function submitQrOrder(){
       }));
       openOv('unavailableOv');
     }else{
-      navigateToOrder(result.order.id);
+      showOrderConfirmation(result.order);
     }
   }catch(error){
     if(warning){
@@ -3317,12 +3543,30 @@ function persistQrContext(){
   currentQrContext.cart={...cart};
   QrOrdering.writeContext(qrStorage,currentQrContext);
 }
-function showClientState(title,message,meta=''){
+const ORDER_STATUS_EMOJIS = {
+  new: '/emoji/receipt.png',
+  cooking: '/emoji/cooking.png',
+  ready: '/emoji/party.png'
+};
+let selectedRoadmapOrderId=null;
+let backgroundPoller=null;
+let lastKnownStatus=null;
+
+function showClientState(title,message,meta='',icon=''){
   activeOrderPoller?.destroy();
   activeOrderPoller=null;
   document.body.classList.remove('client-catalog-ready');
   const state=document.getElementById('clientState');
   state.hidden=false;
+  const iconEl=document.getElementById('clientStateIcon');
+  if(iconEl){
+    if(icon){
+      iconEl.src=icon;
+      iconEl.hidden=false;
+    }else{
+      iconEl.hidden=true;
+    }
+  }
   document.getElementById('clientStateTitle').textContent=title;
   document.getElementById('clientStateMessage').textContent=message;
   document.getElementById('clientStateMeta').textContent=meta;
@@ -3333,7 +3577,8 @@ function showQrRequired(){
   currentQrContext=null;
   cart={};
   updatePill();
-  showClientState('Требуется QR-код','Для заказа отсканируйте QR-код на столе.');
+  syncFloatingStatusBar();
+  showClientState('Требуется QR-код','Для заказа отсканируйте QR-код на столе.','','/emoji/camera.png');
 }
 async function resolveTable(token){
   const response=await fetch('/api/tables/'+encodeURIComponent(token));
@@ -3366,8 +3611,198 @@ function applyApiCatalog(menu){
   menu.categories.forEach(category=>{CN[category.id]=category.name;});
   POPULAR_IDS.splice(0,POPULAR_IDS.length,...M.slice(0,Math.min(6,M.length)).map(item=>item.id));
 }
+
+/* ── FLOATING STATUS BAR & ROADMAP ── */
+function getActiveOrdersList(){
+  if(!currentQrContext)return [];
+  if(Array.isArray(currentQrContext.activeOrders)&&currentQrContext.activeOrders.length){
+    return currentQrContext.activeOrders;
+  }
+  if(currentQrContext.activeOrderId){
+    return [{id:currentQrContext.activeOrderId,status:'new',total:0}];
+  }
+  return [];
+}
+
+function syncFloatingStatusBar(){
+  const shell=document.getElementById('orderStatusShell');
+  if(!shell)return;
+  const orders=getActiveOrdersList();
+  if(!orders.length||!document.body.classList.contains('client-catalog-ready')){
+    shell.hidden=true;
+    return;
+  }
+  shell.hidden=false;
+  const allReady=orders.length>0&&orders.every(o=>o.status==='ready');
+  const anyCooking=orders.some(o=>o.status==='cooking');
+  const overallStatus=allReady?'ready':(anyCooking?'cooking':'new');
+  const icon=ORDER_STATUS_EMOJIS[overallStatus]||'/emoji/receipt.png';
+  const iconEl=document.getElementById('ospIcon');
+  if(iconEl)iconEl.src=icon;
+  const pill=document.getElementById('orderStatusPill');
+  if(pill){
+    pill.classList.remove('osp-new','osp-cooking','osp-ready');
+    pill.classList.add('osp-'+overallStatus);
+  }
+  const titleEl=document.getElementById('ospTitle');
+  if(titleEl){
+    if(orders.length>1){
+      if(overallStatus==='ready') titleEl.textContent='Все заказы готовы! 🎉';
+      else if(overallStatus==='cooking') titleEl.textContent=`Готовится (${orders.length} заказа) 🍳`;
+      else titleEl.textContent=`Заказов принято: ${orders.length} 🧾`;
+    }else{
+      if(overallStatus==='ready') titleEl.textContent='Заказ готов! 🎉';
+      else if(overallStatus==='cooking') titleEl.textContent='Заказ: Готовится 🍳';
+      else titleEl.textContent='Заказ: Принят 🧾';
+    }
+  }
+  const subEl=document.getElementById('ospSubtitle');
+  if(subEl){
+    const totalItems=orders.reduce((sum,o)=>sum+(o.items?.reduce((s,it)=>s+(it.quantity||1),0)||0),0);
+    const totalSum=orders.reduce((sum,o)=>sum+Number(o.total||0),0);
+    const itemsText=totalItems?`${totalItems} блюд · `:'' ;
+    subEl.textContent=`Стол ${currentQrContext.tableNumber} · ${itemsText}${fmt(totalSum)}`;
+  }
+  if(Object.keys(cart).some(k=>cart[k]>0)){
+    document.body.classList.add('has-cart-pill');
+  }else{
+    document.body.classList.remove('has-cart-pill');
+  }
+}
+
+function openOrderRoadmap(orderId){
+  const orders=getActiveOrdersList();
+  if(!orders.length)return;
+  const targetId=orderId||selectedRoadmapOrderId||orders[orders.length-1].id;
+  selectedRoadmapOrderId=targetId;
+  const order=orders.find(o=>o.id===targetId)||orders[orders.length-1];
+  renderRoadmapContent(order,orders);
+  openOv('orderRoadmapOv');
+  if(backgroundPoller) backgroundPoller.pollNow();
+}
+
+function renderRoadmapContent(order,orders){
+  if(!order)return;
+  const status=order.status||'new';
+  const tableNum=currentQrContext?.tableNumber||'';
+  document.getElementById('roadmapSheetSubtitle').textContent=`Стол ${tableNum} · Заказ #${order.id.slice(-4)}`;
+  document.getElementById('rscTable').textContent=`№ ${tableNum}`;
+  document.getElementById('rscOrderId').textContent=`#${order.id.slice(-4)}`;
+  document.getElementById('rscTotal').textContent=fmt(Number(order.total||0));
+
+  // Tabs if multiple orders
+  const tabsWrap=document.getElementById('roadmapTabs');
+  if(orders.length>1){
+    tabsWrap.hidden=false;
+    tabsWrap.innerHTML=orders.map((o,i)=>{
+      const active=o.id===order.id?'active':'';
+      const stLabel=QrOrdering.STATUS_LABELS[o.status]||'Принят';
+      return `<button class="roadmap-tab ${active}" type="button" onclick="openOrderRoadmap('${o.id}')">Заказ #${i+1} (${stLabel})</button>`;
+    }).join('');
+  }else{
+    tabsWrap.hidden=true;
+  }
+
+  // Timeline steps
+  const stepNew=document.getElementById('rmStepNew');
+  const stepCooking=document.getElementById('rmStepCooking');
+  const stepReady=document.getElementById('rmStepReady');
+  const line1=document.getElementById('rmLine1');
+  const line2=document.getElementById('rmLine2');
+
+  stepNew.className='rm-step';
+  stepCooking.className='rm-step';
+  stepReady.className='rm-step';
+  line1.className='rm-step-line';
+  line2.className='rm-step-line';
+
+  const bTitle=document.getElementById('rsbTitle');
+  const bDesc=document.getElementById('rsbDesc');
+
+  if(status==='new'){
+    stepNew.classList.add('active');
+    bTitle.textContent='Заказ передан на кухню 🧾';
+    bDesc.textContent='Повара скоро начнут готовить ваши блюда.';
+  }else if(status==='cooking'){
+    stepNew.classList.add('completed');
+    line1.classList.add('completed');
+    stepCooking.classList.add('active');
+    bTitle.textContent='Блюда готовятся на кухне 🍳';
+    bDesc.textContent='Шеф-повар готовит ваш заказ из свежих ингредиентов.';
+  }else if(status==='ready'){
+    stepNew.classList.add('completed');
+    line1.classList.add('completed');
+    stepCooking.classList.add('completed');
+    line2.classList.add('completed');
+    stepReady.classList.add('active');
+    bTitle.textContent='Заказ готов к подаче! 🎉';
+    bDesc.textContent='Официант уже несёт заказ к вашему столику. Приятного аппетита!';
+  }
+
+  // Items composition
+  const itemsList=document.getElementById('roadmapItemsList');
+  if(Array.isArray(order.items)&&order.items.length){
+    itemsList.innerHTML=order.items.map(item=>{
+      const dish=M.find(d=>d.id===item.dishId||d.id===item.id);
+      const photo=dish?.img?`<img class="rir-img" src="${dish.img}" alt="">`:`<div class="rir-img" style="display:flex;align-items:center;justify-content:center;background:#f2f2f7">${foodIcon(dish?.i||'roll')}</div>`;
+      const name=item.dishName||item.name||dish?.n||'Блюдо';
+      const qty=item.quantity||1;
+      const price=item.dishPrice||item.price||dish?.p||0;
+      const subtotal=item.subtotal||(price*qty);
+      return `<div class="roadmap-item-row">
+        <div class="rir-left">
+          ${photo}
+          <div class="rir-info">
+            <div class="rir-name">${name}</div>
+            <div class="rir-qty-price">${qty} × ${fmt(price)}</div>
+          </div>
+        </div>
+        <div class="rir-subtotal">${fmt(subtotal)}</div>
+      </div>`;
+    }).join('');
+  }else{
+    itemsList.innerHTML='<div style="font-size:13.5px;color:#888;padding:12px 0;text-align:center">Состав заказа загружается…</div>';
+  }
+}
+
+function startBackgroundPolling(){
+  if(backgroundPoller){
+    backgroundPoller.pollNow();
+    return;
+  }
+  backgroundPoller=QrOrdering.createMultiOrderPoller({
+    getOrderIds:()=>getActiveOrdersList().map(o=>o.id),
+    documentRef:document,
+    fetchOrder:fetchOrderDetails,
+    onOrders:orders=>{
+      if(!Array.isArray(orders)||!orders.length)return;
+      if(!Array.isArray(currentQrContext.activeOrders))currentQrContext.activeOrders=[];
+      orders.forEach(order=>{
+        const idx=currentQrContext.activeOrders.findIndex(o=>o.id===order.id);
+        if(idx>=0)currentQrContext.activeOrders[idx]=order;
+        else currentQrContext.activeOrders.push(order);
+      });
+      QrOrdering.writeContext(qrStorage,currentQrContext);
+      syncFloatingStatusBar();
+      if(document.getElementById('orderRoadmapOv')?.classList.contains('on')){
+        const targetId=selectedRoadmapOrderId||currentQrContext.activeOrders[currentQrContext.activeOrders.length-1].id;
+        const cur=currentQrContext.activeOrders.find(o=>o.id===targetId)||currentQrContext.activeOrders[currentQrContext.activeOrders.length-1];
+        renderRoadmapContent(cur,currentQrContext.activeOrders);
+      }
+      const latestReady=orders.some(o=>o.status==='ready');
+      if(latestReady&&lastKnownStatus!=='ready'){
+        showToast('Заказ готов! 🎉 Приятного аппетита!');
+      }
+      lastKnownStatus=orders[orders.length-1]?.status;
+    },
+    onError:()=>{},
+    intervalMs:3000,
+  });
+  backgroundPoller.start();
+}
+
 async function initializeTable(token){
-  showClientState('Загружаем меню','Проверяем стол и текущую сессию…');
+  showClientState('Загружаем меню','Проверяем стол и текущую сессию…','','/emoji/hourglass.png');
   catalogOrderable=false;
   try{
     const tableData=await resolveTable(token);
@@ -3385,11 +3820,13 @@ async function initializeTable(token){
     render();
     updatePill();
     syncCardState();
+    syncFloatingStatusBar();
+    startBackgroundPolling();
   }catch(error){
     catalogOrderable=false;
     cart={};
     updatePill();
-    showClientState('Меню недоступно',error?.message||'Не удалось загрузить меню. Отсканируйте QR-код ещё раз.');
+    showClientState('Меню недоступно',error?.message||'Не удалось загрузить меню. Отсканируйте QR-код ещё раз.','','/emoji/warning.png');
   }
 }
 async function fetchOrderDetails(orderId){
@@ -3398,29 +3835,59 @@ async function fetchOrderDetails(orderId){
   if(!response.ok)throw new Error(data.error||'Не удалось загрузить заказ');
   return data.order;
 }
+
+function showOrderConfirmation(order){
+  const totalText=fmt(Number(order.total||0));
+  const tableText='Стол '+currentQrContext.tableNumber+' · '+totalText;
+  showClientState('Заказ принят!','Ваш заказ передан на кухню и скоро начнет готовиться.',tableText,'/emoji/receipt.png');
+  const btn=document.getElementById('reorderBtn');
+  if(btn){
+    btn.textContent='Вернуться в меню';
+    btn.hidden=false;
+  }
+  startBackgroundPolling();
+}
+
 function renderOrderStatus(order){
   const label=QrOrdering.STATUS_LABELS[order.status]||order.status;
+  const icon=ORDER_STATUS_EMOJIS[order.status]||'/emoji/receipt.png';
+  const iconEl=document.getElementById('clientStateIcon');
+  if(iconEl){
+    iconEl.src=icon;
+    iconEl.hidden=false;
+  }
   document.getElementById('clientStateTitle').textContent='Заказ: '+label;
   document.getElementById('clientStateMessage').textContent=order.status==='ready'
     ? 'Заказ готов. Приятного аппетита!'
     : 'Статус обновляется автоматически.';
   document.getElementById('clientStateMeta').textContent='Стол '+currentQrContext.tableNumber+' · '+fmt(Number(order.total||0));
-  document.getElementById('reorderBtn').hidden=false;
+  const btn=document.getElementById('reorderBtn');
+  if(btn){
+    btn.textContent='Вернуться в меню';
+    btn.hidden=false;
+  }
 }
 async function showOrderStatus(orderId){
   const recovered=QrOrdering.recoverOrderContext(qrStorage,orderId);
   if(!recovered){
-    showClientState('Требуется QR-код','Данные стола не найдены. Отсканируйте QR-код на столе ещё раз.');
+    showClientState('Требуется QR-код','Данные стола не найдены. Отсканируйте QR-код на столе ещё раз.','','/emoji/camera.png');
     return;
   }
   currentQrContext=recovered;
   catalogOrderable=false;
-  showClientState('Загружаем заказ','Проверяем текущий статус…');
+  showClientState('Загружаем заказ','Проверяем текущий статус…','','/emoji/hourglass.png');
   activeOrderPoller=QrOrdering.createOrderPoller({
     orderId,
     documentRef:document,
     fetchOrder:fetchOrderDetails,
-    onOrder:renderOrderStatus,
+    onOrder:order=>{
+      renderOrderStatus(order);
+      if(!Array.isArray(currentQrContext.activeOrders))currentQrContext.activeOrders=[];
+      const idx=currentQrContext.activeOrders.findIndex(o=>o.id===order.id);
+      if(idx>=0)currentQrContext.activeOrders[idx]=order;
+      else currentQrContext.activeOrders.push(order);
+      QrOrdering.writeContext(qrStorage,currentQrContext);
+    },
     onError:error=>{
       document.getElementById('clientStateMessage').textContent=error?.message||'Не удалось обновить статус заказа.';
     }
@@ -3436,7 +3903,7 @@ function acknowledgeUnavailable(){
   if(!pendingSuccessfulOrder)return;
   const orderId=pendingSuccessfulOrder.order.id;
   closeOv('unavailableOv',false);
-  navigateToOrder(orderId);
+  showOrderConfirmation(pendingSuccessfulOrder.order);
 }
 function reorderFromStatus(){
   const path=QrOrdering.reorderPath(currentQrContext);

@@ -16,3 +16,6 @@ payment-method-*.png
 pickup-time-*.png
 .vercel/
 .env.local
+.vercel
+.env*
+.runtime/

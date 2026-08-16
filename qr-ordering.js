@@ -97,6 +97,9 @@
       || !validCart(value.cart)
       || (value.activeOrderId !== null && value.activeOrderId !== undefined
         && !isUuid(value.activeOrderId))) return null;
+    if (value.activeOrders !== undefined && !Array.isArray(value.activeOrders)) {
+      delete value.activeOrders;
+    }
     return value;
   }
 
@@ -147,6 +150,7 @@
       openedAt: response.session.openedAt,
       cart: sessionChanged ? {} : (previous?.cart || {}),
       activeOrderId: sessionChanged ? null : (previous?.activeOrderId || null),
+      activeOrders: sessionChanged ? [] : (Array.isArray(previous?.activeOrders) ? previous.activeOrders : []),
     };
     writeContext(storage, context);
     return context;
@@ -155,7 +159,13 @@
   function recoverOrderContext(storage, orderId) {
     if (!isUuid(orderId)) return null;
     const context = validateContext(readCurrentContext(storage));
-    if (!context || context.activeOrderId !== orderId) {
+    if (!context) return null;
+    const matchesCurrent = context.activeOrderId === orderId;
+    const matchesList = Array.isArray(context.activeOrders)
+      && context.activeOrders.some((order) => order && order.id === orderId);
+    const matchesIds = Array.isArray(context.activeOrderIds)
+      && context.activeOrderIds.includes(orderId);
+    if (!matchesCurrent && !matchesList && !matchesIds) {
       return null;
     }
     return context;
@@ -409,16 +419,103 @@
       },
     };
   }
+  function createMultiOrderPoller({
+    getOrderIds,
+    documentRef,
+    fetchOrder,
+    onOrders,
+    onError = () => {},
+    setIntervalImpl = setInterval,
+    clearIntervalImpl = clearInterval,
+    intervalMs = 4000,
+  }) {
+    let timer = null;
+    let destroyed = false;
+    let generation = 0;
+
+    function stop() {
+      if (timer !== null) {
+        clearIntervalImpl(timer);
+        timer = null;
+      }
+    }
+
+    async function poll() {
+      if (destroyed || (documentRef && documentRef.hidden)) return;
+      const orderIds = typeof getOrderIds === 'function' ? getOrderIds() : (Array.isArray(getOrderIds) ? getOrderIds : []);
+      if (!orderIds || !orderIds.length) return;
+      const pollGeneration = generation;
+      try {
+        const results = await Promise.all(
+          orderIds.map(async (id) => {
+            try {
+              return await fetchOrder(id);
+            } catch (_) {
+              return null;
+            }
+          })
+        );
+        if (destroyed || pollGeneration !== generation) return;
+        const validOrders = results.filter(Boolean);
+        if (validOrders.length && typeof onOrders === 'function') {
+          onOrders(validOrders);
+        }
+      } catch (error) {
+        if (destroyed || pollGeneration !== generation) return;
+        onError(error);
+      }
+    }
+
+    async function start() {
+      if (destroyed || (documentRef && documentRef.hidden) || timer !== null) return;
+      await poll();
+      if (!destroyed && (!documentRef || !documentRef.hidden) && timer === null) {
+        timer = setIntervalImpl(poll, intervalMs);
+      }
+    }
+
+    function visibilityChanged() {
+      if (documentRef && documentRef.hidden) stop();
+      else start();
+    }
+
+    if (documentRef && typeof documentRef.addEventListener === 'function') {
+      documentRef.addEventListener('visibilitychange', visibilityChanged);
+    }
+    return {
+      start,
+      stop,
+      pollNow: poll,
+      destroy() {
+        destroyed = true;
+        generation += 1;
+        stop();
+        if (documentRef && typeof documentRef.removeEventListener === 'function') {
+          documentRef.removeEventListener('visibilitychange', visibilityChanged);
+        }
+      },
+      isRunning() {
+        return timer !== null;
+      },
+    };
+  }
 
   function reorderPath(context) {
     return context && TOKEN_PATTERN.test(context.token || '') ? `/t/${context.token}` : null;
   }
+  const STATUS_STEPS = Object.freeze([
+    { key: 'new', label: 'Принят', desc: 'Передан на кухню' },
+    { key: 'cooking', label: 'Готовится', desc: 'Повара готовят блюда' },
+    { key: 'ready', label: 'Готов', desc: 'Готов к подаче' },
+  ]);
 
   return {
     STATUS_LABELS,
+    STATUS_STEPS,
     STORAGE_POINTER_KEY,
     buildOrderBody,
     contextStorageKey,
+    createMultiOrderPoller,
     createOrderPoller,
     escapeHtmlAttribute,
     escapeHtmlText,

@@ -1,0 +1,16 @@
+.worktrees
+bot/.venv
+.venv
+node_modules
+.playwright-mcp
+.pytest_cache
+__pycache__
+*.pyc
+tests
+docs
+admin-app/node_modules
+.runtime
+*.png
+!emoji/*.png
+!public/emoji/*.png
+!admin-dist/**/*.png
