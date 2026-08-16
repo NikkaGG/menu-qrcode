@@ -12,7 +12,7 @@ const qrOrderingJs = fs.readFileSync(path.join(root, 'qr-ordering.js'), 'utf8');
 test('Live Table Billing: customer requests bill with payment method and handles table close', async () => {
   let billRequestedPayload = null;
   let sessionClosed = false;
-
+  const sessionOrders = [];
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     if (url.pathname === '/qr-ordering.js') {
@@ -33,9 +33,10 @@ test('Live Table Billing: customer requests bill with payment method and handles
       return res.end(JSON.stringify({
         table: { id: '11111111-1111-4111-8111-111111111111', number: '5' },
         session: {
-          id: '22222222-2222-4222-8222-222222222222',
-          status: sessionClosed ? 'closed' : 'open'
-        }
+          id: sessionClosed ? '33333333-3333-4333-8333-333333333333' : '22222222-2222-4222-8222-222222222222',
+          status: 'open'
+        },
+        orders: sessionClosed ? [] : sessionOrders
       }));
     }
     if (url.pathname === '/api/menu') {
@@ -59,17 +60,17 @@ test('Live Table Billing: customer requests bill with payment method and handles
       }));
     }
     if (url.pathname === '/api/orders' && req.method === 'POST') {
+      const newOrder = {
+        id: '66666666-6666-4666-8666-000000000001',
+        sessionId: '22222222-2222-4222-8222-222222222222',
+        status: 'cooking',
+        total: 3400,
+        tableNumber: '5',
+        items: [{ dishId: '44444444-4444-4444-8444-444444444444', dishName: 'Филадельфия', dishPrice: 3400, quantity: 1, subtotal: 3400 }]
+      };
+      sessionOrders.push(newOrder);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({
-        order: {
-          id: '66666666-6666-4666-8666-000000000001',
-          sessionId: '22222222-2222-4222-8222-222222222222',
-          status: 'cooking',
-          total: 3400,
-          tableNumber: '5',
-          items: [{ dishId: '44444444-4444-4444-8444-444444444444', dishName: 'Филадельфия', dishPrice: 3400, quantity: 1, subtotal: 3400 }]
-        }
-      }));
+      return res.end(JSON.stringify({ order: newOrder }));
     }
     if (url.pathname.endsWith('/bill-request') && req.method === 'POST') {
       let body = '';
@@ -145,16 +146,21 @@ test('Live Table Billing: customer requests bill with payment method and handles
     }, { timeout: 5000 });
 
     assert.equal(await billBtn.textContent(), '🔔 Официант вызван к столу');
-    console.log('[Playwright] 8. Emulating waiter closes the table on backend...');
-    await page.evaluate(() => {
-      handleTableClosed(3400);
-    });
+    console.log('[Playwright] 8. Waiter closes table on backend (simulating session closed)...');
+    sessionClosed = true;
 
-    await page.waitForSelector('#clientStateTitle', { state: 'visible' });
-    const closedTitle = await page.locator('#clientStateTitle').textContent();
-    assert.match(closedTitle, /Спасибо за визит/);
+    console.log('[Playwright] 9. Verifying client poller auto-closes Roadmap and transitions to thank you screen...');
+    await page.waitForSelector('#clientStateTitle:has-text("Спасибо за визит")', { timeout: 8000 });
+    const roadmapOv = page.locator('#orderRoadmapOv');
+    assert.equal(await roadmapOv.evaluate(el => el.classList.contains('on')), false);
 
-    console.log('[Playwright] 9. Table billing and close flow verified successfully!');
+    console.log('[Playwright] 10. Clicking "Открыть меню" to start fresh session...');
+    await page.locator('#reorderBtn').click();
+    await page.waitForSelector('#menuArea', { state: 'visible' });
+    const statusPill = page.locator('#orderStatusShell');
+    assert.equal(await statusPill.evaluate(el => el.hidden), true);
+
+    console.log('[Playwright] 11. Table billing, auto-close, and fresh reset 100% verified!');
   } finally {
     await browser.close();
     await new Promise(r => server.close(r));

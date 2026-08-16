@@ -3857,12 +3857,16 @@ function selectRoadmapTab(orderId, event){
 }
 
 function renderRoadmapContent(order,orders){
-  if(!order)return;
+  if(!order||!Array.isArray(orders)||!orders.length){
+    closeOv('orderRoadmapOv',false);
+    return;
+  }
   const status=order.status||'new';
   const tableNum=currentQrContext?.tableNumber||'';
-  document.getElementById('roadmapSheetSubtitle').textContent=`Стол ${tableNum} · Заказ #${order.id.slice(-4)}`;
+  const orderNum=order.id?order.id.slice(-4):'1';
+  document.getElementById('roadmapSheetSubtitle').textContent=`Стол ${tableNum} · Заказ #${orderNum}`;
   document.getElementById('rscTable').textContent=`№ ${tableNum}`;
-  document.getElementById('rscOrderId').textContent=`#${order.id.slice(-4)}`;
+  document.getElementById('rscOrderId').textContent=`#${orderNum}`;
   document.getElementById('rscTotal').textContent=fmt(Number(order.total||0));
 
   // Tabs if multiple orders (Stable iOS Segmented Style)
@@ -3877,7 +3881,6 @@ function renderRoadmapContent(order,orders){
   }else{
     tabsWrap.hidden=true;
   }
-  // Timeline steps
   const stepNew=document.getElementById('rmStepNew');
   const stepCooking=document.getElementById('rmStepCooking');
   const stepReady=document.getElementById('rmStepReady');
@@ -3973,15 +3976,28 @@ function handleTableClosed(billTotal){
   activeOrderPoller=null;
   backgroundPoller?.destroy();
   backgroundPoller=null;
+
+  closeOv('orderRoadmapOv',false);
+  closeOv('cartOv',false);
+  closeOv('prodOv',false);
+  closeOv('shareOv',false);
+
+  const shell=document.getElementById('orderStatusShell');
+  if(shell)shell.hidden=true;
+  document.body.classList.remove('has-cart-pill');
+
+  cart={};
   currentQrContext.cart={};
   currentQrContext.activeOrders=[];
   currentQrContext.activeOrderId=null;
+  currentQrContext.sessionStatus='closed';
   persistQrContext();
+
   const totalText=billTotal?` · ${fmt(Number(billTotal))}`:'';
-  showClientState('Спасибо за визит! ✨','Ваш счёт закрыт. Будем рады видеть вас снова!','Стол '+currentQrContext.tableNumber+totalText,'/emoji/party.png');
+  showClientState('Спасибо за визит! ✨','Стол закрыт. Будем рады видеть вас снова!','Стол '+currentQrContext.tableNumber+totalText,'/emoji/party.png');
   const btn=document.getElementById('reorderBtn');
   if(btn){
-    btn.textContent='Открыть новое меню';
+    btn.textContent='Открыть меню';
     btn.hidden=false;
   }
 }
@@ -4002,27 +4018,37 @@ function startBackgroundPolling(){
       const tableData=results[0];
       if(!tableData||!currentQrContext)return;
 
-      if(tableData.session&&tableData.session.status==='closed'){
+      const sessionChanged=currentQrContext.sessionId&&tableData.session?.id&&tableData.session.id!==currentQrContext.sessionId;
+      const isClosed=tableData.session&&tableData.session.status==='closed';
+
+      if(isClosed||sessionChanged){
         const total=tableData.orders?.reduce((s,o)=>s+Number(o.total||0),0)||0;
         handleTableClosed(total);
         return;
       }
 
       const serverOrders=Array.isArray(tableData.orders)?tableData.orders:[];
-      const previousIds=new Set((currentQrContext.activeOrders||[]).map(o=>o.id));
+      const previousOrders=currentQrContext.activeOrders||[];
+      const previousIds=new Set(previousOrders.map(o=>o.id));
       const newlyAdded=serverOrders.filter(o=>!previousIds.has(o.id));
 
       currentQrContext.activeOrders=serverOrders;
       if(serverOrders.length){
         currentQrContext.activeOrderId=serverOrders[serverOrders.length-1].id;
+      }else{
+        currentQrContext.activeOrderId=null;
       }
       QrOrdering.writeContext(qrStorage,currentQrContext);
       syncFloatingStatusBar();
 
       if(document.getElementById('orderRoadmapOv')?.classList.contains('on')){
-        const targetId=selectedRoadmapOrderId||(serverOrders.length?serverOrders[serverOrders.length-1].id:null);
-        const cur=serverOrders.find(o=>o.id===targetId)||serverOrders[serverOrders.length-1];
-        if(cur) renderRoadmapContent(cur,serverOrders);
+        if(!serverOrders.length){
+          closeOv('orderRoadmapOv',false);
+        }else{
+          const targetId=selectedRoadmapOrderId||serverOrders[serverOrders.length-1].id;
+          const cur=serverOrders.find(o=>o.id===targetId)||serverOrders[serverOrders.length-1];
+          if(cur) renderRoadmapContent(cur,serverOrders);
+        }
       }
 
       if(newlyAdded.length&&previousIds.size>0){
