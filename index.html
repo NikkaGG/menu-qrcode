@@ -3,13 +3,13 @@
 <head>
 <base href="/">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Sushi Crazy</title>
 <link rel="icon" href="data:,">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@700;800;900&display=swap');
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{background:#fff;color:#111;font-family:'Manrope','Segoe UI',Roboto,Arial,sans-serif;font-size:16px;-webkit-text-size-adjust:100%;overflow-x:clip}body{min-width:320px}
+*{box-sizing:border-box;margin:0;padding:0;touch-action:manipulation}
+html,body{background:#fff;color:#111;font-family:'Manrope','Segoe UI',Roboto,Arial,sans-serif;font-size:16px;-webkit-text-size-adjust:100%;touch-action:manipulation;overflow-x:clip}body{min-width:320px}
 .page{max-width:720px;margin:0 auto;padding-bottom:90px;background:#fff}
 
 /* ── ICONS: готовые inline SVG, без icon-font (не будет иероглифов) ── */
@@ -1720,14 +1720,14 @@ body.modal-lock .order-status-pill-shell{
 .rm-step.completed .rm-step-label{color:#34c759}
 .rm-step-line.completed{background:#34c759}
 
-.roadmap-status-banner{background:#fff;border:1px solid #e5e5ea;border-radius:12px;padding:12px 14px;text-align:center}
+.roadmap-timeline-card{background:#f9f9fb;border:1px solid #e5e5ea;border-radius:18px;padding:20px 16px 16px;margin-bottom:18px}
+.roadmap-status-banner{background:#fff;border:1px solid #e5e5ea;border-radius:12px;padding:12px 14px;text-align:center;min-height:64px;display:flex;flex-direction:column;justify-content:center}
 .rsb-title{font-size:14.5px;font-weight:800;color:#111}
 .rsb-desc{font-size:12.5px;color:#666;margin-top:3px;line-height:1.4}
 
 /* Order Items List */
 .roadmap-section-title{font-size:15px;font-weight:800;color:#111;margin-bottom:10px}
-.roadmap-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px}
-.roadmap-item-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#fff;border:1px solid #f0f0f2;border-radius:12px}
+.roadmap-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;min-height:60px}
 .rir-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 .rir-img{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#f2f2f7;flex-shrink:0}
 .rir-info{display:flex;flex-direction:column;min-width:0}
@@ -1748,9 +1748,9 @@ body.modal-lock .order-status-pill-shell{
   display:flex;
   gap:6px;
   overflow-x:auto;
-  padding:6px;
+  padding:5px;
   background:#f2f2f7;
-  margin:12px 20px 0;
+  margin:10px 20px 0;
   border-radius:14px;
   -webkit-overflow-scrolling:touch;
   scrollbar-width:none;
@@ -1759,7 +1759,7 @@ body.modal-lock .order-status-pill-shell{
 .roadmap-tabs[hidden]{display:none!important}
 .roadmap-tab{
   flex:1;
-  min-width:110px;
+  min-width:105px;
   height:36px;
   padding:0 12px;
   border-radius:10px;
@@ -1774,6 +1774,9 @@ body.modal-lock .order-status-pill-shell{
   align-items:center;
   justify-content:center;
   gap:6px;
+  outline:none!important;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
   transition:background .15s ease, color .15s ease, box-shadow .15s ease;
   font-family:inherit;
 }
@@ -1795,7 +1798,7 @@ body.modal-lock .order-status-pill-shell{
 .rmt-dot.ready{background:#30d158}
 
 .roadmap-footer{padding:12px 20px calc(14px + env(safe-area-inset-bottom, 0px));border-top:1px solid #f0f0f2;background:#fff;border-radius:0 0 22px 22px}
-.roadmap-btn-primary{width:100%;height:48px;border-radius:999px;border:0;background:#1c1c1e;color:#fff;font:700 15px inherit;cursor:pointer;transition:transform .12s}
+.roadmap-btn-primary{width:100%;height:48px;border-radius:999px;border:0;background:#1c1c1e;color:#fff;font:700 15px inherit;cursor:pointer;touch-action:manipulation;transition:transform .12s}
 .roadmap-btn-bill{
   width:100%;
   height:48px;
@@ -1810,10 +1813,10 @@ body.modal-lock .order-status-pill-shell{
   align-items:center;
   justify-content:center;
   gap:6px;
+  touch-action:manipulation;
   transition:transform .12s, background .15s;
 }
 .roadmap-btn-bill:active{transform:scale(0.98);background:#e0efff}
-
 </style>
 </head>
 <body>
@@ -3745,6 +3748,18 @@ function openOrderRoadmap(orderId){
   if(backgroundPoller) backgroundPoller.pollNow();
 }
 
+function selectRoadmapTab(orderId, event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const orders=getActiveOrdersList();
+  if(!orders.length)return;
+  selectedRoadmapOrderId=orderId;
+  const order=orders.find(o=>o.id===orderId)||orders[orders.length-1];
+  renderRoadmapContent(order,orders);
+}
+
 function renderRoadmapContent(order,orders){
   if(!order)return;
   const status=order.status||'new';
@@ -3754,19 +3769,18 @@ function renderRoadmapContent(order,orders){
   document.getElementById('rscOrderId').textContent=`#${order.id.slice(-4)}`;
   document.getElementById('rscTotal').textContent=fmt(Number(order.total||0));
 
-  // Tabs if multiple orders
+  // Tabs if multiple orders (Stable iOS Segmented Style)
   const tabsWrap=document.getElementById('roadmapTabs');
   if(orders.length>1){
     tabsWrap.hidden=false;
     tabsWrap.innerHTML=orders.map((o,i)=>{
       const active=o.id===order.id?'active':'';
       const st=o.status||'new';
-      return `<button class="roadmap-tab ${active}" type="button" onclick="openOrderRoadmap('${o.id}')"><span class="rmt-dot ${st}"></span><span>Заказ №${i+1}</span></button>`;
+      return `<button class="roadmap-tab ${active}" type="button" onclick="selectRoadmapTab('${o.id}', event)"><span class="rmt-dot ${st}"></span><span>Заказ №${i+1}</span></button>`;
     }).join('');
   }else{
     tabsWrap.hidden=true;
   }
-
   // Timeline steps
   const stepNew=document.getElementById('rmStepNew');
   const stepCooking=document.getElementById('rmStepCooking');
