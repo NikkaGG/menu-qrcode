@@ -1699,13 +1699,7 @@ body.modal-lock .order-status-pill-shell{
 .roadmap-subtitle{font-size:13px;font-weight:600;color:#666;margin-top:2px}
 .roadmap-close{width:36px;height:36px;border-radius:50%;border:0;background:#f2f2f7;color:#333;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.12s}
 .roadmap-close:active{transform:scale(0.92);background:#e5e5ea}
-.roadmap-body-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 20px 24px}
-
-/* Roadmap Timeline Card */
-.roadmap-timeline-card{background:#f9f9fb;border:1px solid #e5e5ea;border-radius:18px;padding:20px 16px;margin-bottom:20px}
-.roadmap-steps{display:flex;align-items:flex-start;justify-content:space-between;position:relative;margin-bottom:18px}
-.rm-step{display:flex;flex-direction:column;align-items:center;text-align:center;width:76px;z-index:2}
-.rm-step-dot{width:48px;height:48px;border-radius:50%;background:#fff;border:2px solid #d1d1d6;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:all .2s ease}
+.roadmap-body-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 20px 24px}
 .rm-step-emoji{width:26px;height:26px;object-fit:contain;filter:grayscale(0.6);opacity:0.65;transition:all .2s ease}
 .rm-step-label{font-size:13px;font-weight:700;color:#8e8e93;margin-top:8px;line-height:1.2}
 .rm-step-desc{font-size:10.5px;color:#aeaeb2;margin-top:2px;line-height:1.2}
@@ -1743,15 +1737,17 @@ body.modal-lock .order-status-pill-shell{
 .rsc-total-row{margin-bottom:0;font-size:16px;font-weight:800;color:#111}
 .rsc-total-val{font-size:18px;font-weight:800;color:#111}
 
-/* Multi-order Tabs (iOS Segmented Control Style) */
+/* Multi-order Tabs (Clean iOS Segmented Control) */
 .roadmap-tabs{
   display:flex;
-  gap:6px;
+  gap:4px;
   overflow-x:auto;
-  padding:5px;
+  padding:4px;
   background:#f2f2f7;
-  margin:10px 20px 0;
-  border-radius:14px;
+  margin:10px 20px 14px;
+  border-radius:12px;
+  flex-shrink:0;
+  box-sizing:border-box;
   -webkit-overflow-scrolling:touch;
   scrollbar-width:none;
 }
@@ -1759,10 +1755,10 @@ body.modal-lock .order-status-pill-shell{
 .roadmap-tabs[hidden]{display:none!important}
 .roadmap-tab{
   flex:1;
-  min-width:105px;
-  height:36px;
-  padding:0 12px;
-  border-radius:10px;
+  min-width:100px;
+  height:32px;
+  padding:0 10px;
+  border-radius:8px;
   border:0;
   background:transparent;
   font-size:13px;
@@ -1777,6 +1773,7 @@ body.modal-lock .order-status-pill-shell{
   outline:none!important;
   -webkit-tap-highlight-color:transparent;
   touch-action:manipulation;
+  box-sizing:border-box;
   transition:background .15s ease, color .15s ease, box-shadow .15s ease;
   font-family:inherit;
 }
@@ -1784,7 +1781,8 @@ body.modal-lock .order-status-pill-shell{
   background:#fff;
   color:#111;
   font-weight:700;
-  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  box-shadow:0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+  border:0.5px solid rgba(0,0,0,.04);
 }
 .rmt-dot{
   width:7px;
