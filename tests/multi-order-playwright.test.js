@@ -174,15 +174,15 @@ test('Multi-order Playwright E2E: consecutive orders track individual cooking/re
 
     await page.waitForFunction(() => {
       const tabs = document.querySelectorAll('.roadmap-tab');
-      return tabs.length === 2 && tabs[1].textContent.includes('Готовится');
+      return tabs.length === 2 && tabs[1].querySelector('.rmt-dot.cooking');
     }, { timeout: 8000 });
 
     const tabs = page.locator('.roadmap-tab');
     assert.equal(await tabs.count(), 2);
     const tab1Text = await tabs.nth(0).textContent();
     const tab2Text = await tabs.nth(1).textContent();
-    assert.match(tab1Text, /Заказ #1.*Готовится/);
-    assert.match(tab2Text, /Заказ #2.*Готовится/);
+    assert.match(tab1Text, /Заказ №1/);
+    assert.match(tab2Text, /Заказ №2/);
     await tabs.nth(0).click();
     await page.waitForSelector('#rmStepCooking.active');
 
@@ -193,16 +193,11 @@ test('Multi-order Playwright E2E: consecutive orders track individual cooking/re
     console.log('[Playwright] 15. Chef completes Order #1 to "ready"...');
     order1.status = 'ready';
 
-    console.log('[Playwright] 16. Checking Tab 1 updates to "Готово" while Tab 2 stays "Готовится"...');
+    console.log('[Playwright] 16. Checking Tab 1 dot updates to ready while Tab 2 stays cooking...');
     await page.waitForFunction(() => {
-      const t1 = document.querySelectorAll('.roadmap-tab')[0]?.textContent || '';
-      return t1.includes('Готово');
+      const dots = document.querySelectorAll('.roadmap-tab .rmt-dot');
+      return dots[0]?.classList.contains('ready') && dots[1]?.classList.contains('cooking');
     }, { timeout: 8000 });
-
-    const updatedTab1 = await tabs.nth(0).textContent();
-    const updatedTab2 = await tabs.nth(1).textContent();
-    assert.match(updatedTab1, /Готово/);
-    assert.match(updatedTab2, /Готовится/);
 
     console.log('[Playwright] 17. Multi-order tracking verified successfully on Playwright!');
   } finally {

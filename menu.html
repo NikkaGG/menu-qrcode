@@ -1743,16 +1743,62 @@ body.modal-lock .order-status-pill-shell{
 .rsc-total-row{margin-bottom:0;font-size:16px;font-weight:800;color:#111}
 .rsc-total-val{font-size:18px;font-weight:800;color:#111}
 
-/* Multi-order Tabs */
-.roadmap-tabs{display:flex;gap:8px;overflow-x:auto;padding:8px 20px 12px;border-bottom:1px solid #f0f0f2;-webkit-overflow-scrolling:touch}
-.roadmap-tab{padding:7px 14px;border-radius:999px;border:1px solid #e5e5ea;background:#fff;font-size:13px;font-weight:700;color:#666;cursor:pointer;white-space:nowrap;transition:all .15s}
-.roadmap-tab.active{background:#1c1c1e;color:#fff;border-color:#1c1c1e}
+/* Multi-order Tabs (iOS Segmented Control Style) */
+.roadmap-tabs{
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  padding:6px;
+  background:#f2f2f7;
+  margin:12px 20px 0;
+  border-radius:14px;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.roadmap-tabs::-webkit-scrollbar{display:none}
+.roadmap-tabs[hidden]{display:none!important}
+.roadmap-tab{
+  flex:1;
+  min-width:110px;
+  height:36px;
+  padding:0 12px;
+  border-radius:10px;
+  border:0;
+  background:transparent;
+  font-size:13px;
+  font-weight:600;
+  color:#8e8e93;
+  cursor:pointer;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  transition:background .15s ease, color .15s ease, box-shadow .15s ease;
+  font-family:inherit;
+}
+.roadmap-tab.active{
+  background:#fff;
+  color:#111;
+  font-weight:700;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+.rmt-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#8e8e93;
+  flex-shrink:0;
+}
+.rmt-dot.new{background:#34c759}
+.rmt-dot.cooking{background:#ff9f0a}
+.rmt-dot.ready{background:#30d158}
 
 .roadmap-footer{padding:12px 20px calc(14px + env(safe-area-inset-bottom, 0px));border-top:1px solid #f0f0f2;background:#fff;border-radius:0 0 22px 22px}
 .roadmap-btn-primary{width:100%;height:48px;border-radius:999px;border:0;background:#1c1c1e;color:#fff;font:700 15px inherit;cursor:pointer;transition:transform .12s}
 .roadmap-btn-bill{
   width:100%;
-  height:46px;
+  height:48px;
   border-radius:999px;
   border:1.5px solid #007aff;
   background:#f0f7ff;
@@ -1760,19 +1806,13 @@ body.modal-lock .order-status-pill-shell{
   font:700 15px inherit;
   cursor:pointer;
   margin-bottom:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
   transition:transform .12s, background .15s;
 }
 .roadmap-btn-bill:active{transform:scale(0.98);background:#e0efff}
-.bill-options-list{display:flex;flex-direction:column;gap:10px;padding:8px 0}
-.bill-opt-card{display:flex;align-items:center;padding:14px 16px;background:#f9f9fb;border:2px solid #e5e5ea;border-radius:16px;cursor:pointer;transition:all .15s}
-.bill-opt-card.active{border-color:#007aff;background:#f0f7ff}
-.boc-icon{font-size:24px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-right:12px;flex-shrink:0}
-.boc-img{width:28px;height:28px;object-fit:contain}
-.boc-info{flex:1;min-width:0}
-.boc-title{font-size:15px;font-weight:700;color:#111}
-.boc-desc{font-size:12.5px;color:#666;margin-top:2px}
-.boc-check{width:22px;height:22px;border-radius:50%;border:2px solid #d1d1d6;color:transparent;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900}
-.bill-opt-card.active .boc-check{border-color:#007aff;background:#007aff;color:#fff}
 
 </style>
 </head>
@@ -3720,8 +3760,8 @@ function renderRoadmapContent(order,orders){
     tabsWrap.hidden=false;
     tabsWrap.innerHTML=orders.map((o,i)=>{
       const active=o.id===order.id?'active':'';
-      const stLabel=QrOrdering.STATUS_LABELS[o.status]||'Принят';
-      return `<button class="roadmap-tab ${active}" type="button" onclick="openOrderRoadmap('${o.id}')">Заказ #${i+1} (${stLabel})</button>`;
+      const st=o.status||'new';
+      return `<button class="roadmap-tab ${active}" type="button" onclick="openOrderRoadmap('${o.id}')"><span class="rmt-dot ${st}"></span><span>Заказ №${i+1}</span></button>`;
     }).join('');
   }else{
     tabsWrap.hidden=true;
