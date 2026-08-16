@@ -10,6 +10,7 @@ const handlers = {
   'waiter-notification-claim': require('../server/api/orders/[id]/waiter-notification-claim'),
   'sessions-open': require('../server/api/sessions/open'),
   'session-bill': require('../server/api/sessions/[id]/bill'),
+  'session-bill-request': require('../server/api/sessions/[id]/bill-request'),
   'session-close': require('../server/api/sessions/[id]/close'),
   stats: require('../server/api/stats'),
   'stats-login': require('../server/api/stats/login'),
@@ -52,6 +53,7 @@ const routes = [
   ['waiter-notification-claim', /^\/api\/orders\/([^/]+)\/waiter-notification-claim$/, ['id']],
   ['order-details', /^\/api\/orders\/([^/]+)$/, ['id']],
   ['session-bill', /^\/api\/sessions\/([^/]+)\/bill$/, ['id']],
+  ['session-bill-request', /^\/api\/sessions\/([^/]+)\/bill-request$/, ['id']],
   ['session-close', /^\/api\/sessions\/([^/]+)\/close$/, ['id']],
   ['table', /^\/api\/tables\/([^/]+)$/, ['token']],
 ];

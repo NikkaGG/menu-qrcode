@@ -49,6 +49,7 @@ class InternalApiTests(unittest.IsolatedAsyncioTestCase):
                 ("HEAD", "/health"),
                 ("GET", "/health"),
                 ("POST", "/internal/orders/new"),
+                ("POST", "/internal/tables/bill-request"),
             ],
         )
 

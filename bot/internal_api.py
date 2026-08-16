@@ -10,9 +10,8 @@ from typing import Any
 from aiohttp import web
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from bot.formatting import format_new_order
+from bot.formatting import format_bill_request, format_new_order
 from bot.order_validation import is_complete_order
-
 
 _LOGGER = logging.getLogger(__name__)
 _BOT_KEY = web.AppKey("bot")
@@ -109,6 +108,45 @@ async def _new_order(request: web.Request) -> web.Response:
             {"error": "persistence_failure"}, status=503
         )
     return web.json_response({"ok": True, "messageId": message_id})
+async def _bill_request(request: web.Request) -> web.Response:
+    config = request.app[_CONFIG_KEY]
+    logger = request.app[_LOGGER_KEY]
+    bot = request.app[_BOT_KEY]
+
+    if not _authorized(request, config.bot_internal_api_secret):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
+    payload = await request.json()
+    text = format_bill_request(payload)
+    session_id = payload.get("sessionId")
+
+    markup = None
+    if session_id:
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="✅ Рассчитать и закрыть",
+                        callback_data=f"close:{session_id}"
+                    ),
+                    InlineKeyboardButton(
+                        text="📄 Детали счёта",
+                        callback_data=f"bill:{session_id}"
+                    )
+                ]
+            ]
+        )
+
+    try:
+        await bot.send_message(
+            chat_id=config.waiter_chat_id,
+            text=text,
+            reply_markup=markup
+        )
+        return web.json_response({"ok": True})
+    except Exception as exc:
+        logger.error("Failed to send bill request to waiter chat: %s", exc)
+        return web.json_response({"error": "Failed to send notification"}, status=500)
 
 
 def create_app(
@@ -127,4 +165,5 @@ def create_app(
     app[_LOGGER_KEY] = logger or _LOGGER
     app.router.add_get("/health", _health)
     app.router.add_post("/internal/orders/new", _new_order)
+    app.router.add_post("/internal/tables/bill-request", _bill_request)
     return app
