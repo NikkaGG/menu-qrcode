@@ -32,7 +32,8 @@ test('Multi-order Playwright E2E: consecutive orders track individual cooking/re
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({
         table: { id: '11111111-1111-4111-8111-111111111111', number: '7' },
-        session: { id: '22222222-2222-4222-8222-222222222222', status: 'open' }
+        session: { id: '22222222-2222-4222-8222-222222222222', status: 'open' },
+        orders: Array.from(ordersDb.values())
       }));
     }
     if (url.pathname === '/api/menu') {

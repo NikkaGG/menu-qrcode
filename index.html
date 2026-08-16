@@ -3840,37 +3840,57 @@ function startBackgroundPolling(){
     backgroundPoller.pollNow();
     return;
   }
+  if(!currentQrContext||!currentQrContext.token)return;
   backgroundPoller=QrOrdering.createMultiOrderPoller({
-    getOrderIds:()=>getActiveOrdersList().map(o=>o.id),
+    getOrderIds:()=>(currentQrContext?.token?[currentQrContext.token]:[]),
     documentRef:document,
-    fetchOrder:fetchOrderDetails,
-    onOrders:orders=>{
-      if(!Array.isArray(orders)||!orders.length)return;
-      if(!Array.isArray(currentQrContext.activeOrders))currentQrContext.activeOrders=[];
-      orders.forEach(order=>{
-        const idx=currentQrContext.activeOrders.findIndex(o=>o.id===order.id);
-        if(idx>=0)currentQrContext.activeOrders[idx]=order;
-        else currentQrContext.activeOrders.push(order);
-      });
+    fetchOrder:async(token)=>{
+      const data=await resolveTable(token);
+      return data;
+    },
+    onOrders:results=>{
+      const tableData=results[0];
+      if(!tableData||!currentQrContext)return;
+
+      if(tableData.session&&tableData.session.status==='closed'){
+        const total=tableData.orders?.reduce((s,o)=>s+Number(o.total||0),0)||0;
+        handleTableClosed(total);
+        return;
+      }
+
+      const serverOrders=Array.isArray(tableData.orders)?tableData.orders:[];
+      const previousIds=new Set((currentQrContext.activeOrders||[]).map(o=>o.id));
+      const newlyAdded=serverOrders.filter(o=>!previousIds.has(o.id));
+
+      currentQrContext.activeOrders=serverOrders;
+      if(serverOrders.length){
+        currentQrContext.activeOrderId=serverOrders[serverOrders.length-1].id;
+      }
       QrOrdering.writeContext(qrStorage,currentQrContext);
       syncFloatingStatusBar();
+
       if(document.getElementById('orderRoadmapOv')?.classList.contains('on')){
-        const targetId=selectedRoadmapOrderId||currentQrContext.activeOrders[currentQrContext.activeOrders.length-1].id;
-        const cur=currentQrContext.activeOrders.find(o=>o.id===targetId)||currentQrContext.activeOrders[currentQrContext.activeOrders.length-1];
-        renderRoadmapContent(cur,currentQrContext.activeOrders);
+        const targetId=selectedRoadmapOrderId||(serverOrders.length?serverOrders[serverOrders.length-1].id:null);
+        const cur=serverOrders.find(o=>o.id===targetId)||serverOrders[serverOrders.length-1];
+        if(cur) renderRoadmapContent(cur,serverOrders);
       }
-      const latestReady=orders.some(o=>o.status==='ready');
-      if(latestReady&&lastKnownStatus!=='ready'){
+
+      if(newlyAdded.length&&previousIds.size>0){
+        const firstItem=newlyAdded[0].items?.[0]?.dishName||'позиции';
+        showToast(`К столику добавлен заказ (${firstItem}) 🍣`);
+      }
+
+      const anyReady=serverOrders.some(o=>o.status==='ready');
+      if(anyReady&&lastKnownStatus!=='ready'){
         showToast('Заказ готов! 🎉 Приятного аппетита!');
       }
-      lastKnownStatus=orders[orders.length-1]?.status;
+      lastKnownStatus=serverOrders[serverOrders.length-1]?.status;
     },
     onError:()=>{},
     intervalMs:3000,
   });
   backgroundPoller.start();
 }
-
 async function initializeTable(token){
   showClientState('Загружаем меню','Проверяем стол и текущую сессию…','','/emoji/hourglass.png');
   catalogOrderable=false;

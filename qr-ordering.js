@@ -141,6 +141,14 @@
     }
     const previous = readContext(storage, token);
     const sessionChanged = previous?.sessionId !== response.session.id;
+    const responseOrders = Array.isArray(response?.orders) ? response.orders : null;
+    const initialOrders = responseOrders !== null
+      ? responseOrders
+      : (sessionChanged ? [] : (Array.isArray(previous?.activeOrders) ? previous.activeOrders : []));
+    const activeOrderId = initialOrders.length
+      ? initialOrders[initialOrders.length - 1].id
+      : (sessionChanged ? null : (previous?.activeOrderId || null));
+
     const context = {
       token,
       tableId: response.table.id,
@@ -149,8 +157,8 @@
       sessionStatus: response.session.status,
       openedAt: response.session.openedAt,
       cart: sessionChanged ? {} : (previous?.cart || {}),
-      activeOrderId: sessionChanged ? null : (previous?.activeOrderId || null),
-      activeOrders: sessionChanged ? [] : (Array.isArray(previous?.activeOrders) ? previous.activeOrders : []),
+      activeOrderId,
+      activeOrders: initialOrders,
     };
     writeContext(storage, context);
     return context;
