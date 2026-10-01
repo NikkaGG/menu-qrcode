@@ -305,13 +305,72 @@ const POPULAR_IDS=[15,1,2,3,10,18];
 const REF_CAT_IDS={'Фаст-фуд':'f','Роллы':'r','Сеты':'s','Пицца':'z','Соусы':'a','Напитки':'d'};
 const REF_DESC={'Торт из 7 порций':'2 бешеный 2 Калифорния с крабом 1 горячий 1 Филадельфия 1 тори темпура','Бизнес-ланч':'Состав: бургер (булочка, котлета, маринованный огурец, соус), картофель фри, наггетсы, кетчуп Пищевая ценность на порцию: Б33 / Ж45 / У105','Чизбургер (говяжий)':'Состав: булочка, говяжья котлета, сыр, салат, помидор, соус Пищевая ценность на порцию: Б24 / Ж30 / У46','Гиро на тарелке':'Состав: курица (гиро), картофель фри, пита, помидор, огурец, лук, соус (чесночный/дзадзики) Пищевая ценность на порцию: Б38 / Ж45 / У105','Пепперони':'Состав: колбаса, пицца соус, сыр моцарелла Пищевая ценность на порцию: Б52 / Ж60 / У118','Бешеный лосось':'Состав: рис, лосось, нори, сыр, тобико, огурец, карамель, унаги соус Пищевая ценность на порцию: Б19 / Ж24 / У62'};
 function rebuildCats(){const el=document.getElementById('catsEl');if(!el)return;el.innerHTML='';CATS.forEach((c,idx)=>{const b=document.createElement('button');b.className='cat'+(idx===0?' on':'');b.textContent=c.l;b.onclick=()=>{document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(window.muteSpy)window.muteSpy(600);const sec=document.getElementById('sec-'+c.id);if(sec)window.scrollTo(0,Math.max(0,sec.offsetTop-92));};el.appendChild(b);});}
-fetch('ref-products-dom.json')
-  .then(r=>{if(!r.ok)throw new Error('Menu data '+r.status);return r.json();})
-  .then(data=>{
-    if(!Array.isArray(data))throw new Error('Invalid menu data');
-    M.splice(0,M.length,...data.map((x,i)=>({id:i+1,c:REF_CAT_IDS[x.cat]||'f',n:x.name,w:x.weight,d:x.desc||REF_DESC[x.name]||'',p:x.price,img:x.img,detailImg:x.detailImg||'',i:(REF_CAT_IDS[x.cat]||'f')})));
-    CATS.splice(0,CATS.length,...['Фаст-фуд','Роллы','Сеты','Пицца','Соусы','Напитки'].map(x=>({id:REF_CAT_IDS[x],l:x})));
-    POPULAR_IDS.splice(0,POPULAR_IDS.length,...['Торт из 7 порций','Бизнес-ланч','Чизбургер (говяжий)','Гиро на тарелке','Пепперони','Бешеный лосось'].map(n=>(M.find(x=>x.n===n)||{}).id).filter(Boolean));
+const SUPABASE_URL='https://gelezvudpcsnhqgjaqkl.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_w24dlBQIlqYyQwY-6bJPmw_KNa-FCRK';
+
+async function fetchSupabaseRows(table,query){
+  const response=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{
+    headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}
+  });
+  if(!response.ok)throw new Error(`Supabase ${table} ${response.status}`);
+  return response.json();
+}
+
+async function loadMenuData(){
+  try{
+    const [categories,dishes]=await Promise.all([
+      fetchSupabaseRows('categories','select=id,name,sort_order&order=sort_order.asc'),
+      fetchSupabaseRows('dishes','select=id,category_id,name,weight,description,price,image_url,detail_image_url,is_popular,popular_order,sort_order&order=sort_order.asc,id.asc')
+    ]);
+    if(!Array.isArray(categories)||!categories.length||!Array.isArray(dishes)||!dishes.length)throw new Error('Supabase menu is empty');
+    return {categories,dishes};
+  }catch(error){
+    console.warn('Supabase menu unavailable; using local fallback',error);
+    const response=await fetch('ref-products-dom.json');
+    if(!response.ok)throw new Error('Menu fallback '+response.status);
+    const data=await response.json();
+    if(!Array.isArray(data))throw new Error('Invalid fallback menu data');
+    const categories=['Фаст-фуд','Роллы','Сеты','Пицца','Соусы','Напитки'].map((name,sort_order)=>({
+      id:REF_CAT_IDS[name],name,sort_order
+    }));
+    const popularNames=['Торт из 7 порций','Бизнес-ланч','Чизбургер (говяжий)','Гиро на тарелке','Пепперони','Бешеный лосось'];
+    const dishes=data.map((x,i)=>({
+      id:i+1,
+      category_id:REF_CAT_IDS[x.cat]||'f',
+      name:x.name,
+      weight:x.weight,
+      description:x.desc||REF_DESC[x.name]||'',
+      price:x.price,
+      image_url:x.img,
+      detail_image_url:x.detailImg||'',
+      is_popular:popularNames.includes(x.name),
+      popular_order:popularNames.indexOf(x.name)+1||null,
+      sort_order:i
+    }));
+    return {categories,dishes};
+  }
+}
+
+loadMenuData()
+  .then(({categories,dishes})=>{
+    M.splice(0,M.length,...dishes.map(x=>({
+      id:Number(x.id),
+      c:x.category_id||'f',
+      n:x.name,
+      w:x.weight||'',
+      d:x.description||REF_DESC[x.name]||'',
+      p:Number(x.price)||0,
+      img:x.image_url||'',
+      detailImg:x.detail_image_url||'',
+      i:x.category_id||'f'
+    })));
+    CATS.splice(0,CATS.length,...categories.map(x=>({id:x.id,l:x.name})));
+    const popular=dishes
+      .filter(x=>x.is_popular)
+      .sort((a,b)=>(Number(a.popular_order)||999)-(Number(b.popular_order)||999))
+      .map(x=>Number(x.id))
+      .filter(Boolean);
+    POPULAR_IDS.splice(0,POPULAR_IDS.length,...popular);
     menuReady=true;restoreCart();rebuildCats();renderPopular();render();syncFavoritesUi();updatePill();openProductFromUrl();
   })
   .catch(error=>{
