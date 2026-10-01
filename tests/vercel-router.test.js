@@ -9,26 +9,27 @@ test('Vercel rewrites every nested API path to one fixed function', () => {
     fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'),
   );
 
+  assert.equal(config.$schema, 'https://openapi.vercel.sh/vercel.json');
+  assert.equal(config.buildCommand, 'npm run build');
+  assert.equal(config.outputDirectory, '.');
   assert.deepEqual(config.rewrites[0], {
     source: '/api/:path*',
     destination: '/api/router?path=:path*',
   });
+  assert.equal(config.services, undefined);
 });
 
-test('catch-all router selects every public API route without collisions', () => {
+test('catch-all router selects customer and admin API routes without collisions', () => {
   const cases = [
     ['/api/events', 'events'],
     ['/api/menu', 'menu'],
     ['/api/tables/table-token', 'table'],
     ['/api/orders', 'orders'],
     ['/api/orders/order-1', 'order-details'],
-    ['/api/orders/order-1/status', 'order-status'],
-    ['/api/orders/order-1/telegram-message', 'telegram-message'],
-    ['/api/orders/order-1/waiter-message', 'waiter-message'],
-    ['/api/orders/order-1/waiter-notification-claim', 'waiter-notification-claim'],
-    ['/api/sessions/open', 'sessions-open'],
-    ['/api/sessions/session-1/bill', 'session-bill'],
-    ['/api/sessions/session-1/close', 'session-close'],
+    ['/api/admin/orders/order-1/status', 'order-status'],
+    ['/api/admin/sessions/open', 'sessions-open'],
+    ['/api/admin/sessions/session-1/bill', 'session-bill'],
+    ['/api/admin/sessions/session-1/close', 'session-close'],
     ['/api/stats', 'stats'],
     ['/api/stats/login', 'stats-login'],
     ['/api/stats/logout', 'stats-logout'],
@@ -51,8 +52,8 @@ test('catch-all router selects every public API route without collisions', () =>
   }
 });
 
-test('catch-all router decodes parameters and preserves query strings', () => {
-  assert.deepEqual(matchRoute('/api/orders/order%2F1/status?source=bot'), {
+test('catch-all router decodes admin parameters and preserves query strings', () => {
+  assert.deepEqual(matchRoute('/api/admin/orders/order%2F1/status?source=admin'), {
     name: 'order-status',
     params: { id: 'order/1' },
   });
@@ -86,13 +87,13 @@ test('catch-all router delegates with decoded params and existing query values',
 
   await router(
     {
-      url: '/api/orders/order%2F1/status?source=bot',
-      query: { source: 'bot', path: ['orders', 'order/1', 'status'] },
+      url: '/api/admin/orders/order%2F1/status?source=admin',
+      query: { source: 'admin', path: ['admin', 'orders', 'order/1', 'status'] },
     },
     response,
   );
 
-  assert.deepEqual(delegated, { source: 'bot', id: 'order/1' });
+  assert.deepEqual(delegated, { source: 'admin', id: 'order/1' });
   assert.equal(response.statusCode, 204);
 });
 
@@ -130,7 +131,10 @@ test('catch-all router delegates a path forwarded by the Vercel rewrite', async 
   assert.equal(response.statusCode, 204);
 });
 
-test('catch-all router rejects unknown or malformed API paths', () => {
+test('catch-all router rejects removed bot and unknown API paths', () => {
+  assert.equal(matchRoute('/api/orders/order-1/telegram-message'), null);
+  assert.equal(matchRoute('/api/orders/order-1/waiter-message'), null);
+  assert.equal(matchRoute('/api/sessions/session-1/bill-request'), null);
   assert.equal(matchRoute('/api/unknown'), null);
   assert.equal(matchRoute('/api/orders/order-1/unknown'), null);
   assert.equal(matchRoute('/not-api/menu'), null);
