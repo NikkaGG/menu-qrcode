@@ -43,8 +43,10 @@ const routes = [
   ['admin-category', /^\/api\/admin\/categories\/([^/]+)$/, ['id']],
   ['admin-dish', /^\/api\/admin\/dishes\/([^/]+)$/, ['id']],
   ['admin-table', /^\/api\/admin\/tables\/([^/]+)$/, ['id']],
-  ['order-status', /^\/api\/admin\/orders\/([^/]+)\/status$/, ['id']],  ['order-details', /^\/api\/orders\/([^/]+)$/, ['id']],
-  ['session-bill', /^\/api\/admin\/sessions\/([^/]+)\/bill$/, ['id']],  ['session-close', /^\/api\/admin\/sessions\/([^/]+)\/close$/, ['id']],
+  ['order-status', /^\/api\/admin\/orders\/([^/]+)\/status$/, ['id']],
+  ['order-details', /^\/api\/orders\/([^/]+)$/, ['id']],
+  ['session-bill', /^\/api\/admin\/sessions\/([^/]+)\/bill$/, ['id']],
+  ['session-close', /^\/api\/admin\/sessions\/([^/]+)\/close$/, ['id']],
   ['table', /^\/api\/tables\/([^/]+)$/, ['token']],
 ];
 
