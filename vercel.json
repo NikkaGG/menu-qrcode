@@ -5,6 +5,14 @@
     {
       "source": "/product/:id",
       "destination": "/api/product/:id"
+    },
+    {
+      "source": "/kitchen",
+      "destination": "/kitchen.html"
+    },
+    {
+      "source": "/staff",
+      "destination": "/staff.html"
     }
   ],
   "headers": [
