@@ -1,5 +1,5 @@
 const { getQuery } = require('../../_lib/db');
-const { authorizeBotRequest } = require('../../_lib/bot-auth');
+const { requireAdmin } = require('../../_lib/admin-auth');
 const { isUuid, mapOrder, money } = require('../../_lib/public-api');
 const { json, methodNotAllowed } = require('../../_lib/response');
 
@@ -34,11 +34,11 @@ GROUP BY s.id, t.id`;
 
 function createBillHandler({
   query,
-  authorize = authorizeBotRequest,
+  authorize,
 } = {}) {
   return async (request, response) => {
     if (request.method !== 'GET') return methodNotAllowed(response, ['GET']);
-    if (!await authorize(request, response)) return undefined;
+    if (!await requireAdmin(request, response, authorize)) return undefined;
     const id = request.query?.id;
     if (!isUuid(id)) return json(response, 400, { error: 'Invalid session id' });
     try {
