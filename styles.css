@@ -3253,6 +3253,13 @@ body.cookie-visible:not(.cart-has-items) .cookie-bar{
 #cartOv .cs-body-scroll{
   overscroll-behavior:contain!important;
 }
+#cartOv .payment-options{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+#cartOv .cmnt-ta{
+  overflow:auto!important;
+  -webkit-overflow-scrolling:touch;
+}
 
 /* Avoid native search decorations fighting with the custom clear control. */
 #searchInp::-webkit-search-cancel-button,
