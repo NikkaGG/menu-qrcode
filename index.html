@@ -85,11 +85,11 @@
 <section class="table-order-panel" id="tableOrderPanel" hidden aria-live="polite">
   <div class="table-order-head">
     <div><span>Ваш стол</span><h2 id="tableOrderTitle">Определяем стол…</h2></div>
-    <button type="button" onclick="refreshTableStatus(true)">Обновить</button>
+    <button type="button" id="tableRefreshBtn" onclick="retryTableConnection()">Обновить</button>
   </div>
   <div class="table-order-list" id="tableOrderList"></div>
   <div class="table-order-actions">
-    <button type="button" onclick="openCart()">Заказать ещё</button>
+    <button type="button" onclick="continueOrdering()">Заказать ещё</button>
     <button type="button" data-table-service="waiter" onclick="requestTableService('waiter')">Позвать официанта</button>
     <button type="button" data-table-service="bill" onclick="requestTableService('bill')">Попросить счёт</button>
   </div>
@@ -238,7 +238,7 @@
         <div class="cs-title" id="cartTitle">Корзина</div>
         <button class="cs-close" onclick="closeOv('cartOv')" aria-label="Закрыть корзину" data-dialog-initial-focus><span class="ui-icon svg-slot" data-icon="x"></span></button>
       </div>
-      <div class="cart-table-context" id="cartTableContext">Для заказа отсканируйте QR-код на столе</div>
+      <div class="cart-table-context" id="cartTableContext" role="status" aria-live="polite">Для заказа отсканируйте QR-код на столе</div>
 
       <div class="cs-body-scroll">
         <div id="cartItems"></div>
@@ -302,7 +302,7 @@
   </div>
 </div>
 
-<script src="/app.js?v=20261001-layout-audit-v2"></script>
+<script src="/app.js?v=20261002-guest-flow-v1"></script>
 
 </body>
 </html>
