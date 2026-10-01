@@ -3,6 +3,34 @@
   "framework": null,
   "rewrites": [
     {
+      "source": "/apple-emoji/gear.png",
+      "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/2699-fe0f.png"
+    },
+    {
+      "source": "/apple-emoji/chart.png",
+      "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/1f4ca.png"
+    },
+    {
+      "source": "/apple-emoji/place-setting.png",
+      "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/1f37d-fe0f.png"
+    },
+    {
+      "source": "/apple-emoji/frying-pan.png",
+      "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/1f373.png"
+    },
+    {
+      "source": "/apple-emoji/bellhop.png",
+      "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/1f6ce-fe0f.png"
+    },
+    {
+      "source": "/apple-emoji/bell.png",
+      "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/1f514.png"
+    },
+    {
+      "source": "/apple-emoji/receipt.png",
+      "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/1f9fe.png"
+    },
+    {
       "source": "/product/:id",
       "destination": "/api/product/:id"
     },
@@ -20,6 +48,15 @@
     }
   ],
   "headers": [
+    {
+      "source": "/apple-emoji/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
     {
       "source": "/assets/generated/:path*",
       "headers": [
