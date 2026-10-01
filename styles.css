@@ -3333,7 +3333,7 @@ body.cookie-visible:not(.cart-has-items) .cookie-bar{
   text-align:center;
 }
 body.cookie-visible.cart-has-items .cookie-bar{
-  bottom:calc(68px + env(safe-area-inset-bottom,0px));
+  bottom:calc(76px + env(safe-area-inset-bottom,0px));
   width:min(440px,calc(100vw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));
   gap:8px;
   padding:7px 9px;
@@ -3352,7 +3352,7 @@ body.cookie-visible.cart-has-items .page{
 }
 @media(max-width:520px){
   body.cookie-visible.cart-has-items .cookie-bar{
-    bottom:calc(64px + env(safe-area-inset-bottom,0px));
+    bottom:calc(72px + env(safe-area-inset-bottom,0px));
     width:calc(100vw - 20px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));
   }
   body.cookie-visible.cart-has-items .page{
