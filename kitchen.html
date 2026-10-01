@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f5f3">
 <title>Sushi Crazy · Кухня</title>
-<link rel="stylesheet" href="/ops.css?v=20261001-ops-v1">
+<link rel="stylesheet" href="/ops.css?v=20261001-apple-v1">
 </head>
 <body class="ops ops-kitchen">
-<div id="login" class="login"><h1>Кухня</h1><p>Введите PIN персонала.</p><form id="loginForm"><input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN"><button>Войти</button></form><div class="err" id="loginErr"></div></div>
+<div id="login" class="login"><div class="login-symbol"><img class="ops-emoji" src="/assets/emoji/frying-pan.svg" alt=""></div><h1>Кухня</h1><p>Введите PIN персонала.</p><form id="loginForm"><input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN"><button>Войти</button></form><div class="err" id="loginErr"></div></div>
 <div class="wrap" id="app" hidden>
-<header class="top"><div><h1>Кухня</h1><small id="updated">—</small></div><nav><a href="/staff">Зал</a><button onclick="logout()">Выйти</button></nav></header>
+<header class="top"><div class="ops-title-row"><span class="ops-emoji-badge"><img class="ops-emoji" src="/assets/emoji/frying-pan.svg" alt=""></span><div class="ops-title-copy"><span class="ops-kicker">Sushi Crazy</span><h1>Кухня</h1><small id="updated">—</small></div></div><nav><a href="/staff">Зал</a><button onclick="logout()">Выйти</button></nav></header>
 <div class="stats" id="stats"></div>
-<div class="cols"><section class="col"><h2>Новые</h2><div id="submitted"></div></section><section class="col"><h2>Готовятся</h2><div id="working"></div></section><section class="col"><h2>Готовы</h2><div id="ready"></div></section></div>
+<div class="cols"><section class="col lane-new"><h2>Новые</h2><div id="submitted"></div></section><section class="col lane-working"><h2>Готовятся</h2><div id="working"></div></section><section class="col lane-ready"><h2>Готовы</h2><div id="ready"></div></section></div>
 </div>
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
