@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f5f3">
 <title>Sushi Crazy · Кухня</title>
-<link rel="stylesheet" href="/ops.css?v=20261001-apple-v1">
+<link rel="stylesheet" href="/ops.css?v=20261001-apple-v2">
 </head>
 <body class="ops ops-kitchen">
 <div id="login" class="login"><div class="login-symbol"><img class="ops-emoji" src="/assets/emoji/frying-pan.svg" alt=""></div><h1>Кухня</h1><p>Введите PIN персонала.</p><form id="loginForm"><input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN"><button>Войти</button></form><div class="err" id="loginErr"></div></div>
 <div class="wrap" id="app" hidden>
-<header class="top"><div class="ops-title-row"><span class="ops-emoji-badge"><img class="ops-emoji" src="/assets/emoji/frying-pan.svg" alt=""></span><div class="ops-title-copy"><span class="ops-kicker">Sushi Crazy</span><h1>Кухня</h1><small id="updated">—</small></div></div><nav><a href="/staff">Зал</a><button onclick="logout()">Выйти</button></nav></header>
+<header class="top"><div class="ops-title-row"><span class="ops-emoji-badge"><img class="ops-emoji" src="/assets/emoji/frying-pan.svg" alt=""></span><div class="ops-title-copy"><span class="ops-kicker">Sushi Crazy</span><h1>Кухня</h1><small id="updated">—</small></div></div><nav><span class="live-capsule"><i class="live-dot"></i>Live</span><a href="/staff">Зал</a><button onclick="logout()">Выйти</button></nav></header>
 <div class="stats" id="stats"></div>
-<div class="cols"><section class="col lane-new"><h2>Новые</h2><div id="submitted"></div></section><section class="col lane-working"><h2>Готовятся</h2><div id="working"></div></section><section class="col lane-ready"><h2>Готовы</h2><div id="ready"></div></section></div>
+<div class="segmented-control" id="kitchenView" role="tablist" aria-label="Фильтр заказов"><button type="button" data-view="all" aria-selected="true">Все</button><button type="button" data-view="submitted" aria-selected="false">Новые</button><button type="button" data-view="working" aria-selected="false">В работе</button><button type="button" data-view="ready" aria-selected="false">Готовы</button></div>
+<div class="cols" data-view="all"><section class="col lane-new"><h2>Новые</h2><div id="submitted"></div></section><section class="col lane-working"><h2>Готовятся</h2><div id="working"></div></section><section class="col lane-ready"><h2>Готовы</h2><div id="ready"></div></section></div>
 </div>
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
@@ -28,8 +29,9 @@ function card(o){
 function render(){const active=state.orders.filter(o=>!['served','cancelled'].includes(o.status));document.getElementById('stats').innerHTML='<div class="stat"><span>Новые</span><b>'+active.filter(o=>o.status==='submitted').length+'</b></div><div class="stat"><span>В работе</span><b>'+active.filter(o=>['accepted','preparing'].includes(o.status)).length+'</b></div><div class="stat"><span>Готовы</span><b>'+active.filter(o=>o.status==='ready').length+'</b></div>';const sets={submitted:active.filter(o=>o.status==='submitted'),working:active.filter(o=>['accepted','preparing'].includes(o.status)),ready:active.filter(o=>o.status==='ready')};for(const [id,orders] of Object.entries(sets))document.getElementById(id).innerHTML=orders.length?orders.map(card).join(''):'<div class="empty">Пусто</div>';document.getElementById('updated').textContent='Обновлено '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
 async function refresh(silent=false){if(busy)return;busy=true;try{state=await api('dashboard');render();login.hidden=true;app.hidden=false}catch(e){if(e.status===401){sessionStorage.removeItem('sushi-staff-pin');pin='';login.hidden=false;app.hidden=true;if(!silent)loginErr.textContent='Неверный PIN'}}finally{busy=false}}
 async function move(orderId,status){try{state=await api('update-order',{orderId,status});render()}catch(e){alert(e.message)}}
+function setKitchenView(view){const cols=document.querySelector('.cols');if(!cols)return;cols.dataset.view=view;document.querySelectorAll('#kitchenView button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.view===view)))}
 function logout(){sessionStorage.removeItem('sushi-staff-pin');location.reload()}
-loginForm.onsubmit=e=>{e.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-staff-pin',pin);loginErr.textContent='';refresh(false)};
+loginForm.onsubmit=e=>{e.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-staff-pin',pin);loginErr.textContent='';refresh(false)};document.getElementById('kitchenView').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(btn)setKitchenView(btn.dataset.view)});
 if(pin)refresh(true);setInterval(()=>{if(pin)refresh(true)},3000);
 </script>
 </body></html>
