@@ -1,5 +1,4 @@
 const { getQuery } = require('../_lib/db');
-const { createOrderNotifier } = require('../_lib/order-notification');
 const { mapOrder, validOrderBody } = require('../_lib/public-api');
 const { json, methodNotAllowed } = require('../_lib/response');
 
@@ -66,38 +65,7 @@ FROM excluded
 CROSS JOIN serialized_items
 LEFT JOIN inserted_order o ON TRUE`;
 
-function notifyWithoutFailing(notify, order, timeoutMs, logger) {
-  return new Promise((resolve) => {
-    let settled = false;
-    const controller = new AbortController();
-    const finish = (warning) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        if (warning) {
-          try {
-            logger.warn(warning);
-          } catch {}
-        }
-        resolve();
-      }
-    };
-    const timer = setTimeout(() => {
-      controller.abort();
-      finish('Order bot notification timed out');
-    }, timeoutMs);
-    Promise.resolve()
-      .then(() => notify(order, controller.signal))
-      .then(() => finish(), () => finish('Order bot notification rejected'));
-  });
-}
-
-function createOrderHandler({
-  query = getQuery(),
-  notify = createOrderNotifier(),
-  logger = console,
-  notificationTimeoutMs = 1000,
-} = {}) {
+function createOrderHandler({ query = getQuery() } = {}) {
   return async (request, response) => {
     if (request.method !== 'POST') return methodNotAllowed(response, ['POST']);
     if (!validOrderBody(request.body)) return json(response, 400, { error: 'Invalid order' });
@@ -119,7 +87,6 @@ function createOrderHandler({
         });
       }
       const order = mapOrder(row);
-      await notifyWithoutFailing(notify, order, notificationTimeoutMs, logger);
       return json(response, 201, { order, excludedDishIds });
     } catch {
       return json(response, 500, { error: 'Unable to create order' });
