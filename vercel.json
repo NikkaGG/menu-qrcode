@@ -1,39 +1,73 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
-  "outputDirectory": ".",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "/api/router?path=:path*"
+      "source": "/product/:id",
+      "destination": "/api/product/:id"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/generated/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
-      "source": "/t/:token",
-      "destination": "/index.html"
+      "source": "/sushi_crazy_all_photos/photos/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
-      "source": "/order/:id",
-      "destination": "/index.html"
+      "source": "/fonts/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
-      "source": "/admin",
-      "destination": "/admin-dist/index.html"
+      "source": "/icons/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     },
     {
-      "source": "/admin/menu",
-      "destination": "/admin-dist/index.html"
+      "source": "/ref-products-dom.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=300, stale-while-revalidate=86400"
+        }
+      ]
     },
     {
-      "source": "/admin/tables",
-      "destination": "/admin-dist/index.html"
+      "source": "/styles.css",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
     },
     {
-      "source": "/admin/:path*",
-      "destination": "/admin-dist/index.html"
-    },
-    {
-      "source": "/stats",
-      "destination": "/admin-dist/index.html"
+      "source": "/app.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
     }
   ]
 }
