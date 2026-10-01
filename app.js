@@ -109,9 +109,9 @@ const ICON_PATHS={
   map:'icons/maps-ios.png'
 };
 const PAYMENT_METHOD_LABELS=Object.freeze({
-  kaspi_invoice:'Выставить счёт на оплату Kaspi',
-  card:'Оплата картой',
-  cash:'Оплата наличными'
+  kaspi:'Kaspi',
+  card:'Картой',
+  cash:'Наличными'
 });
 function iosIconImg(service,alt,mini=false){
   const cls=mini?'ios-mini-img':'ios-app-img';
@@ -307,6 +307,75 @@ const REF_DESC={'Торт из 7 порций':'2 бешеный 2 Калифо�
 function rebuildCats(){const el=document.getElementById('catsEl');if(!el)return;el.innerHTML='';CATS.forEach((c,idx)=>{const b=document.createElement('button');b.className='cat'+(idx===0?' on':'');b.textContent=c.l;b.onclick=()=>{document.querySelectorAll('.cat').forEach(x=>x.classList.remove('on'));b.classList.add('on');if(window.muteSpy)window.muteSpy(600);const sec=document.getElementById('sec-'+c.id);if(sec)window.scrollTo(0,Math.max(0,sec.offsetTop-92));};el.appendChild(b);});}
 const SUPABASE_URL='https://gelezvudpcsnhqgjaqkl.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_w24dlBQIlqYyQwY-6bJPmw_KNa-FCRK';
+
+const TABLE_API_URL=SUPABASE_URL+'/functions/v1/table-api';
+const TABLE_PAYMENT_LABELS=Object.freeze({kaspi:'Kaspi',card:'Картой',cash:'Наличными'});
+const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map()};
+function tableEscapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function createGuestUuid(){
+  if(crypto.randomUUID)return crypto.randomUUID();
+  const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+  const hex=[...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');
+  return hex.slice(0,8)+'-'+hex.slice(8,12)+'-'+hex.slice(12,16)+'-'+hex.slice(16,20)+'-'+hex.slice(20);
+}
+function tableTokenFromUrl(){const params=new URL(location.href).searchParams;return (params.get('table')||params.get('t')||'').trim().toLowerCase();}
+function guestTokenForTable(tableToken){
+  const key='sushi-crazy-table-guest-v1:'+tableToken;let token='';
+  try{token=localStorage.getItem(key)||'';}catch(_){}
+  if(!/^[0-9a-f-]{36}$/i.test(token)){token=createGuestUuid();try{localStorage.setItem(key,token);}catch(_){}}
+  return token;
+}
+async function tableApiCall(action,payload={}){
+  const response=await fetch(TABLE_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,tableToken:tableOrdering.tableToken,guestToken:tableOrdering.guestToken,...payload})});
+  const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Не удалось связаться с рестораном');return data;
+}
+function tableStatusStep(status){return ['submitted','accepted','preparing','ready','served'].indexOf(status);}
+function tableOrderStatusMarkup(order){
+  if(order.status==='cancelled')return '<div class="table-order-cancelled">Заказ отменён</div>';
+  const current=tableStatusStep(order.status),steps=[['submitted','Отправлен'],['accepted','Принят'],['preparing','Готовится'],['ready','Готов'],['served','Подан']];
+  return '<div class="table-status-steps">'+steps.map((step,index)=>'<div class="table-status-step '+(index<=current?'done ':'')+(index===current?'active':'')+'"><i></i><span>'+step[1]+'</span></div>').join('')+'</div>';
+}
+function tableOrderItemsMarkup(order){
+  const items=Array.isArray(order.order_items)?order.order_items:[];
+  return items.map(item=>'<div class="table-order-item"><span>'+tableEscapeHtml(item.name)+' × '+Number(item.quantity||0)+'</span><strong>'+fmt(Number(item.line_total||0))+'</strong></div>').join('');
+}
+function openServiceKinds(){return new Set((tableOrdering.requests||[]).filter(r=>r.status==='open').map(r=>r.kind));}
+function renderTableOrderPanel(){
+  const panel=document.getElementById('tableOrderPanel'),title=document.getElementById('tableOrderTitle'),list=document.getElementById('tableOrderList'),service=document.getElementById('tableServiceState'),cartContext=document.getElementById('cartTableContext');
+  if(cartContext){
+    if(tableOrdering.loading)cartContext.textContent='Проверяем QR-код стола…';
+    else if(tableOrdering.ready)cartContext.textContent=(tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number))+' · заказ принесёт официант';
+    else cartContext.textContent=tableOrdering.tableToken?'QR-код стола недействителен':'Для заказа отсканируйте QR-код на столе';
+  }
+  if(!panel)return;if(!tableOrdering.tableToken){panel.hidden=true;return;}panel.hidden=false;
+  if(!tableOrdering.ready){if(title)title.textContent=tableOrdering.loading?'Определяем ваш стол…':'Не удалось определить стол';if(list)list.innerHTML='<div class="table-order-empty">'+(tableOrdering.loading?'Проверяем QR-код.':'Откройте меню повторно через QR-код на столе.')+'</div>';if(service)service.innerHTML='';return;}
+  const tableLabel=tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number);if(title)title.textContent=tableLabel;
+  const orders=[...(tableOrdering.orders||[])].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  if(list)list.innerHTML=orders.length?orders.slice(0,4).map(order=>{
+    const when=new Date(order.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+    return '<article class="table-order-card"><div class="table-order-card-head"><div><b>Заказ #'+order.id+'</b><span>'+when+'</span></div><strong>'+fmt(Number(order.total||0))+'</strong></div>'+tableOrderStatusMarkup(order)+'<div class="table-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="table-order-meta">Расчёт: '+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||order.payment_method||'—')+(order.comment?' · '+tableEscapeHtml(order.comment):'')+'</div></article>';
+  }).join(''):'<div class="table-order-empty"><b>Вы за столом.</b><span>Соберите корзину — заказ уйдёт прямо на кухню.</span></div>';
+  const open=openServiceKinds();if(service){const labels=[];if(open.has('waiter'))labels.push('Официант уже вызван');if(open.has('bill'))labels.push('Счёт уже запрошен');if(open.has('cutlery'))labels.push('Запрос на приборы отправлен');service.innerHTML=labels.length?'<div class="table-service-open">'+labels.map(x=>'<span>'+x+'</span>').join('')+'</div>':'';}
+  document.querySelectorAll('[data-table-service]').forEach(btn=>{btn.disabled=open.has(btn.dataset.tableService);});
+}
+function applyTableOrderState(data){
+  tableOrdering.table=data.table||tableOrdering.table;tableOrdering.session=data.session||tableOrdering.session;tableOrdering.orders=Array.isArray(data.orders)?data.orders:[];tableOrdering.requests=Array.isArray(data.requests)?data.requests:[];tableOrdering.ready=!!tableOrdering.table&&!!tableOrdering.session;
+  for(const order of tableOrdering.orders){const previous=tableOrdering.seenStatuses.get(String(order.id));if(previous&&previous!==order.status&&order.status==='ready')showToast('Заказ #'+order.id+' готов');tableOrdering.seenStatuses.set(String(order.id),order.status);}
+  renderTableOrderPanel();updateOrderState();
+}
+async function refreshTableStatus(manual=false){if(!tableOrdering.ready||tableOrdering.loading)return;try{applyTableOrderState(await tableApiCall('status'));if(manual)showToast('Статус обновлён');}catch(error){if(manual)showToast(error.message||'Не удалось обновить статус');}}
+async function requestTableService(kind){
+  if(!tableOrdering.ready){showToast('Откройте меню через QR-код на столе');return;}
+  const messages={waiter:'Официант вызван',bill:'Запрос на счёт отправлен',cutlery:'Запрос на приборы отправлен'};
+  try{applyTableOrderState(await tableApiCall('service',{kind}));showToast(messages[kind]||'Запрос отправлен');}catch(error){showToast(error.message||'Не удалось отправить запрос');}
+}
+async function initTableOrdering(){
+  tableOrdering.tableToken=tableTokenFromUrl();renderTableOrderPanel();if(!tableOrdering.tableToken){updateOrderState();return;}
+  tableOrdering.guestToken=guestTokenForTable(tableOrdering.tableToken);tableOrdering.loading=true;renderTableOrderPanel();updateOrderState();
+  try{const data=await tableApiCall('bootstrap');tableOrdering.loading=false;applyTableOrderState(data);if(!tableOrdering.pollTimer)tableOrdering.pollTimer=setInterval(()=>refreshTableStatus(false),4000);}
+  catch(error){tableOrdering.loading=false;tableOrdering.ready=false;renderTableOrderPanel();updateOrderState();console.warn('Table bootstrap failed',error);}
+}
+
 
 async function fetchSupabaseRows(table,query){
   const response=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{
@@ -534,54 +603,11 @@ function cancelPickupDrag(event){
   resetPickupDrag();
 }
 function updateOrderState(){
-  const btn=document.getElementById('orderBtn');
-  if(!btn)return;
-  const hint=document.getElementById('orderHint');
-  const hasItems=Object.keys(cart).some(k=>cart[k]>0);
-  const addrInp=document.getElementById('addrInp');
-  const phoneInp=document.getElementById('phoneInp');
-  const paymentMethodInp=document.getElementById('paymentMethodInp');
-  const addr=(addrInp?.value||'').trim();
-  const phone=(phoneInp?.value||'').trim();
-  const paymentMethod=paymentMethodInp?.value||'';
-  const phoneValid=validPhone(phone);
-  const addressValid=delMode!=='d'||!!addr;
-  const paymentMethodValid=!!PAYMENT_METHOD_LABELS[paymentMethod];
-  const pickupTimeValid=delMode!=='p'||getAvailablePickupSlots(new Date()).includes(pickupTime);
-
-  if(phoneValid){
-    const phoneErr=document.getElementById('phoneErr');
-    if(phoneErr)phoneErr.hidden=true;
-    phoneInp?.removeAttribute('aria-invalid');
-  }
-  if(addressValid){
-    const addrErr=document.getElementById('addrErr');
-    if(addrErr)addrErr.hidden=true;
-    addrInp?.removeAttribute('aria-invalid');
-  }
-  if(paymentMethodValid){
-    const paymentMethodErr=document.getElementById('paymentMethodErr');
-    if(paymentMethodErr)paymentMethodErr.hidden=true;
-  }
-  if(pickupTimeValid){
-    const pickupTimeErr=document.getElementById('pickupTimeErr');
-    if(pickupTimeErr)pickupTimeErr.hidden=true;
-    document.getElementById('pickupTimeTrigger')?.removeAttribute('aria-invalid');
-  }
-
-  const valid=hasItems&&phoneValid&&addressValid&&paymentMethodValid&&pickupTimeValid;
-  btn.disabled=!valid;
-  if(hint){
-    let message='';
-    if(hasItems){
-      if(!phoneValid)message='Укажите номер телефона';
-      else if(!addressValid)message='Укажите адрес доставки';
-      else if(!pickupTimeValid)message='Выберите время самовывоза';
-      else if(!paymentMethodValid)message='Выберите способ оплаты';
-    }
-    hint.textContent=message;
-    hint.hidden=!message;
-  }
+  const btn=document.getElementById('orderBtn');if(!btn)return;
+  const hint=document.getElementById('orderHint'),hasItems=Object.keys(cart).some(k=>cart[k]>0),paymentMethod=document.getElementById('paymentMethodInp')?.value||'',paymentMethodValid=!!PAYMENT_METHOD_LABELS[paymentMethod],tableValid=tableOrdering.ready&&!tableOrdering.loading;
+  const valid=hasItems&&paymentMethodValid&&tableValid&&!tableOrdering.submitting,err=document.getElementById('paymentMethodErr');if(err)err.hidden=paymentMethodValid||!hasItems;
+  btn.disabled=!valid;btn.textContent=tableOrdering.submitting?'Отправляем…':'Заказать';
+  if(hint){let message='';if(hasItems){if(!tableOrdering.tableToken)message='Для заказа откройте меню через QR-код на столе';else if(tableOrdering.loading)message='Проверяем ваш стол…';else if(!tableValid)message='Не удалось определить стол по QR-коду';else if(!paymentMethodValid)message='Выберите, как хотите рассчитаться с официантом';}hint.textContent=message;hint.hidden=!message;}
 }
 
 rebuildCats();
@@ -956,36 +982,7 @@ function formatPhoneInput(input){
   updateOrderState();
 }
 function buildOrderPayload(){
-  const keys=Object.keys(cart).filter(k=>cart[k]>0);
-  const items=keys.map(id=>{
-    const item=getItem(id);
-    if(!item)return null;
-    const quantity=cart[id];
-    return {
-      id:item.id,
-      name:item.n,
-      quantity,
-      unitPrice:item.p,
-      lineTotal:item.p*quantity
-    };
-  }).filter(Boolean);
-  const read=id=>(document.getElementById(id)?.value||'').trim();
-  return {
-    items,
-    total:items.reduce((sum,item)=>sum+item.lineTotal,0),
-    orderMethod:delMode==='d'?'delivery':'pickup',
-    contact:{name:read('nameInp'),phone:read('phoneInp')},
-    deliveryAddress:delMode==='d'?{
-      address:read('addrInp'),
-      entrance:read('entranceInp'),
-      floor:read('floorInp'),
-      flat:read('flatInp'),
-      intercom:read('intercomInp')
-    }:null,
-    pickupTime:delMode==='p'?pickupTime:null,
-    paymentMethod:read('paymentMethodInp'),
-    comment:read('commentTa')
-  };
+  return {items:Object.keys(cart).filter(k=>cart[k]>0).map(id=>({id:Number(id),quantity:Number(cart[id])})),paymentMethod:(document.getElementById('paymentMethodInp')?.value||'').trim(),comment:(document.getElementById('commentTa')?.value||'').trim()};
 }
 function buildOrderText(payload=buildOrderPayload()){
   const separator='────────────────';
@@ -1172,51 +1169,16 @@ function prepareServiceSheet(mode){
     setSecondService('Отправить сообщением');
   }
 }
-function placeOrder(){
-  if(!Object.keys(cart).filter(k=>cart[k]>0).length){showToast('Корзина пуста');return;}
-  const phone=(document.getElementById('phoneInp')?.value||'').trim();
-  const address=(document.getElementById('addrInp')?.value||'').trim();
-  const paymentMethod=document.getElementById('paymentMethodInp')?.value||'';
-  const phoneInp=document.getElementById('phoneInp');
-  const addrInp=document.getElementById('addrInp');
-  const paymentMethodInp=document.getElementById('paymentMethodInp');
-  const phoneErr=document.getElementById('phoneErr');
-  const addrErr=document.getElementById('addrErr');
-  const paymentMethodErr=document.getElementById('paymentMethodErr');
-  const pickupTimeTrigger=document.getElementById('pickupTimeTrigger');
-  const pickupTimeErr=document.getElementById('pickupTimeErr');
-  const phoneInvalid=!validPhone(phone);
-  const addressInvalid=delMode==='d'&&!address;
-  const paymentMethodInvalid=!PAYMENT_METHOD_LABELS[paymentMethod];
-  const pickupTimeInvalid=delMode==='p'&&!getAvailablePickupSlots(new Date()).includes(pickupTime);
-  if(phoneErr)phoneErr.hidden=!phoneInvalid;
-  if(addrErr)addrErr.hidden=!addressInvalid;
-  if(paymentMethodErr)paymentMethodErr.hidden=!paymentMethodInvalid;
-  if(pickupTimeErr)pickupTimeErr.hidden=!pickupTimeInvalid;
-  if(phoneInvalid)phoneInp?.setAttribute('aria-invalid','true');
-  else phoneInp?.removeAttribute('aria-invalid');
-  if(addressInvalid)addrInp?.setAttribute('aria-invalid','true');
-  else addrInp?.removeAttribute('aria-invalid');
-  if(paymentMethodInvalid)paymentMethodInp?.setAttribute('aria-invalid','true');
-  else paymentMethodInp?.removeAttribute('aria-invalid');
-  if(pickupTimeInvalid){
-    pickupTime='';
-    syncPickupTimeControl();
-    pickupTimeTrigger?.setAttribute('aria-invalid','true');
-    if(pickupTimeErr)pickupTimeErr.hidden=false;
-  }else pickupTimeTrigger?.removeAttribute('aria-invalid');
-  if(phoneInvalid||addressInvalid||paymentMethodInvalid||pickupTimeInvalid){
-    updateOrderState();
-    (phoneInvalid?phoneInp:addressInvalid?addrInp:pickupTimeInvalid?pickupTimeTrigger:paymentMethodInp)?.focus();
-    return;
-  }
-  pendingOrderPayload=buildOrderPayload();
-  pendingOrderText=buildOrderText(pendingOrderPayload);
-  prepareServiceSheet('order');
-  const transitionOpener=dialogOpeners.get(document.getElementById('cartOv'));
-  closeOv('cartOv',false,true);
-  if(history.state?.menuOverlay==='cartOv')replaceMenuBaseState();
-  openOv('shareOv',transitionOpener);
+async function placeOrder(){
+  const payload=buildOrderPayload();if(!payload.items.length){showToast('Корзина пуста');return;}if(!tableOrdering.tableToken){showToast('Откройте меню через QR-код на столе');return;}if(!tableOrdering.ready){showToast('Не удалось определить стол');return;}
+  if(!PAYMENT_METHOD_LABELS[payload.paymentMethod]){const err=document.getElementById('paymentMethodErr');if(err)err.hidden=false;updateOrderState();return;}
+  tableOrdering.submitting=true;updateOrderState();
+  try{
+    const data=await tableApiCall('place-order',payload);applyTableOrderState(data);const orderId=data.orderId;clearCart();
+    const input=document.getElementById('paymentMethodInp');if(input)input.value='';document.querySelectorAll('#cartOv .payment-opt').forEach(el=>{el.classList.remove('on');el.setAttribute('aria-pressed','false');});
+    const comment=document.getElementById('commentTa');if(comment)comment.value='';closeOv('cartOv');showToast('Заказ #'+orderId+' отправлен на кухню');
+    setTimeout(()=>document.getElementById('tableOrderPanel')?.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'center'}),120);
+  }catch(error){showToast(error.message||'Не удалось отправить заказ');}finally{tableOrdering.submitting=false;updateOrderState();}
 }
 function openShare(mode='contact'){
   prepareServiceSheet(mode);
@@ -1605,6 +1567,7 @@ function initSmartStickySearch(){
   window.visualViewport?.addEventListener('resize',scheduleUpdate);
 }
 initSmartStickySearch();
+initTableOrdering();
 
 /* ── COOKIE BAR ── */
 (function initCookieConsent(){
