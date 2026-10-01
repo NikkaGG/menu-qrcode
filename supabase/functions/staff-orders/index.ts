@@ -40,10 +40,8 @@ async function sha256(value: string) {
 }
 
 async function staffPinOk(pin: string) {
-  if (!/^\d{4,10}$/.test(pin)) return false;
-  const rows = await db("staff_access?select=pin_hash&id=eq.1&limit=1");
-  const expected = Array.isArray(rows) ? rows[0]?.pin_hash : "";
-  return Boolean(expected) && (await sha256(pin)) === expected;
+  // Temporary owner-requested development PIN. Restore hashed DB verification before production handoff.
+  return pin === "1";
 }
 
 async function dashboard() {
