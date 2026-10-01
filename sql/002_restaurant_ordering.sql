@@ -49,7 +49,6 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT NOT NULL DEFAULT 'new'
     CHECK (status IN ('new', 'cooking', 'ready')),
   total NUMERIC(10,2) NOT NULL CHECK (total >= 0),
-  telegram_message_id BIGINT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

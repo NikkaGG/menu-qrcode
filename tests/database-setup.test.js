@@ -50,25 +50,6 @@ test('orders analytics migration adds an idempotent global created-at index', ()
   );
 });
 
-test('waiter notification migration additively stores nullable positive message ids', () => {
-  const migration = read('sql/005_orders_waiter_message_id.sql');
-
-  assert.match(
-    migration,
-    /ALTER TABLE\s+orders\s+ADD COLUMN IF NOT EXISTS\s+waiter_message_id\s+BIGINT/i,
-  );
-  assert.match(
-    migration,
-    /CHECK\s*\(\s*waiter_message_id\s+IS NULL\s+OR\s+waiter_message_id\s*>\s*0\s*\)/i,
-  );
-  assert.match(migration, /^\s*BEGIN;\s*$/im);
-  assert.match(migration, /^\s*COMMIT;\s*$/im);
-  assert.match(migration, /waiter_notification_claimed_at\s+TIMESTAMPTZ/i);
-  assert.match(migration, /waiter_notification_claim_token\s+UUID/i);
-  assert.doesNotMatch(migration, /DROP CONSTRAINT/i);
-  assert.doesNotMatch(migration, /NOT NULL/i);
-});
-
 test('table token generator returns unpredictable URL-safe tokens', () => {
   const { generateTableToken } = require('../server/api/_lib/table-token');
   const tokens = new Set(Array.from({ length: 100 }, () => generateTableToken()));
@@ -96,21 +77,18 @@ function parseEnvExample(contents) {
   };
 }
 
-test('environment examples split web and bot runtime configuration', () => {
+test('environment example documents the web runtime configuration', () => {
   const rootEnvContents = read('.env.example');
   const rootEnv = parseEnvExample(rootEnvContents);
-  const botEnv = parseEnvExample(read('bot/.env.example'));
 
-  const manuallyConfiguredVercelVariables = rootEnv.variables.slice(0, 9);
-  const platformLocalVariables = rootEnv.variables.slice(9, 10);
-  const localSeedVariables = rootEnv.variables.slice(10);
+  const manuallyConfiguredVercelVariables = rootEnv.variables.slice(0, 7);
+  const platformLocalVariables = rootEnv.variables.slice(7, 8);
+  const localSeedVariables = rootEnv.variables.slice(8);
 
   assert.deepEqual(manuallyConfiguredVercelVariables, [
     'DATABASE_URL',
     'STATS_PASSWORD',
     'STATS_SESSION_SECRET',
-    'BOT_INTERNAL_API_URL',
-    'BOT_INTERNAL_API_SECRET',
     'ADMIN_LOGIN',
     'ADMIN_PASSWORD_HASH',
     'ADMIN_SESSION_SECRET',
@@ -121,33 +99,11 @@ test('environment examples split web and bot runtime configuration', () => {
     'SEED_STAGE05_CONFIRM',
     'SEED_STAGE05_ALLOW_HOSTED',
   ]);
-  assert.deepEqual(botEnv.variables, [
-    'TELEGRAM_BOT_TOKEN',
-    'KITCHEN_CHAT_ID',
-    'WAITER_CHAT_ID',
-    'BOT_INTERNAL_API_SECRET',
-    'APP_URL',
-    'PORT',
-  ]);
 
   assert.equal(new Set(rootEnv.variables).size, rootEnv.variables.length);
-  assert.equal(new Set(botEnv.variables).size, botEnv.variables.length);
-  assert.equal(rootEnv.variables.length, 12);
-  assert.deepEqual(
-    rootEnv.variables.filter((variable) => botEnv.variables.includes(variable)),
-    ['BOT_INTERNAL_API_SECRET', 'APP_URL'],
-  );
+  assert.equal(rootEnv.variables.length, 10);
   assert.equal(manuallyConfiguredVercelVariables.includes('NODE_ENV'), false);
-  assert.equal(botEnv.variables.includes('NODE_ENV'), false);
   assert.equal(rootEnv.values.NODE_ENV, 'development');
-  assert.equal(botEnv.variables.includes('DATABASE_URL'), false);
-  assert.equal(botEnv.variables.includes('BOT_INTERNAL_API_URL'), false);
-
-  for (const variable of ['BOT_INTERNAL_API_SECRET', 'APP_URL']) {
-    assert.notEqual(rootEnv.values[variable], '');
-    assert.equal(rootEnv.values[variable], botEnv.values[variable]);
-  }
-  assert.match(rootEnv.values.BOT_INTERNAL_API_SECRET, /32\+ random characters/i);
   assert.match(rootEnv.values.STATS_SESSION_SECRET, /32\+ random characters/i);
   assert.match(rootEnv.values.ADMIN_SESSION_SECRET, /32\+ random characters/i);
   assert.match(rootEnv.values.ADMIN_PASSWORD_HASH, /generated scrypt hash/i);

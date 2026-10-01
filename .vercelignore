@@ -1,18 +1,12 @@
 # Local configuration and secrets
 .env*
-bot/.env*
 .admin-credentials.txt
 .vercel
 
 # Development files and caches
 .worktrees
-bot/.venv
-.venv
 node_modules
 .playwright-mcp
-.pytest_cache
-__pycache__
-*.pyc
 tests
 docs
 admin-app/node_modules
