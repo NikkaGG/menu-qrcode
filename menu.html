@@ -2092,7 +2092,6 @@ body.modal-lock .order-status-pill-shell{
     </div>
 
     <div class="roadmap-footer">
-      <button class="roadmap-btn-bill" id="callWaiterBtn" type="button" onclick="callWaiter()">🔔 Позвать официанта / Счёт</button>
       <button class="roadmap-btn-primary" type="button" onclick="closeOv('orderRoadmapOv')">Продолжить выбор блюд</button>
     </div>
   </div>
@@ -3913,7 +3912,7 @@ function renderRoadmapContent(order,orders){
     line2.classList.add('completed');
     stepReady.classList.add('active');
     bTitle.textContent='Заказ готов к подаче! 🎉';
-    bDesc.textContent='Официант уже несёт заказ к вашему столику. Приятного аппетита!';
+    bDesc.textContent='Заказ готов к подаче. Приятного аппетита!';
   }
 
   // Items composition
@@ -3939,34 +3938,6 @@ function renderRoadmapContent(order,orders){
     }).join('');
   }else{
     itemsList.innerHTML='<div style="font-size:13.5px;color:#888;padding:12px 0;text-align:center">Состав заказа загружается…</div>';
-  }
-}
-
-async function callWaiter(){
-  if(!currentQrContext||!currentQrContext.sessionId)return;
-  const btn=document.getElementById('callWaiterBtn');
-  if(btn){btn.disabled=true;btn.textContent='Вызываем официанта…';}
-  try{
-    const res=await fetch(`/api/sessions/${encodeURIComponent(currentQrContext.sessionId)}/bill-request`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'call_waiter'})
-    });
-    const data=await res.json().catch(()=>({}));
-    if(res.ok){
-      showToast('Официант уведомлен и скоро подойдёт к вам!');
-      const bTitle=document.getElementById('rsbTitle');
-      const bDesc=document.getElementById('rsbDesc');
-      if(bTitle)bTitle.textContent='Официант скоро подойдёт к вам 🔔';
-      if(bDesc)bDesc.textContent='Вызов принят, официант уже направляется к вашему столику.';
-      if(btn){btn.textContent='🔔 Официант вызван к столу';btn.disabled=true;}
-    }else{
-      showToast(data.error||'Не удалось вызвать официанта');
-      if(btn){btn.disabled=false;btn.textContent='🔔 Позвать официанта / Счёт';}
-    }
-  }catch(e){
-    showToast('Ошибка связи с сервером');
-    if(btn){btn.disabled=false;btn.textContent='🔔 Позвать официанта / Счёт';}
   }
 }
 
