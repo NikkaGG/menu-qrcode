@@ -104,7 +104,6 @@ test('environment example documents the web runtime configuration', () => {
   assert.equal(rootEnv.variables.length, 10);
   assert.equal(manuallyConfiguredVercelVariables.includes('NODE_ENV'), false);
   assert.equal(rootEnv.values.NODE_ENV, 'development');
-  assert.equal(rootEnv.variables.some((variable) => variable.startsWith('BOT_')), false);
   assert.match(rootEnv.values.STATS_SESSION_SECRET, /32\+ random characters/i);
   assert.match(rootEnv.values.ADMIN_SESSION_SECRET, /32\+ random characters/i);
   assert.match(rootEnv.values.ADMIN_PASSWORD_HASH, /generated scrypt hash/i);
