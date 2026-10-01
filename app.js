@@ -1000,10 +1000,14 @@ function setSecondService(labelText='Напишите нам в сообщени
 }
 let activeProductId=null;
 
+function publicMenuOrigin(){
+  const canonical=document.querySelector('link[rel="canonical"]')?.href;
+  try{return new URL(canonical||location.href).origin;}catch(error){return location.origin;}
+}
 function getProductShareData(id=activeProductId){
   const item=getItem(Number(id));
   if(!item)return null;
-  const url=new URL('/product/'+item.id,location.origin);
+  const url=new URL('/product/'+item.id,publicMenuOrigin());
   return {
     id:item.id,
     title:`${item.n} — Sushi Crazy`,
@@ -1164,7 +1168,7 @@ async function shareRestaurant(){
   const payload={
     title:'Sushi Crazy',
     text:'Меню Sushi Crazy — суши, роллы, пицца и фастфуд',
-    url:new URL('/',location.origin).toString()
+    url:new URL('/',publicMenuOrigin()).toString()
   };
   const canNative=typeof navigator.share==='function'&&(typeof navigator.canShare!=='function'||navigator.canShare(payload));
   if(canNative){
@@ -1544,15 +1548,50 @@ function initSmartStickySearch(){
 initSmartStickySearch();
 
 /* ── COOKIE BAR ── */
-function acceptCookies(){
-  try{localStorage.setItem('cookieOk','1')}catch(e){}
-  document.getElementById('cookieBar')?.classList.remove('on');
-  document.body.classList.remove('cookie-visible');
-}
-(function(){
-  let ok=false;
-  try{ok=!!localStorage.getItem('cookieOk')}catch(e){}
-  if(!ok){document.getElementById('cookieBar')?.classList.add('on');document.body.classList.add('cookie-visible');}
+(function initCookieConsent(){
+  const root=typeof window!=='undefined'?window:globalThis;
+  const key='cookieOk';
+  const value='1';
+  const maxAge=60*60*24*365;
+
+  function hasConsent(){
+    try{
+      if(localStorage.getItem(key)===value)return true;
+    }catch(error){}
+    try{
+      return String(document.cookie||'')
+        .split(';')
+        .some(part=>part.trim()===key+'='+value);
+    }catch(error){
+      return false;
+    }
+  }
+
+  function persistConsent(){
+    try{localStorage.setItem(key,value)}catch(error){}
+    try{document.cookie=key+'='+value+'; Max-Age='+maxAge+'; Path=/; SameSite=Lax'}catch(error){}
+  }
+
+  function syncConsent(){
+    const accepted=hasConsent();
+    document.getElementById('cookieBar')?.classList.toggle('on',!accepted);
+    document.body?.classList.toggle('cookie-visible',!accepted);
+  }
+
+  root.acceptCookies=function acceptCookies(){
+    persistConsent();
+    syncConsent();
+  };
+
+  syncConsent();
+
+  if(!root.__sushiCookieConsentSyncBound&&typeof root.addEventListener==='function'){
+    root.__sushiCookieConsentSyncBound=true;
+    root.addEventListener('storage',event=>{
+      if(event.key===key)syncConsent();
+    });
+    root.addEventListener('pageshow',syncConsent);
+  }
 })();
 
 /* ── CATEGORY SCROLL-SPY: активная категория следует за секцией при скролле ── */

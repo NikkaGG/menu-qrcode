@@ -1,4 +1,5 @@
 const products=require('../../ref-products-dom.json');
+const PUBLIC_ORIGIN='https://menu-qrcode-lt1q.vercel.app';
 
 function esc(value){
   return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -8,9 +9,7 @@ module.exports=function handler(req,res){
   const id=Number(req.query.id);
   const item=Number.isInteger(id)&&id>0?products[id-1]:null;
   if(!item){res.statusCode=404;res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><title>Товар не найден — Sushi Crazy</title><p>Товар не найден.</p>');return;}
-  const proto=(req.headers['x-forwarded-proto']||'https').split(',')[0];
-  const host=req.headers.host;
-  const origin=proto+'://'+host;
+  const origin=PUBLIC_ORIGIN;
   const target=origin+'/?product='+id;
   const image=item.detailImg||item.img||'/icons/app-512.png';
   const imageUrl=image.startsWith('http')?image:origin+image;
