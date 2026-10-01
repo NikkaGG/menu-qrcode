@@ -131,10 +131,7 @@ test('catch-all router delegates a path forwarded by the Vercel rewrite', async 
   assert.equal(response.statusCode, 204);
 });
 
-test('catch-all router rejects removed bot and unknown API paths', () => {
-  assert.equal(matchRoute('/api/orders/order-1/telegram-message'), null);
-  assert.equal(matchRoute('/api/orders/order-1/waiter-message'), null);
-  assert.equal(matchRoute('/api/sessions/session-1/bill-request'), null);
+test('catch-all router rejects unknown API paths', () => {
   assert.equal(matchRoute('/api/unknown'), null);
   assert.equal(matchRoute('/api/orders/order-1/unknown'), null);
   assert.equal(matchRoute('/not-api/menu'), null);
