@@ -2,15 +2,11 @@
 .env
 .env*
 !.env.example
-bot/.env*
-!bot/.env.example
 .env.local
 .admin-credentials.txt
 
 # Dependencies and virtual environments
 node_modules/
-.venv/
-bot/.venv/
 
 # Build outputs
 admin-dist/
@@ -19,8 +15,6 @@ admin-dist/
 .runtime/
 .playwright-mcp/
 .pytest_cache/
-__pycache__/
-*.py[cod]
 .worktrees/
 .vercel/
 
