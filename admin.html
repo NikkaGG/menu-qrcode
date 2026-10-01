@@ -6,24 +6,24 @@
 <link rel="stylesheet" href="/ops.css?v=20261001-apple-v2">
 </head>
 <body class="ops ops-admin">
-<div class="login" id="login"><div class="login-symbol"><img class="ops-emoji" src="/assets/emoji/gear.svg" alt=""></div><h1>Администратор</h1><p>Управление столами, QR-кодами и аналитикой.</p><form id="loginForm"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN администратора"><button>Войти</button></form><div class="error" id="loginError"></div></div>
+<div class="login" id="login"><div class="login-symbol"><img class="ops-emoji" src="/apple-emoji/gear.png" alt=""></div><h1>Администратор</h1><p>Управление столами, QR-кодами и аналитикой.</p><form id="loginForm"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN администратора"><button>Войти</button></form><div class="error" id="loginError"></div></div>
 <main class="shell" id="app" hidden>
 <div class="admin-layout">
   <aside class="ops-sidebar" aria-label="Навигация администратора"><div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-    <div class="sidebar-brand"><span class="ops-emoji-badge"><img class="ops-emoji" src="/assets/emoji/gear.svg" alt=""></span><div><b>Sushi Crazy</b><span>Управление рестораном</span></div></div>
+    <div class="sidebar-brand"><span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/gear.png" alt=""></span><div><b>Sushi Crazy</b><span>Управление рестораном</span></div></div>
     <nav class="sidebar-nav">
-      <a class="on" href="#overview"><img src="/assets/emoji/chart.svg" alt="">Обзор</a>
-      <a href="#tablesSection"><img src="/assets/emoji/place-setting.svg" alt="">Столы и QR</a>
+      <a class="on" href="#overview"><img src="/apple-emoji/chart.png" alt="">Обзор</a>
+      <a href="#tablesSection"><img src="/apple-emoji/place-setting.png" alt="">Столы и QR</a>
       <div class="sidebar-divider"></div>
-      <a href="/kitchen" target="_blank"><img src="/assets/emoji/frying-pan.svg" alt="">Кухня</a>
-      <a href="/staff" target="_blank"><img src="/assets/emoji/bellhop.svg" alt="">Зал</a>
-      <a href="/" target="_blank"><img src="/assets/emoji/receipt.svg" alt="">Открыть меню</a>
+      <a href="/kitchen" target="_blank"><img src="/apple-emoji/frying-pan.png" alt="">Кухня</a>
+      <a href="/staff" target="_blank"><img src="/apple-emoji/bellhop.png" alt="">Зал</a>
+      <a href="/" target="_blank"><img src="/apple-emoji/receipt.png" alt="">Открыть меню</a>
       <div class="sidebar-divider"></div>
-      <button type="button" id="logoutBtn"><img src="/assets/emoji/gear.svg" alt="">Выйти</button>
+      <button type="button" id="logoutBtn"><img src="/apple-emoji/gear.png" alt="">Выйти</button>
     </nav>
   </aside>
   <div class="admin-main">
-    <header class="top"><div class="ops-title-row"><span class="ops-emoji-badge"><img class="ops-emoji" src="/assets/emoji/chart.svg" alt=""></span><div class="brand ops-title-copy"><small>Sushi Crazy</small><h1>Обзор</h1></div></div><nav class="nav"><span class="live-capsule"><i class="live-dot"></i>Live</span><a href="/" target="_blank">Меню гостя</a></nav></header>
+    <header class="top"><div class="ops-title-row"><span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/chart.png" alt=""></span><div class="brand ops-title-copy"><small>Sushi Crazy</small><h1>Обзор</h1></div></div><nav class="nav"><span class="live-capsule"><i class="live-dot"></i>Live</span><a href="/" target="_blank">Меню гостя</a></nav></header>
     <section class="section-anchor" id="overview">
       <section class="stats" id="stats"></section>
       <section class="grid"><article class="card"><div class="card-head"><div><h2>Последние 7 дней</h2><small>Заказы и сумма по дням</small></div><small id="updatedAt">—</small></div><div class="chart" id="chart"></div></article><article class="card"><div class="card-head"><div><h2>Способы расчёта</h2><small>По заказам за 7 дней</small></div></div><div class="payments" id="payments"></div></article></section>
@@ -49,7 +49,7 @@ const payLabels={kaspi:'Kaspi',card:'Карта',cash:'Наличные',unknown
 async function api(action,payload={}){const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin},body:JSON.stringify({action,...payload})});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}return data}
 function notify(text){const el=document.getElementById('toast');el.textContent=text;el.classList.add('on');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('on'),2300)}
 function qrLink(table){return location.origin+'/?table='+encodeURIComponent(table.qr_token)}
-function renderStats(a){document.getElementById('stats').innerHTML=[['Заказы · 24 часа',a.orders24,'/assets/emoji/receipt.svg'],['Сумма заказов · 24 часа',money(a.revenue24),'/assets/emoji/chart.svg'],['Средний чек · 7 дней',money(a.averageCheck7),'/assets/emoji/chart.svg'],['Открытые столы',a.openTables+' / '+a.activeTables,'/assets/emoji/place-setting.svg']].map(x=>'<article class="stat"><span class="stat-emoji-wrap"><img class="ops-emoji" src="'+x[2]+'" alt=""></span><span>'+h(x[0])+'</span><b>'+h(x[1])+'</b></article>').join('')}
+function renderStats(a){document.getElementById('stats').innerHTML=[['Заказы · 24 часа',a.orders24,'/apple-emoji/receipt.png'],['Сумма заказов · 24 часа',money(a.revenue24),'/apple-emoji/chart.png'],['Средний чек · 7 дней',money(a.averageCheck7),'/apple-emoji/chart.png'],['Открытые столы',a.openTables+' / '+a.activeTables,'/apple-emoji/place-setting.png']].map(x=>'<article class="stat"><span class="stat-emoji-wrap"><img class="ops-emoji" src="'+x[2]+'" alt=""></span><span>'+h(x[0])+'</span><b>'+h(x[1])+'</b></article>').join('')}
 function renderChart(a){const values=(a.daily||[]).map(x=>Number(x.revenue||0)),max=Math.max(1,...values);document.getElementById('chart').innerHTML=(a.daily||[]).map(day=>{const height=Math.max(4,Math.round((Number(day.revenue||0)/max)*120));const label=new Date(day.date+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});return '<div class="bar-wrap"><div class="bar-value">'+day.orders+'</div><div class="bar" style="height:'+height+'px" title="'+money(day.revenue)+'"></div><div class="bar-label">'+label+'</div></div>'}).join('')}
 function renderPayments(a){const entries=Object.entries(a.payments||{}),total=entries.reduce((sum,x)=>sum+Number(x[1]||0),0),el=document.getElementById('payments');if(!entries.length){el.innerHTML='<div class="empty">Пока нет заказов</div>';return}el.innerHTML=entries.sort((a,b)=>b[1]-a[1]).map(([key,count])=>{const pct=total?Math.round(Number(count)*100/total):0;return '<div class="payment"><span>'+h(payLabels[key]||key)+'</span><div class="meter"><i style="width:'+pct+'%"></i></div><b>'+count+'</b></div>'}).join('')}
 function tableCard(table){const label=table.label||('Стол '+table.table_number),active=!!table.is_active;return '<article class="table-card"><div class="table-top"><div class="table-title"><b>'+h(label)+'</b><span>№ '+h(table.table_number)+'</span></div><div class="badges"><span class="badge '+(active?'live':'off')+'">'+(active?'QR активен':'QR выключен')+'</span>'+(table.openSession?'<span class="badge">Стол открыт</span>':'')+'</div></div><div class="table-metrics"><div class="table-metric"><span>Заказов · 30 дней</span><b>'+Number(table.orders30||0)+'</b></div><div class="table-metric"><span>Выручка · 30 дней</span><b>'+money(table.revenue30)+'</b></div></div><div class="table-actions"><button class="primary" data-action="qr" data-id="'+h(table.id)+'">QR-код</button><button data-action="rename" data-id="'+h(table.id)+'">Изменить</button><button class="switch-control '+(active?'on':'')+'" data-action="toggle" data-id="'+h(table.id)+'" data-active="'+(!active)+'" aria-pressed="'+active+'"><span class="switch-track" aria-hidden="true"><i></i></span><span>'+(active?'QR вкл':'QR выкл')+'</span></button><button class="danger" data-action="rotate" data-id="'+h(table.id)+'">Новый QR</button></div></article>'}
