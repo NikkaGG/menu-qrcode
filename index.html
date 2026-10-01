@@ -124,6 +124,20 @@
 
 </main><!-- /page -->
 
+<section class="table-order-panel" id="tableOrderPanel" hidden aria-live="polite">
+  <div class="table-order-head">
+    <div><span>Ваш стол</span><h2 id="tableOrderTitle">Определяем стол…</h2></div>
+    <button type="button" onclick="refreshTableStatus(true)">Обновить</button>
+  </div>
+  <div class="table-order-list" id="tableOrderList"></div>
+  <div class="table-order-actions">
+    <button type="button" onclick="openCart()">Заказать ещё</button>
+    <button type="button" data-table-service="waiter" onclick="requestTableService('waiter')">Позвать официанта</button>
+    <button type="button" data-table-service="bill" onclick="requestTableService('bill')">Попросить счёт</button>
+  </div>
+  <div id="tableServiceState"></div>
+</section>
+
 <!-- COOKIE BAR -->
 <div class="cookie-bar" id="cookieBar">
   <span>Используем cookie для стабильной работы сайта и аналитики.</span>
@@ -222,57 +236,23 @@
         <div class="cs-title" id="cartTitle">Корзина</div>
         <button class="cs-close" onclick="closeOv('cartOv')" aria-label="Закрыть корзину" data-dialog-initial-focus><span class="ui-icon svg-slot" data-icon="x"></span></button>
       </div>
+      <div class="cart-table-context" id="cartTableContext">Для заказа отсканируйте QR-код на столе</div>
 
       <div class="cs-body-scroll">
         <div id="cartItems"></div>
         <div id="cartRecommendations"></div>
 
-        <div class="del-block cart-checkout">
-          <div class="cart-step">
-            <div class="del-label">Способ получения</div>
-            <div class="del-row">
-              <button class="dopt on" onclick="setDel('d',this)">Доставка</button>
-              <button class="dopt" onclick="setDel('p',this)">Самовывоз</button>
-            </div>
-
-            <div class="pickup-time-field" id="pickupTimeBlock" hidden>
-              <label class="cmnt-title pickup-time-label" for="pickupTimeTrigger">Время самовывоза</label>
-              <button class="pickup-time-trigger" type="button" id="pickupTimeTrigger" aria-haspopup="dialog" aria-controls="pickupTimeOv" aria-expanded="false" aria-describedby="pickupTimeErr" onclick="openPickupTimePicker(this)">Выберите время</button>
-              <div class="addr-err" id="pickupTimeErr" hidden>Выберите доступное время самовывоза.</div>
-            </div>
-          </div>
-
+        <div class="del-block cart-checkout table-checkout">
           <div class="cart-step cart-form-section">
-            <div class="cmnt-title">Контакты</div>
-            <div class="order-grid two contact-grid">
-              <input class="addr-inp" type="text" id="nameInp" placeholder="Имя (необязательно)" oninput="updateOrderState()">
-              <input class="addr-inp" type="tel" inputmode="tel" id="phoneInp" placeholder="+7 999 123 45 67" aria-describedby="phoneErr" autocomplete="tel" oninput="formatPhoneInput(this)">
-            </div>
-            <div class="addr-err" id="phoneErr" hidden>Укажите корректный номер для связи.</div>
-          </div>
-
-          <div id="addrBlock" class="cart-step cart-form-section">
-            <div class="cmnt-title">Адрес доставки</div>
-            <input class="addr-inp" type="text" id="addrInp" placeholder="Улица, дом" aria-describedby="addrErr" oninput="updateOrderState()">
-            <button class="cart-secondary-toggle" type="button" id="addressDetailsToggle" aria-expanded="false" onclick="toggleAddressDetails(this)">+ Добавить детали адреса</button>
-            <div class="order-grid four cart-collapsible" id="addressDetails" hidden>
-              <input class="addr-inp" type="text" id="entranceInp" placeholder="Подъезд">
-              <input class="addr-inp" type="text" id="floorInp" placeholder="Этаж">
-              <input class="addr-inp" type="text" id="flatInp" placeholder="Кв./офис">
-              <input class="addr-inp" type="text" id="intercomInp" placeholder="Домофон">
-            </div>
-            <div class="addr-err" id="addrErr" hidden>Укажите адрес доставки.</div>
-          </div>
-
-          <div class="cart-step cart-form-section">
-            <div class="cmnt-title">Способ оплаты</div>
+            <div class="cmnt-title">Как хотите рассчитаться</div>
+            <div class="table-payment-note">Оплата останется как раньше — официанту. Здесь только укажите удобный способ.</div>
             <input type="hidden" id="paymentMethodInp" value="">
-            <div class="payment-options" role="group" aria-label="Способ оплаты">
-              <button class="payment-opt" type="button" data-payment="kaspi_invoice" aria-pressed="false" onclick="setPayment('kaspi_invoice',this)">Kaspi</button>
+            <div class="payment-options" role="group" aria-label="Способ расчёта с официантом">
+              <button class="payment-opt" type="button" data-payment="kaspi" aria-pressed="false" onclick="setPayment('kaspi',this)">Kaspi</button>
               <button class="payment-opt" type="button" data-payment="card" aria-pressed="false" onclick="setPayment('card',this)">Карта</button>
               <button class="payment-opt" type="button" data-payment="cash" aria-pressed="false" onclick="setPayment('cash',this)">Наличные</button>
             </div>
-            <div class="addr-err" id="paymentMethodErr" hidden>Выберите способ оплаты.</div>
+            <div class="addr-err" id="paymentMethodErr" hidden>Выберите способ расчёта.</div>
           </div>
 
           <div class="cart-step cart-form-section cart-comment-section">
@@ -291,7 +271,7 @@
             <div class="cs-total-lbl" id="csItemsCount">0 товаров</div>
             <div class="cs-total-amt" id="csTotal">0 ₸</div>
           </div>
-          <button class="order-btn" id="orderBtn" onclick="placeOrder()" disabled>Оформить</button>
+          <button class="order-btn" id="orderBtn" onclick="placeOrder()" disabled>Заказать</button>
         </div>
       </div>
     </div>
@@ -321,7 +301,7 @@
   </div>
 </div>
 
-<script src="/app.js?v=20261001-supabase-v1"></script>
+<script src="/app.js?v=20261001-table-order-v1"></script>
 
 </body>
 </html>
