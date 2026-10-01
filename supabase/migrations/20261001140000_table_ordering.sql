@@ -97,3 +97,13 @@ create table if not exists public.admin_access (
 
 alter table public.admin_access enable row level security;
 revoke all on public.admin_access from anon, authenticated;
+
+
+-- Defense in depth: operational/admin tables are server-only.
+create policy "deny direct client access" on public.restaurant_tables for all to anon, authenticated using (false) with check (false);
+create policy "deny direct client access" on public.table_sessions for all to anon, authenticated using (false) with check (false);
+create policy "deny direct client access" on public.orders for all to anon, authenticated using (false) with check (false);
+create policy "deny direct client access" on public.order_items for all to anon, authenticated using (false) with check (false);
+create policy "deny direct client access" on public.service_requests for all to anon, authenticated using (false) with check (false);
+create policy "deny direct client access" on public.staff_access for all to anon, authenticated using (false) with check (false);
+create policy "deny direct client access" on public.admin_access for all to anon, authenticated using (false) with check (false);
