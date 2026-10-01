@@ -200,6 +200,39 @@ function foodIcon(type){
   const icons={burger:'burger',wrap:'wrap',hotdog:'hotdog',fries:'box',wings:'drumstick',box:'box',roll:'bowl',set:'fish',pizza:'pizza',sauce:'sauce',drink:'drink',tea:'cup',mojito:'mojito',cake:'cake'};
   return svgIcon(icons[type]||'utensils','svg-icon food-icon');
 }
+function productImageHtml(item,options={}){
+  const detail=options.detail===true;
+  const lazy=options.lazy!==false;
+  const className=options.className||'product-img';
+  const primary=detail?(item.detailImg||item.img):item.img;
+  const fallback=detail?(item.detailImg?item.img:''):item.detailImg;
+  if(!primary)return foodIcon(item.i);
+  const attrs=[
+    'class="'+tableEscapeHtml(className)+'"',
+    'src="'+tableEscapeHtml(primary)+'"',
+    'alt="'+tableEscapeHtml(item.n)+'"',
+    'decoding="async"',
+    'onerror="handleProductImageError(this)"'
+  ];
+  if(lazy)attrs.push('loading="lazy"','fetchpriority="auto"');
+  else attrs.push('fetchpriority="high"');
+  if(fallback&&fallback!==primary)attrs.push('data-fallback="'+tableEscapeHtml(fallback)+'"');
+  return '<img '+attrs.join(' ')+'>';
+}
+function handleProductImageError(img){
+  const fallback=img?.dataset?.fallback;
+  if(fallback&&img.dataset.fallbackTried!=='1'){
+    img.dataset.fallbackTried='1';
+    img.removeAttribute('data-fallback');
+    img.src=fallback;
+    return;
+  }
+  if(!img)return;
+  img.onerror=null;
+  img.alt='';
+  img.style.display='none';
+  img.parentElement?.classList.add('product-image-missing');
+}
 
 const M=[];
 const CATS=[{id:'f',l:'Фаст-фуд'},{id:'r',l:'Роллы'},{id:'s',l:'Сеты'},{id:'z',l:'Пицца'},{id:'a',l:'Соусы'},{id:'d',l:'Напитки'}];
@@ -621,7 +654,7 @@ function renderPopular(){
     return `<div class="popular-slide">
       <div class="pop-card">
         <button type="button" class="product-details-btn" data-product-id="${item.id}" onclick="openPopularItem(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
-        <div class="pop-img">${item.img?`<img class="product-img" src="${item.img}" alt="${item.n}" loading="lazy" decoding="async" fetchpriority="auto">`:foodIcon(item.i)}</div>
+        <div class="pop-img">${productImageHtml(item)}</div>
         ${cartAddButton(item.id,'add-sq pop-add-top')}
         <div class="pop-body">
           <div class="pop-main">
@@ -658,7 +691,7 @@ function filtered(){
 function menuGridCardHtml(item){
   return `<div class="gc">
     <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
-    <div class="gc-img">${item.img?`<img class="product-img" src="${item.img}" alt="${item.n}" loading="lazy" decoding="async" fetchpriority="auto">`:foodIcon(item.i)}
+    <div class="gc-img">${productImageHtml(item)}
       ${cartAddButton(item.id,'gc-plus')}
     </div>
     <div class="gc-foot">
@@ -671,7 +704,7 @@ function menuGridCardHtml(item){
 function menuListCardHtml(item){
   return `<div class="lc">
     <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
-    <div class="lc-img">${item.img?`<img class="product-img" src="${item.img}" alt="${item.n}" loading="lazy" decoding="async" fetchpriority="auto">`:foodIcon(item.i)}</div>
+    <div class="lc-img">${productImageHtml(item)}</div>
     <div class="lc-info">
       <div class="lc-name">${item.n}</div>
       <div class="lc-weight">${item.w}</div>
@@ -761,7 +794,7 @@ function openProd(id,opener,skipHistory=false){
   activeProductId=item.id;
   if(!skipHistory)pushMenuOverlayState('prodOv',item.id);
   document.getElementById('prodContent').innerHTML=`
-    <div class="ps-img${item.detailImg?' detail-generated':''}">${(item.detailImg||item.img)?`<img class="product-img" src="${item.detailImg||item.img}" alt="${item.n}" decoding="async" fetchpriority="high">`:foodIcon(item.i)}</div>
+    <div class="ps-img${item.detailImg?' detail-generated':''}">${productImageHtml(item,{detail:true,lazy:false})}</div>
     <div class="ps-dot" aria-hidden="true"></div>
     <div class="ps-body">
       <div class="ps-name" id="prodTitle">${item.n}</div>
@@ -827,7 +860,7 @@ function renderCartRecommendations(){
     <div class="cart-recommendations-title" id="cartRecommendationsTitle">С этим берут</div>
     <div class="cart-recommendations-list">
       ${items.map(item=>`<div class="cart-rec-item">
-        <div class="cart-rec-img">${item.img?`<img src="${item.img}" alt="${item.n}" loading="lazy" decoding="async">`:foodIcon(item.i)}</div>
+        <div class="cart-rec-img">${productImageHtml(item,{className:'product-img'})}</div>
         <div class="cart-rec-copy"><strong>${item.n}</strong><span>${fmt(item.p)}</span></div>
         <button type="button" class="cart-rec-add" onclick="addCart(${item.id})" aria-label="Добавить ${item.n}">${svgIcon('plus','svg-icon')}</button>
       </div>`).join('')}
@@ -852,7 +885,7 @@ function renderCart(){
     if(!item)return;
     const qty=cart[id];
     html+=`<div class="ci ci-card">
-      <div class="ci-img">${item.img?`<img class="product-img" src="${item.img}" alt="${item.n}" loading="lazy" decoding="async" fetchpriority="auto">`:foodIcon(item.i)}</div>
+      <div class="ci-img">${productImageHtml(item)}</div>
       <div class="ci-info">
         <div class="ci-name">${item.n}</div>
         <div class="ci-weight">${item.w}</div>
