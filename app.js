@@ -343,7 +343,9 @@ const SUPABASE_PUBLISHABLE_KEY='sb_publishable_w24dlBQIlqYyQwY-6bJPmw_KNa-FCRK';
 
 const TABLE_API_URL=SUPABASE_URL+'/functions/v1/table-api';
 const TABLE_PAYMENT_LABELS=Object.freeze({kaspi:'Kaspi',card:'Картой',cash:'Наличными'});
-const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map()};
+const TABLE_API_TIMEOUT_MS=12000;
+const TABLE_PAYMENT_STORAGE_PREFIX='sushi-crazy-table-payment-v1:';
+const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),lastError:'',lastStatusAt:0,servicePending:new Set()};
 function tableEscapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function createGuestUuid(){
   if(crypto.randomUUID)return crypto.randomUUID();
@@ -358,9 +360,56 @@ function guestTokenForTable(tableToken){
   if(!/^[0-9a-f-]{36}$/i.test(token)){token=createGuestUuid();try{localStorage.setItem(key,token);}catch(_){}}
   return token;
 }
+function tableFriendlyError(error,fallback='Не удалось связаться с рестораном'){
+  if(navigator.onLine===false)return 'Нет подключения к интернету. Проверьте сеть.';
+  if(error?.name==='AbortError')return 'Ресторан отвечает дольше обычного. Попробуйте ещё раз.';
+  const server=String(error?.serverMessage||error?.message||'').trim();
+  if(error?.status===404)return 'QR-код стола недействителен или временно выключен.';
+  if(error?.status===409&&/unavailable/i.test(server))return 'Одна из позиций сейчас недоступна. Обновите меню и проверьте корзину.';
+  if(/invalid table|table not found|qr disabled/i.test(server))return 'QR-код стола недействителен или временно выключен.';
+  if(/choose a payment method/i.test(server))return 'Выберите способ расчёта.';
+  if(/invalid order items/i.test(server))return 'Проверьте состав корзины и попробуйте ещё раз.';
+  return server&&server!=='Server error'?server:fallback;
+}
 async function tableApiCall(action,payload={}){
-  const response=await fetch(TABLE_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,tableToken:tableOrdering.tableToken,guestToken:tableOrdering.guestToken,...payload})});
-  const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Не удалось связаться с рестораном');return data;
+  if(navigator.onLine===false)throw new Error('Нет подключения к интернету');
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),TABLE_API_TIMEOUT_MS);
+  try{
+    const response=await fetch(TABLE_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({action,tableToken:tableOrdering.tableToken,guestToken:tableOrdering.guestToken,...payload})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){
+      const error=new Error(data.error||'Не удалось связаться с рестораном');
+      error.status=response.status;
+      error.serverMessage=data.error||'';
+      throw error;
+    }
+    return data;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+function tablePaymentStorageKey(){
+  return tableOrdering.tableToken?TABLE_PAYMENT_STORAGE_PREFIX+tableOrdering.tableToken:'';
+}
+function savedTablePayment(){
+  const key=tablePaymentStorageKey();if(!key)return '';
+  try{const value=sessionStorage.getItem(key)||'';return TABLE_PAYMENT_LABELS[value]?value:'';}catch(_){return '';}
+}
+function persistTablePayment(value){
+  const key=tablePaymentStorageKey();if(!key||!TABLE_PAYMENT_LABELS[value])return;
+  try{sessionStorage.setItem(key,value);}catch(_){}
+}
+function syncTablePaymentChoice(){
+  const input=document.getElementById('paymentMethodInp');if(!input)return;
+  let value=input.value;
+  if(!TABLE_PAYMENT_LABELS[value])value=savedTablePayment();
+  input.value=TABLE_PAYMENT_LABELS[value]?value:'';
+  document.querySelectorAll('#cartOv .payment-opt').forEach(el=>{
+    const active=el.dataset.payment===input.value;
+    el.classList.toggle('on',active);
+    el.setAttribute('aria-pressed',active?'true':'false');
+  });
 }
 function tableStatusStep(status){return ['submitted','accepted','preparing','ready','served'].indexOf(status);}
 function tableOrderStatusMarkup(order){
@@ -374,40 +423,127 @@ function tableOrderItemsMarkup(order){
 }
 function openServiceKinds(){return new Set((tableOrdering.requests||[]).filter(r=>r.status==='open').map(r=>r.kind));}
 function renderTableOrderPanel(){
-  const panel=document.getElementById('tableOrderPanel'),title=document.getElementById('tableOrderTitle'),list=document.getElementById('tableOrderList'),service=document.getElementById('tableServiceState'),cartContext=document.getElementById('cartTableContext');
+  const panel=document.getElementById('tableOrderPanel'),title=document.getElementById('tableOrderTitle'),list=document.getElementById('tableOrderList'),service=document.getElementById('tableServiceState'),cartContext=document.getElementById('cartTableContext'),refreshBtn=document.getElementById('tableRefreshBtn');
+  const offline=navigator.onLine===false;
   if(cartContext){
-    if(tableOrdering.loading)cartContext.textContent='Проверяем QR-код стола…';
+    if(offline)cartContext.textContent='Нет подключения к интернету · корзина сохранена';
+    else if(tableOrdering.loading)cartContext.textContent='Проверяем QR-код стола…';
     else if(tableOrdering.ready)cartContext.textContent=(tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number))+' · заказ принесёт официант';
-    else cartContext.textContent=tableOrdering.tableToken?'QR-код стола недействителен':'Для заказа отсканируйте QR-код на столе';
+    else cartContext.textContent=tableOrdering.tableToken?(tableOrdering.lastError||'Не удалось определить стол'):'Для заказа отсканируйте QR-код на столе';
   }
-  if(!panel)return;if(!tableOrdering.tableToken){panel.hidden=true;return;}panel.hidden=false;
-  if(!tableOrdering.ready){if(title)title.textContent=tableOrdering.loading?'Определяем ваш стол…':'Не удалось определить стол';if(list)list.innerHTML='<div class="table-order-empty">'+(tableOrdering.loading?'Проверяем QR-код.':'Откройте меню повторно через QR-код на столе.')+'</div>';if(service)service.innerHTML='';return;}
+  if(!panel)return;
+  panel.setAttribute('aria-busy',tableOrdering.loading?'true':'false');
+  if(refreshBtn){
+    refreshBtn.disabled=tableOrdering.loading;
+    refreshBtn.textContent=tableOrdering.loading?'Проверяем…':tableOrdering.ready?'Обновить':'Повторить';
+  }
+  if(!tableOrdering.tableToken){panel.hidden=true;return;}panel.hidden=false;
+  if(!tableOrdering.ready){
+    if(title)title.textContent=tableOrdering.loading?'Определяем ваш стол…':'Не удалось определить стол';
+    if(list){
+      const message=tableOrdering.loading?'Проверяем QR-код.':offline?'Нет подключения к интернету. Как только сеть появится, нажмите «Повторить».':(tableOrdering.lastError||'Откройте меню повторно через QR-код на столе.');
+      list.innerHTML='<div class="table-order-empty"><b>'+tableEscapeHtml(message)+'</b><span>'+(tableOrdering.loading?'Это займёт несколько секунд.':'Корзина останется сохранённой на этом устройстве.')+'</span></div>';
+    }
+    if(service)service.innerHTML='';
+    document.querySelectorAll('[data-table-service]').forEach(btn=>{btn.disabled=true;btn.setAttribute('aria-busy','false');});
+    return;
+  }
   const tableLabel=tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number);if(title)title.textContent=tableLabel;
   const orders=[...(tableOrdering.orders||[])].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if(list)list.innerHTML=orders.length?orders.slice(0,4).map(order=>{
     const when=new Date(order.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
     return '<article class="table-order-card"><div class="table-order-card-head"><div><b>Заказ #'+order.id+'</b><span>'+when+'</span></div><strong>'+fmt(Number(order.total||0))+'</strong></div>'+tableOrderStatusMarkup(order)+'<div class="table-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="table-order-meta">Расчёт: '+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||order.payment_method||'—')+(order.comment?' · '+tableEscapeHtml(order.comment):'')+'</div></article>';
   }).join(''):'<div class="table-order-empty"><b>Вы за столом.</b><span>Соберите корзину — заказ уйдёт прямо на кухню.</span></div>';
-  const open=openServiceKinds();if(service){const labels=[];if(open.has('waiter'))labels.push('Официант уже вызван');if(open.has('bill'))labels.push('Счёт уже запрошен');if(open.has('cutlery'))labels.push('Запрос на приборы отправлен');service.innerHTML=labels.length?'<div class="table-service-open">'+labels.map(x=>'<span>'+x+'</span>').join('')+'</div>':'';}
-  document.querySelectorAll('[data-table-service]').forEach(btn=>{btn.disabled=open.has(btn.dataset.tableService);});
+  const open=openServiceKinds(),pending=tableOrdering.servicePending;
+  if(service){
+    const labels=[];
+    if(pending.has('waiter'))labels.push('Отправляем вызов официанта…');else if(open.has('waiter'))labels.push('Официант уже вызван');
+    if(pending.has('bill'))labels.push('Отправляем запрос на счёт…');else if(open.has('bill'))labels.push('Счёт уже запрошен');
+    if(pending.has('cutlery'))labels.push('Отправляем запрос на приборы…');else if(open.has('cutlery'))labels.push('Запрос на приборы отправлен');
+    service.innerHTML=labels.length?'<div class="table-service-open">'+labels.map(x=>'<span>'+tableEscapeHtml(x)+'</span>').join('')+'</div>':'';
+  }
+  document.querySelectorAll('[data-table-service]').forEach(btn=>{
+    const kind=btn.dataset.tableService,pendingNow=pending.has(kind),openNow=open.has(kind);
+    if(!btn.dataset.idleLabel)btn.dataset.idleLabel=btn.textContent;
+    btn.disabled=offline||pendingNow||openNow;
+    btn.setAttribute('aria-busy',pendingNow?'true':'false');
+    if(pendingNow)btn.textContent='Отправляем…';
+    else if(openNow)btn.textContent=kind==='waiter'?'Официант вызван':kind==='bill'?'Счёт запрошен':'Запрос отправлен';
+    else btn.textContent=btn.dataset.idleLabel;
+  });
 }
 function applyTableOrderState(data){
-  tableOrdering.table=data.table||tableOrdering.table;tableOrdering.session=data.session||tableOrdering.session;tableOrdering.orders=Array.isArray(data.orders)?data.orders:[];tableOrdering.requests=Array.isArray(data.requests)?data.requests:[];tableOrdering.ready=!!tableOrdering.table&&!!tableOrdering.session;
+  tableOrdering.table=data.table||tableOrdering.table;tableOrdering.session=data.session||tableOrdering.session;tableOrdering.orders=Array.isArray(data.orders)?data.orders:[];tableOrdering.requests=Array.isArray(data.requests)?data.requests:[];tableOrdering.ready=!!tableOrdering.table&&!!tableOrdering.session;tableOrdering.lastError='';tableOrdering.lastStatusAt=Date.now();
   for(const order of tableOrdering.orders){const previous=tableOrdering.seenStatuses.get(String(order.id));if(previous&&previous!==order.status&&order.status==='ready')showToast('Заказ #'+order.id+' готов');tableOrdering.seenStatuses.set(String(order.id),order.status);}
-  renderTableOrderPanel();updateOrderState();
+  renderTableOrderPanel();syncTablePaymentChoice();updateOrderState();
 }
-async function refreshTableStatus(manual=false){if(!tableOrdering.ready||tableOrdering.loading)return;try{applyTableOrderState(await tableApiCall('status'));if(manual)showToast('Статус обновлён');}catch(error){if(manual)showToast(error.message||'Не удалось обновить статус');}}
+async function bootstrapTableOrdering(manual=false){
+  if(!tableOrdering.tableToken||tableOrdering.loading)return;
+  if(navigator.onLine===false){
+    tableOrdering.lastError='Нет подключения к интернету. Проверьте сеть.';
+    renderTableOrderPanel();updateOrderState();if(manual)showToast(tableOrdering.lastError);return;
+  }
+  tableOrdering.loading=true;tableOrdering.lastError='';renderTableOrderPanel();updateOrderState();
+  try{
+    const data=await tableApiCall('bootstrap');
+    tableOrdering.loading=false;applyTableOrderState(data);
+    if(!tableOrdering.pollTimer)tableOrdering.pollTimer=setInterval(()=>refreshTableStatus(false),4000);
+    if(manual)showToast((tableOrdering.table?.label||'Стол')+' определён');
+  }catch(error){
+    tableOrdering.loading=false;tableOrdering.ready=false;tableOrdering.lastError=tableFriendlyError(error,'Не удалось определить стол');
+    renderTableOrderPanel();updateOrderState();if(manual)showToast(tableOrdering.lastError);console.warn('Table bootstrap failed',error);
+  }
+}
+async function retryTableConnection(){
+  if(tableOrdering.loading)return;
+  if(tableOrdering.ready)return refreshTableStatus(true);
+  return bootstrapTableOrdering(true);
+}
+async function refreshTableStatus(manual=false){
+  if(!tableOrdering.tableToken||tableOrdering.loading)return;
+  if(document.visibilityState==='hidden'&&!manual)return;
+  if(!tableOrdering.ready)return bootstrapTableOrdering(manual);
+  if(navigator.onLine===false){
+    tableOrdering.lastError='Нет подключения к интернету. Проверьте сеть.';renderTableOrderPanel();updateOrderState();if(manual)showToast(tableOrdering.lastError);return;
+  }
+  try{applyTableOrderState(await tableApiCall('status'));if(manual)showToast('Статус обновлён');}
+  catch(error){
+    tableOrdering.lastError=tableFriendlyError(error,'Не удалось обновить статус');
+    if(error?.status===400||error?.status===404)tableOrdering.ready=false;
+    renderTableOrderPanel();updateOrderState();if(manual)showToast(tableOrdering.lastError);
+  }
+}
 async function requestTableService(kind){
   if(!tableOrdering.ready){showToast('Откройте меню через QR-код на столе');return;}
+  if(navigator.onLine===false){showToast('Нет подключения к интернету');return;}
+  const open=openServiceKinds();if(open.has(kind)||tableOrdering.servicePending.has(kind))return;
   const messages={waiter:'Официант вызван',bill:'Запрос на счёт отправлен',cutlery:'Запрос на приборы отправлен'};
-  try{applyTableOrderState(await tableApiCall('service',{kind}));showToast(messages[kind]||'Запрос отправлен');}catch(error){showToast(error.message||'Не удалось отправить запрос');}
+  tableOrdering.servicePending.add(kind);renderTableOrderPanel();
+  try{applyTableOrderState(await tableApiCall('service',{kind}));showToast(messages[kind]||'Запрос отправлен');}
+  catch(error){showToast(tableFriendlyError(error,'Не удалось отправить запрос'));}
+  finally{tableOrdering.servicePending.delete(kind);renderTableOrderPanel();}
+}
+function continueOrdering(){
+  const hasItems=Object.keys(cart).some(k=>cart[k]>0);
+  if(hasItems){openCart();return;}
+  const target=document.querySelector('.sticky-bar')||document.getElementById('menuArea');
+  target?.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'start'});
+  showToast('Выберите блюда — они появятся в корзине');
 }
 async function initTableOrdering(){
   tableOrdering.tableToken=tableTokenFromUrl();renderTableOrderPanel();if(!tableOrdering.tableToken){updateOrderState();return;}
-  tableOrdering.guestToken=guestTokenForTable(tableOrdering.tableToken);tableOrdering.loading=true;renderTableOrderPanel();updateOrderState();
-  try{const data=await tableApiCall('bootstrap');tableOrdering.loading=false;applyTableOrderState(data);if(!tableOrdering.pollTimer)tableOrdering.pollTimer=setInterval(()=>refreshTableStatus(false),4000);}
-  catch(error){tableOrdering.loading=false;tableOrdering.ready=false;renderTableOrderPanel();updateOrderState();console.warn('Table bootstrap failed',error);}
+  tableOrdering.guestToken=guestTokenForTable(tableOrdering.tableToken);syncTablePaymentChoice();await bootstrapTableOrdering(false);
 }
+window.addEventListener('online',()=>{
+  tableOrdering.lastError='';renderTableOrderPanel();updateOrderState();
+  if(tableOrdering.tableToken&&document.visibilityState!=='hidden')tableOrdering.ready?refreshTableStatus(false):bootstrapTableOrdering(false);
+});
+window.addEventListener('offline',()=>{
+  tableOrdering.lastError='Нет подключения к интернету. Проверьте сеть.';renderTableOrderPanel();updateOrderState();
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&tableOrdering.tableToken)tableOrdering.ready?refreshTableStatus(false):bootstrapTableOrdering(false);
+});
 
 
 async function fetchSupabaseRows(table,query){
@@ -637,10 +773,10 @@ function cancelPickupDrag(event){
 }
 function updateOrderState(){
   const btn=document.getElementById('orderBtn');if(!btn)return;
-  const hint=document.getElementById('orderHint'),hasItems=Object.keys(cart).some(k=>cart[k]>0),paymentMethod=document.getElementById('paymentMethodInp')?.value||'',paymentMethodValid=!!PAYMENT_METHOD_LABELS[paymentMethod],tableValid=tableOrdering.ready&&!tableOrdering.loading;
-  const valid=hasItems&&paymentMethodValid&&tableValid&&!tableOrdering.submitting,err=document.getElementById('paymentMethodErr');if(err)err.hidden=paymentMethodValid||!hasItems;
-  btn.disabled=!valid;btn.textContent=tableOrdering.submitting?'Отправляем…':'Заказать';
-  if(hint){let message='';if(hasItems){if(!tableOrdering.tableToken)message='Для заказа откройте меню через QR-код на столе';else if(tableOrdering.loading)message='Проверяем ваш стол…';else if(!tableValid)message='Не удалось определить стол по QR-коду';else if(!paymentMethodValid)message='Выберите, как хотите рассчитаться с официантом';}hint.textContent=message;hint.hidden=!message;}
+  const hint=document.getElementById('orderHint'),hasItems=Object.keys(cart).some(k=>cart[k]>0),paymentMethod=document.getElementById('paymentMethodInp')?.value||'',paymentMethodValid=!!TABLE_PAYMENT_LABELS[paymentMethod],tableValid=tableOrdering.ready&&!tableOrdering.loading,online=navigator.onLine!==false;
+  const valid=hasItems&&paymentMethodValid&&tableValid&&online&&!tableOrdering.submitting,err=document.getElementById('paymentMethodErr');if(err)err.hidden=paymentMethodValid||!hasItems;
+  btn.disabled=!valid;btn.textContent=tableOrdering.submitting?'Отправляем…':'Заказать';btn.setAttribute('aria-busy',tableOrdering.submitting?'true':'false');
+  if(hint){let message='';if(hasItems){if(!online)message='Нет подключения к интернету. Корзина сохранена.';else if(!tableOrdering.tableToken)message='Для заказа откройте меню через QR-код на столе';else if(tableOrdering.loading)message='Проверяем ваш стол…';else if(!tableValid)message=tableOrdering.lastError||'Не удалось определить стол по QR-коду';else if(!paymentMethodValid)message='Выберите, как хотите рассчитаться с официантом';}hint.textContent=message;hint.hidden=!message;}
 }
 
 rebuildCats();
@@ -651,16 +787,17 @@ function renderPopular(){
   const trackHtml=POPULAR_IDS.map((id,idx)=>{
     const item=getItem(id);
     if(!item)return '';
+    const name=tableEscapeHtml(item.n),weight=tableEscapeHtml(item.w),desc=tableEscapeHtml(item.d);
     return `<div class="popular-slide">
       <div class="pop-card">
-        <button type="button" class="product-details-btn" data-product-id="${item.id}" onclick="openPopularItem(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
+        <button type="button" class="product-details-btn" data-product-id="${item.id}" onclick="openPopularItem(${item.id},this)" aria-label="Подробнее о ${name}"></button>
         <div class="pop-img">${productImageHtml(item)}</div>
         ${cartAddButton(item.id,'add-sq pop-add-top')}
         <div class="pop-body">
           <div class="pop-main">
-            <div class="pop-name">${item.n}</div>
-            <div class="pop-weight">${item.w}</div>
-            <div class="pop-desc">${item.d}</div>
+            <div class="pop-name">${name}</div>
+            <div class="pop-weight">${weight}</div>
+            <div class="pop-desc">${desc}</div>
           </div>
           <div class="pop-footer">
             ${qtyPriceHtml(item,'pop-price')}
@@ -689,26 +826,28 @@ function filtered(){
   return r;
 }
 function menuGridCardHtml(item){
+  const name=tableEscapeHtml(item.n),weight=tableEscapeHtml(item.w);
   return `<div class="gc">
-    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
+    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${name}"></button>
     <div class="gc-img">${productImageHtml(item)}
       ${cartAddButton(item.id,'gc-plus')}
     </div>
     <div class="gc-foot">
-      <div class="gc-name">${item.n}</div>
-      <div class="gc-weight">${item.w}</div>
+      <div class="gc-name">${name}</div>
+      <div class="gc-weight">${weight}</div>
     </div>
     ${qtyPriceHtml(item,'gc-price')}
   </div>`;
 }
 function menuListCardHtml(item){
+  const name=tableEscapeHtml(item.n),weight=tableEscapeHtml(item.w),desc=tableEscapeHtml(item.d);
   return `<div class="lc">
-    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
+    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${name}"></button>
     <div class="lc-img">${productImageHtml(item)}</div>
     <div class="lc-info">
-      <div class="lc-name">${item.n}</div>
-      <div class="lc-weight">${item.w}</div>
-      <div class="lc-desc">${item.d}</div>
+      <div class="lc-name">${name}</div>
+      <div class="lc-weight">${weight}</div>
+      <div class="lc-desc">${desc}</div>
     </div>
     <div class="lc-right">
       ${cartAddButton(item.id,'add-sq')}
@@ -760,7 +899,7 @@ function render(){
   items.forEach(i=>{if(!byCat[i.c])byCat[i.c]=[];byCat[i.c].push(i)});
   let html='';
   for(const cat in byCat){
-    html+=`<h2 class="menu-sec-title" id="sec-${cat}">${CN[cat]||cat}</h2>`;
+    html+=`<h2 class="menu-sec-title" id="sec-${tableEscapeHtml(cat)}">${tableEscapeHtml(CN[cat]||cat)}</h2>`;
     if(isGrid){
       html+=`<div class="g4">${byCat[cat].map(menuGridCardHtml).join('')}</div>`;
     }else{
@@ -793,13 +932,14 @@ function openProd(id,opener,skipHistory=false){
   if(!item)return;
   activeProductId=item.id;
   if(!skipHistory)pushMenuOverlayState('prodOv',item.id);
+  const name=tableEscapeHtml(item.n),weight=tableEscapeHtml(item.w),desc=tableEscapeHtml(item.d);
   document.getElementById('prodContent').innerHTML=`
     <div class="ps-img${item.detailImg?' detail-generated':''}">${productImageHtml(item,{detail:true,lazy:false})}</div>
     <div class="ps-dot" aria-hidden="true"></div>
     <div class="ps-body">
-      <div class="ps-name" id="prodTitle">${item.n}</div>
-      <div class="ps-weight">${item.w}</div>
-      <div class="ps-desc">${item.d}</div>
+      <div class="ps-name" id="prodTitle">${name}</div>
+      <div class="ps-weight">${weight}</div>
+      <div class="ps-desc">${desc}</div>
     </div>
     <div class="ps-footer" style="margin:0 20px 20px">
       ${qtyPriceHtml(item,'ps-price')}
@@ -832,7 +972,7 @@ function updatePill(){
 }
 function openCart(skipHistory=false){
   if(!skipHistory)pushMenuOverlayState('cartOv');
-  renderCart();syncCartOptionalBlocks();openOv('cartOv');
+  renderCart();syncTablePaymentChoice();syncCartOptionalBlocks();openOv('cartOv');
 }
 
 function getCartRecommendations(){
@@ -859,11 +999,11 @@ function renderCartRecommendations(){
   host.innerHTML=`<section class="cart-recommendations" aria-labelledby="cartRecommendationsTitle">
     <div class="cart-recommendations-title" id="cartRecommendationsTitle">С этим берут</div>
     <div class="cart-recommendations-list">
-      ${items.map(item=>`<div class="cart-rec-item">
+      ${items.map(item=>{const name=tableEscapeHtml(item.n);return `<div class="cart-rec-item">
         <div class="cart-rec-img">${productImageHtml(item,{className:'product-img'})}</div>
-        <div class="cart-rec-copy"><strong>${item.n}</strong><span>${fmt(item.p)}</span></div>
-        <button type="button" class="cart-rec-add" onclick="addCart(${item.id})" aria-label="Добавить ${item.n}">${svgIcon('plus','svg-icon')}</button>
-      </div>`).join('')}
+        <div class="cart-rec-copy"><strong>${name}</strong><span>${fmt(item.p)}</span></div>
+        <button type="button" class="cart-rec-add" onclick="addCart(${item.id})" aria-label="Добавить ${name}">${svgIcon('plus','svg-icon')}</button>
+      </div>`}).join('')}
     </div>
   </section>`;
 }
@@ -887,8 +1027,8 @@ function renderCart(){
     html+=`<div class="ci ci-card">
       <div class="ci-img">${productImageHtml(item)}</div>
       <div class="ci-info">
-        <div class="ci-name">${item.n}</div>
-        <div class="ci-weight">${item.w}</div>
+        <div class="ci-name">${tableEscapeHtml(item.n)}</div>
+        <div class="ci-weight">${tableEscapeHtml(item.w)}</div>
         <div class="ci-bottom-row">
           <div class="ci-price">${fmt(item.p*qty)}<span>${qty>1?fmt(item.p)+' за шт.':'за позицию'}</span></div>
           <div class="qty-row" aria-label="Количество">
@@ -933,6 +1073,7 @@ function confirmClearCart(){
 function setPayment(value,btn){
   const input=document.getElementById('paymentMethodInp');
   if(input)input.value=value;
+  if(TABLE_PAYMENT_LABELS[value])persistTablePayment(value);
   document.querySelectorAll('#cartOv .payment-opt').forEach(el=>{
     const active=el===btn;
     el.classList.toggle('on',active);
@@ -1203,15 +1344,16 @@ function prepareServiceSheet(mode){
   }
 }
 async function placeOrder(){
-  const payload=buildOrderPayload();if(!payload.items.length){showToast('Корзина пуста');return;}if(!tableOrdering.tableToken){showToast('Откройте меню через QR-код на столе');return;}if(!tableOrdering.ready){showToast('Не удалось определить стол');return;}
+  const payload=buildOrderPayload();if(!payload.items.length){showToast('Корзина пуста');return;}if(navigator.onLine===false){showToast('Нет подключения к интернету. Корзина сохранена.');return;}if(!tableOrdering.tableToken){showToast('Откройте меню через QR-код на столе');return;}if(!tableOrdering.ready){showToast(tableOrdering.lastError||'Не удалось определить стол');return;}
   if(!PAYMENT_METHOD_LABELS[payload.paymentMethod]){const err=document.getElementById('paymentMethodErr');if(err)err.hidden=false;updateOrderState();return;}
   tableOrdering.submitting=true;updateOrderState();
   try{
     const data=await tableApiCall('place-order',payload);applyTableOrderState(data);const orderId=data.orderId;clearCart();
-    const input=document.getElementById('paymentMethodInp');if(input)input.value='';document.querySelectorAll('#cartOv .payment-opt').forEach(el=>{el.classList.remove('on');el.setAttribute('aria-pressed','false');});
-    const comment=document.getElementById('commentTa');if(comment)comment.value='';closeOv('cartOv');showToast('Заказ #'+orderId+' отправлен на кухню');
+    const comment=document.getElementById('commentTa'),commentBlock=document.getElementById('commentBlock'),commentToggle=document.getElementById('commentToggle');
+    if(comment)comment.value='';if(commentBlock)commentBlock.hidden=true;if(commentToggle){commentToggle.setAttribute('aria-expanded','false');commentToggle.textContent='+ Добавить комментарий';}
+    closeOv('cartOv');showToast('Заказ #'+orderId+' отправлен. Статус появится ниже.');
     setTimeout(()=>document.getElementById('tableOrderPanel')?.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'center'}),120);
-  }catch(error){showToast(error.message||'Не удалось отправить заказ');}finally{tableOrdering.submitting=false;updateOrderState();}
+  }catch(error){showToast(tableFriendlyError(error,'Не удалось отправить заказ'));}finally{tableOrdering.submitting=false;updateOrderState();}
 }
 function openShare(mode='contact'){
   prepareServiceSheet(mode);
