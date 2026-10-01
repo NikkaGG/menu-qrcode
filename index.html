@@ -14,7 +14,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icons/app-192.png" type="image/png">
 <link rel="apple-touch-icon" href="/icons/app-192.png">
-<link rel="stylesheet" href="/styles.css?v=20260930-contactpair">
+<link rel="stylesheet" href="/styles.css?v=20261001-layout-audit-v1">
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Restaurant","name":"Sushi Crazy","url":"https://menu-qrcode-lt1q.vercel.app/","image":"https://menu-qrcode-lt1q.vercel.app/api/branding?type=banner","telephone":"+7 776 680 78 60","servesCuisine":["Sushi","Pizza","Fast food"],"address":{"@type":"PostalAddress","streetAddress":"улица Трудовиков, 2г","addressLocality":"Грозный","addressRegion":"Чеченская Республика"}}
@@ -80,6 +80,21 @@
 <div class="menu-area" id="menuArea"></div>
 
 
+
+<section class="table-order-panel" id="tableOrderPanel" hidden aria-live="polite">
+  <div class="table-order-head">
+    <div><span>Ваш стол</span><h2 id="tableOrderTitle">Определяем стол…</h2></div>
+    <button type="button" onclick="refreshTableStatus(true)">Обновить</button>
+  </div>
+  <div class="table-order-list" id="tableOrderList"></div>
+  <div class="table-order-actions">
+    <button type="button" onclick="openCart()">Заказать ещё</button>
+    <button type="button" data-table-service="waiter" onclick="requestTableService('waiter')">Позвать официанта</button>
+    <button type="button" data-table-service="bill" onclick="requestTableService('bill')">Попросить счёт</button>
+  </div>
+  <div id="tableServiceState"></div>
+</section>
+
 <!-- RESTAURANT INFO / FOOTER -->
 <section class="restaurant-footer" aria-labelledby="restaurantFooterTitle">
 
@@ -123,20 +138,6 @@
 </section>
 
 </main><!-- /page -->
-
-<section class="table-order-panel" id="tableOrderPanel" hidden aria-live="polite">
-  <div class="table-order-head">
-    <div><span>Ваш стол</span><h2 id="tableOrderTitle">Определяем стол…</h2></div>
-    <button type="button" onclick="refreshTableStatus(true)">Обновить</button>
-  </div>
-  <div class="table-order-list" id="tableOrderList"></div>
-  <div class="table-order-actions">
-    <button type="button" onclick="openCart()">Заказать ещё</button>
-    <button type="button" data-table-service="waiter" onclick="requestTableService('waiter')">Позвать официанта</button>
-    <button type="button" data-table-service="bill" onclick="requestTableService('bill')">Попросить счёт</button>
-  </div>
-  <div id="tableServiceState"></div>
-</section>
 
 <!-- COOKIE BAR -->
 <div class="cookie-bar" id="cookieBar">
@@ -277,7 +278,6 @@
     </div>
   </div>
 </div>
-</div>
 
 <div class="toast" id="toastEl"></div>
 
@@ -301,7 +301,7 @@
   </div>
 </div>
 
-<script src="/app.js?v=20261001-table-order-v1"></script>
+<script src="/app.js?v=20261001-layout-audit-v1"></script>
 
 </body>
 </html>
