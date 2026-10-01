@@ -1,5 +1,5 @@
 const { getQuery } = require('../_lib/db');
-const { authorizeBotRequest } = require('../_lib/bot-auth');
+const { requireAdmin } = require('../_lib/admin-auth');
 const { money } = require('../_lib/public-api');
 const { json, methodNotAllowed } = require('../_lib/response');
 
@@ -20,11 +20,11 @@ ORDER BY
 
 function createOpenSessionsHandler({
   query,
-  authorize = authorizeBotRequest,
+  authorize,
 } = {}) {
   return async (request, response) => {
     if (request.method !== 'GET') return methodNotAllowed(response, ['GET']);
-    if (!await authorize(request, response)) return undefined;
+    if (!await requireAdmin(request, response, authorize)) return undefined;
     try {
       const rows = await (query || getQuery())(OPEN_SESSIONS_SQL);
       return json(response, 200, {
