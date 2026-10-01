@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sushi Crazy · Кухня</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f4f4;color:#111;font:15px/1.4 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}
+.wrap{max-width:1180px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.top h1{margin:0;font-size:28px}.top nav{display:flex;gap:8px}.top a,.top button{border:0;border-radius:12px;padding:9px 12px;background:#fff;color:#111;text-decoration:none;font-weight:700}
+.login{max-width:420px;margin:12vh auto;background:#fff;border-radius:24px;padding:24px;box-shadow:0 18px 50px #0001}.login h1{margin-top:0}.login input{width:100%;padding:14px;border:1px solid #ddd;border-radius:14px;font-size:20px;letter-spacing:.18em}.login button{width:100%;margin-top:10px;padding:14px;border:0;border-radius:14px;background:#111;color:#fff;font-weight:800}.err{color:#a32b2b;margin-top:8px}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.stat{background:#fff;border-radius:14px;padding:9px 12px;font-weight:800}.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.col{min-width:0}.col h2{font-size:15px;margin:0 0 8px;color:#666;text-transform:uppercase;letter-spacing:.06em}
+.card{background:#fff;border-radius:18px;padding:15px;margin-bottom:10px;box-shadow:0 8px 24px #0000000b}.card.ready{box-shadow:0 0 0 2px #111}.head{display:flex;justify-content:space-between;gap:12px}.head b{font-size:19px}.head span{color:#777;font-size:12px}.sum{font-weight:800;white-space:nowrap}
+.items{margin:12px 0;display:grid;gap:6px}.item{display:flex;justify-content:space-between;gap:12px}.item strong{font-size:16px}.meta{padding-top:9px;border-top:1px dashed #ddd;color:#666;font-size:12px}.comment{margin-top:7px;padding:8px 10px;border-radius:10px;background:#fff3d8;color:#664f10;font-weight:650}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}.actions button{border:0;border-radius:11px;padding:9px 11px;background:#111;color:#fff;font-weight:800}.actions .danger{background:#f6e5e5;color:#922}.empty{padding:30px 10px;text-align:center;color:#999;background:#fff;border-radius:18px}
+@media(max-width:820px){.cols{grid-template-columns:1fr}.top h1{font-size:23px}}
+</style>
+</head>
+<body>
+<div id="login" class="login"><h1>Кухня</h1><p>Введите PIN персонала.</p><form id="loginForm"><input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN"><button>Войти</button></form><div class="err" id="loginErr"></div></div>
+<div class="wrap" id="app" hidden>
+<header class="top"><div><h1>Кухня</h1><small id="updated">—</small></div><nav><a href="/staff">Зал</a><button onclick="logout()">Выйти</button></nav></header>
+<div class="stats" id="stats"></div>
+<div class="cols"><section class="col"><h2>Новые</h2><div id="submitted"></div></section><section class="col"><h2>Готовятся</h2><div id="working"></div></section><section class="col"><h2>Готовы</h2><div id="ready"></div></section></div>
+</div>
+<script>
+const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
+let pin=sessionStorage.getItem('sushi-staff-pin')||'',state=null,busy=false;
+const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>Number(n||0).toLocaleString('ru-RU')+' ₸',pay={kaspi:'Kaspi',card:'Карта',cash:'Наличные'};
+async function api(action,payload={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action,...payload})});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||'Ошибка');e.status=r.status;throw e}return d}
+function tableFor(o){const s=state.sessions.find(x=>x.id===o.table_session_id),t=state.tables.find(x=>x.id===s?.table_id);return t?.label||('Стол '+(t?.table_number||'?'))}
+function itemsFor(id){return state.items.filter(x=>Number(x.order_id)===Number(id))}
+function age(ts){const m=Math.max(0,Math.floor((Date.now()-new Date(ts))/60000));return m<1?'только что':m+' мин'}
+function card(o){
+ let buttons='';if(o.status==='submitted')buttons='<button onclick="move('+o.id+',\\'accepted\\')">Принять</button>';if(o.status==='accepted')buttons='<button onclick="move('+o.id+',\\'preparing\\')">Готовить</button>';if(o.status==='preparing')buttons='<button onclick="move('+o.id+',\\'ready\\')">Готово</button>';if(o.status==='ready')buttons='<button onclick="move('+o.id+',\\'served\\')">Подан</button>';if(['submitted','accepted','preparing'].includes(o.status))buttons+='<button class="danger" onclick="move('+o.id+',\\'cancelled\\')">Отменить</button>';
+ return '<article class="card '+(o.status==='ready'?'ready':'')+'"><div class="head"><div><b>'+h(tableFor(o))+' · #'+o.id+'</b><br><span>'+age(o.created_at)+'</span></div><div class="sum">'+money(o.total)+'</div></div><div class="items">'+itemsFor(o.id).map(i=>'<div class="item"><span><strong>'+i.quantity+'×</strong> '+h(i.name)+'</span><span>'+money(i.line_total)+'</span></div>').join('')+'</div><div class="meta">Расчёт: '+h(pay[o.payment_method]||o.payment_method)+'</div>'+(o.comment?'<div class="comment">'+h(o.comment)+'</div>':'')+'<div class="actions">'+buttons+'</div></article>';
+}
+function render(){const active=state.orders.filter(o=>!['served','cancelled'].includes(o.status));document.getElementById('stats').innerHTML='<div class="stat">Новые: '+active.filter(o=>o.status==='submitted').length+'</div><div class="stat">В работе: '+active.filter(o=>['accepted','preparing'].includes(o.status)).length+'</div><div class="stat">Готовы: '+active.filter(o=>o.status==='ready').length+'</div>';const sets={submitted:active.filter(o=>o.status==='submitted'),working:active.filter(o=>['accepted','preparing'].includes(o.status)),ready:active.filter(o=>o.status==='ready')};for(const [id,orders] of Object.entries(sets))document.getElementById(id).innerHTML=orders.length?orders.map(card).join(''):'<div class="empty">Пусто</div>';document.getElementById('updated').textContent='Обновлено '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+async function refresh(silent=false){if(busy)return;busy=true;try{state=await api('dashboard');render();login.hidden=true;app.hidden=false}catch(e){if(e.status===401){sessionStorage.removeItem('sushi-staff-pin');pin='';login.hidden=false;app.hidden=true;if(!silent)loginErr.textContent='Неверный PIN'}}finally{busy=false}}
+async function move(orderId,status){try{state=await api('update-order',{orderId,status});render()}catch(e){alert(e.message)}}
+function logout(){sessionStorage.removeItem('sushi-staff-pin');location.reload()}
+loginForm.onsubmit=e=>{e.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-staff-pin',pin);loginErr.textContent='';refresh(false)};
+if(pin)refresh(true);setInterval(()=>{if(pin)refresh(true)},3000);
+</script>
+</body></html>
