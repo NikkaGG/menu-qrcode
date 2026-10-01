@@ -1012,3 +1012,158 @@ body.ops{
   .ops .stat b{font-size:24px}
   .request-head{align-items:flex-start}
 }
+
+
+/* ── APPLE-LIKE OPERATIONS V2 ── */
+body.ops{-webkit-tap-highlight-color:transparent}
+.live-capsule{
+  min-height:34px;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 10px;
+  border:1px solid rgba(60,60,67,.10);
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  color:var(--ops-muted);
+  font-size:11px;
+  font-weight:650;
+  white-space:nowrap;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+}
+.live-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:#34c759;
+  box-shadow:0 0 0 3px rgba(52,199,89,.13);
+}
+.segmented-control{
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:1fr;
+  gap:2px;
+  width:min(520px,100%);
+  margin:0 0 14px;
+  padding:3px;
+  border:1px solid rgba(60,60,67,.10);
+  border-radius:12px;
+  background:rgba(118,118,128,.12);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.04);
+}
+.segmented-control button{
+  min-height:36px;
+  border:0;
+  border-radius:9px;
+  padding:6px 10px;
+  background:transparent;
+  color:var(--ops-muted);
+  font-size:12px;
+  font-weight:650;
+  white-space:nowrap;
+}
+.segmented-control button[aria-selected="true"]{
+  background:#fff;
+  color:var(--ops-text);
+  box-shadow:0 1px 4px rgba(0,0,0,.12),0 0 0 .5px rgba(0,0,0,.05);
+}
+.ops-kitchen .cols[data-view="submitted"],
+.ops-kitchen .cols[data-view="working"],
+.ops-kitchen .cols[data-view="ready"]{grid-template-columns:1fr}
+.ops-kitchen .cols[data-view="submitted"] .col:not(.lane-new),
+.ops-kitchen .cols[data-view="working"] .col:not(.lane-working),
+.ops-kitchen .cols[data-view="ready"] .col:not(.lane-ready){display:none}
+
+.switch-control{
+  display:inline-flex!important;
+  align-items:center;
+  gap:7px;
+}
+.switch-track{
+  position:relative;
+  width:34px;height:20px;
+  flex:0 0 34px;
+  border-radius:999px;
+  background:#d1d1d6;
+  transition:background .16s ease;
+}
+.switch-track i{
+  position:absolute;
+  top:2px;left:2px;
+  width:16px;height:16px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.22);
+  transition:transform .16s ease;
+}
+.switch-control.on .switch-track{background:#34c759}
+.switch-control.on .switch-track i{transform:translateX(14px)}
+.switch-control.on{color:#1f6f2d}
+
+.window-dots{
+  display:flex;
+  gap:7px;
+  padding:2px 4px 12px;
+}
+.window-dots i{width:11px;height:11px;border-radius:50%;display:block}
+.window-dots i:nth-child(1){background:#ff5f57}
+.window-dots i:nth-child(2){background:#febc2e}
+.window-dots i:nth-child(3){background:#28c840}
+
+.sheet-grabber{
+  width:38px;height:5px;
+  margin:-7px auto 13px;
+  border-radius:999px;
+  background:#d1d1d6;
+}
+.sheet-form{display:grid;gap:10px;margin-top:17px}
+.sheet-form label{display:grid;gap:5px;color:var(--ops-muted);font-size:11px;font-weight:650}
+.sheet-form input{
+  width:100%;min-height:46px;
+  border:1px solid rgba(60,60,67,.15);
+  border-radius:12px;
+  padding:10px 12px;
+  outline:0;background:#fff;color:var(--ops-text)
+}
+.sheet-form input:focus{box-shadow:var(--ops-focus);border-color:#aaa}
+.sheet-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:16px;
+}
+.sheet-actions button{
+  min-height:46px;
+  border:0;border-radius:12px;
+  background:#f2f2f7;color:var(--ops-text);
+  font-weight:700;
+}
+.sheet-actions .primary{background:#1c1c1e;color:#fff}
+.sheet-actions .danger{background:#ff3b30;color:#fff}
+.sheet-copy{margin:8px 0 0;color:var(--ops-muted);font-size:13px}
+
+@media(max-width:720px){
+  .live-capsule{min-height:32px}
+  .segmented-control{
+    position:sticky;
+    top:8px;
+    z-index:25;
+    width:100%;
+    margin-bottom:12px;
+    background:rgba(229,229,234,.82);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+  }
+  .modal.action-sheet{
+    align-items:flex-end;
+    padding:0;
+  }
+  .modal.action-sheet .modal-card{
+    width:100%;
+    max-height:86dvh;
+    border-radius:24px 24px 0 0;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+    animation:sheet-in .2s ease-out;
+  }
+  .modal.action-sheet .sheet-grabber{display:block}
+}
+@media(min-width:721px){.sheet-grabber{display:none}}
+@keyframes sheet-in{from{transform:translateY(24px);opacity:.65}to{transform:translateY(0);opacity:1}}
