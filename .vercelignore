@@ -1,3 +1,10 @@
+# Local configuration and secrets
+.env*
+bot/.env*
+.admin-credentials.txt
+.vercel
+
+# Development files and caches
 .worktrees
 bot/.venv
 .venv
@@ -10,6 +17,13 @@ tests
 docs
 admin-app/node_modules
 .runtime
+test-results
+playwright-report
+*.log
+log.txt
+ref-products-dom.json
+
+# Keep application images in deployment
 *.png
 !emoji/*.png
 !public/emoji/*.png

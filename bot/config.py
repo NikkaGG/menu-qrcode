@@ -6,9 +6,28 @@ from dataclasses import dataclass
 import os
 import re
 from collections.abc import Mapping
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        content = path.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip("'\"")
+            if key and key not in os.environ:
+                os.environ[key] = val
+    except Exception:
+        pass
 
+_load_env_file(Path(__file__).resolve().parent / ".env")
+_load_env_file(Path(__file__).resolve().parent.parent / ".env")
 _SIGNED_DECIMAL = re.compile(r"[+-]?\d+\Z")
 _HTTP_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 

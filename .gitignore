@@ -1,21 +1,38 @@
-.worktrees/
+# Environment and secrets
 .env
-bot/.venv/
-.venv/
+.env*
+!.env.example
+bot/.env*
+!bot/.env.example
+.env.local
+.admin-credentials.txt
+
+# Dependencies and virtual environments
 node_modules/
+.venv/
+bot/.venv/
+
+# Build outputs
 admin-dist/
+
+# Runtime and caches
+.runtime/
 .playwright-mcp/
 .pytest_cache/
 __pycache__/
 *.py[cod]
+.worktrees/
+.vercel/
+
+# Debug and test artifacts
 *.log
 log.txt
+/ref-products-dom.json
+/image.png
+/image copy.png
 audit-*.png
 stage*-*.png
 payment-method-*.png
 pickup-time-*.png
-.vercel/
-.env.local
-.vercel
-.env*
-.runtime/
+test-results/
+playwright-report/
