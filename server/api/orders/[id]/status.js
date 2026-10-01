@@ -1,5 +1,5 @@
 const { getQuery } = require('../../_lib/db');
-const { authorizeBotRequest } = require('../../_lib/bot-auth');
+const { requireAdmin } = require('../../_lib/admin-auth');
 const { exactObject, isUuid, mapOrder } = require('../../_lib/public-api');
 const { json, methodNotAllowed } = require('../../_lib/response');
 
@@ -34,11 +34,11 @@ LEFT JOIN LATERAL (
 
 function createOrderStatusHandler({
   query,
-  authorize = authorizeBotRequest,
+  authorize,
 } = {}) {
   return async (request, response) => {
     if (request.method !== 'POST') return methodNotAllowed(response, ['POST']);
-    if (!await authorize(request, response)) return undefined;
+    if (!await requireAdmin(request, response, authorize)) return undefined;
     const id = request.query?.id;
     if (!isUuid(id)) return json(response, 400, { error: 'Invalid order id' });
     if (!exactObject(request.body, ['status'])
