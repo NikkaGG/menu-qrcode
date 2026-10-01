@@ -1,5 +1,5 @@
 const { getQuery } = require('../../_lib/db');
-const { authorizeBotRequest } = require('../../_lib/bot-auth');
+const { requireAdmin } = require('../../_lib/admin-auth');
 const { exactObject, isUuid } = require('../../_lib/public-api');
 const { json, methodNotAllowed } = require('../../_lib/response');
 
@@ -19,11 +19,11 @@ LEFT JOIN closed_session closed ON closed.id = current.id`;
 
 function createCloseSessionHandler({
   query,
-  authorize = authorizeBotRequest,
+  authorize,
 } = {}) {
   return async (request, response) => {
     if (request.method !== 'POST') return methodNotAllowed(response, ['POST']);
-    if (!await authorize(request, response)) return undefined;
+    if (!await requireAdmin(request, response, authorize)) return undefined;
     const id = request.query?.id;
     if (!isUuid(id)) return json(response, 400, { error: 'Invalid session id' });
     if (request.body !== undefined && !exactObject(request.body, [])) {
