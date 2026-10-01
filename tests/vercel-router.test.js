@@ -19,17 +19,13 @@ test('Vercel rewrites every nested API path to one fixed function', () => {
   assert.equal(config.services, undefined);
 });
 
-test('catch-all router selects customer and admin API routes without collisions', () => {
+test('catch-all router selects website API routes without collisions', () => {
   const cases = [
     ['/api/events', 'events'],
     ['/api/menu', 'menu'],
     ['/api/tables/table-token', 'table'],
     ['/api/orders', 'orders'],
     ['/api/orders/order-1', 'order-details'],
-    ['/api/admin/orders/order-1/status', 'order-status'],
-    ['/api/admin/sessions/open', 'sessions-open'],
-    ['/api/admin/sessions/session-1/bill', 'session-bill'],
-    ['/api/admin/sessions/session-1/close', 'session-close'],
     ['/api/stats', 'stats'],
     ['/api/stats/login', 'stats-login'],
     ['/api/stats/logout', 'stats-logout'],
@@ -52,9 +48,9 @@ test('catch-all router selects customer and admin API routes without collisions'
   }
 });
 
-test('catch-all router decodes admin parameters and preserves query strings', () => {
-  assert.deepEqual(matchRoute('/api/admin/orders/order%2F1/status?source=admin'), {
-    name: 'order-status',
+test('catch-all router decodes parameters and preserves query strings', () => {
+  assert.deepEqual(matchRoute('/api/orders/order%2F1?source=site'), {
+    name: 'order-details',
     params: { id: 'order/1' },
   });
   assert.deepEqual(matchRoute('/api/tables/table-token/'), {
@@ -66,7 +62,7 @@ test('catch-all router decodes admin parameters and preserves query strings', ()
 test('catch-all router delegates with decoded params and existing query values', async () => {
   let delegated;
   const router = createRouter({
-    'order-status': async (request, response) => {
+    'order-details': async (request, response) => {
       delegated = request.query;
       return response.status(204).end();
     },
@@ -87,13 +83,13 @@ test('catch-all router delegates with decoded params and existing query values',
 
   await router(
     {
-      url: '/api/admin/orders/order%2F1/status?source=admin',
-      query: { source: 'admin', path: ['admin', 'orders', 'order/1', 'status'] },
+      url: '/api/orders/order%2F1?source=site',
+      query: { source: 'site', path: ['orders', 'order/1'] },
     },
     response,
   );
 
-  assert.deepEqual(delegated, { source: 'admin', id: 'order/1' });
+  assert.deepEqual(delegated, { source: 'site', id: 'order/1' });
   assert.equal(response.statusCode, 204);
 });
 
