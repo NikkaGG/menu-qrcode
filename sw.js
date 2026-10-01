@@ -1,10 +1,10 @@
-const CACHE_NAME='sushi-crazy-shell-v16-layout-audit';
+const CACHE_NAME='sushi-crazy-shell-v17-guest-flow';
 const OFFLINE_URL='/offline.html';
 const PRECACHE=[
   '/',
   OFFLINE_URL,
   '/styles.css?v=20261001-layout-audit-v2',
-  '/app.js?v=20261001-layout-audit-v2',
+  '/app.js?v=20261002-guest-flow-v1',
   '/manifest.webmanifest',
   '/ref-products-dom.json',
   '/icons/app-192.png',
