@@ -3186,6 +3186,9 @@ img,video,iframe,svg{
   max-width:100%;
 }
 
+/* Keep small footer/status copy readable on phones. */
+.rf-credit{font-size:11px!important}
+
 /* Keep fixed UI layers in a deterministic order. */
 .cart-pill-shell{z-index:90!important}
 .cookie-bar{z-index:100}
@@ -3226,6 +3229,8 @@ body.cookie-visible:not(.cart-has-items) .cookie-bar{
 }
 .table-status-step span{
   display:block;
+  font-size:10px;
+  line-height:1.2;
   white-space:normal;
   overflow-wrap:anywhere;
 }
@@ -3298,7 +3303,7 @@ body.cookie-visible:not(.cart-has-items) .cookie-bar{
 
 @media(max-width:360px){
   .table-status-step span{
-    font-size:7px;
+    font-size:9px;
   }
   .table-order-card-head{
     flex-direction:column;
