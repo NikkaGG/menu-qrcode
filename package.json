@@ -2,7 +2,6 @@
   "name": "sushi-crazy-analytics",
   "private": true,
   "scripts": {
-    "start:all": "node scripts/start-all.js",
     "seed:stats": "node scripts/seed-stage05-stats.js",
     "test:legacy": "node scripts/run-node-tests.js",
     "test:unit": "vitest run --config admin-app/vitest.config.ts",
