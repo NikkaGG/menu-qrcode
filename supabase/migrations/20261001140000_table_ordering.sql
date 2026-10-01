@@ -87,3 +87,13 @@ update public.restaurant_tables
 set qr_token = '1617390c-d431-49aa-aa42-f4bb6a982117'::uuid,
     updated_at = now()
 where table_number = '1';
+
+
+create table if not exists public.admin_access (
+  id smallint primary key default 1 check (id = 1),
+  pin_hash text not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.admin_access enable row level security;
+revoke all on public.admin_access from anon, authenticated;
