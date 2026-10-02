@@ -1,76 +1,490 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f5f5f3">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261001-apple-v2">
+<link rel="stylesheet" href="/ops.css?v=20261002-admin-v1">
 </head>
-<body class="ops ops-admin">
-<div class="login" id="login"><div class="login-symbol"><img class="ops-emoji" src="/apple-emoji/gear.png" alt=""></div><h1>Администратор</h1><p>Управление столами, QR-кодами и аналитикой.</p><form id="loginForm"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN администратора"><button>Войти</button></form><div class="error" id="loginError"></div></div>
-<main class="shell" id="app" hidden>
-<div class="admin-layout">
-  <aside class="ops-sidebar" aria-label="Навигация администратора"><div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-    <div class="sidebar-brand"><span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/gear.png" alt=""></span><div><b>Sushi Crazy</b><span>Управление рестораном</span></div></div>
-    <nav class="sidebar-nav">
-      <a class="on" href="#overview"><img src="/apple-emoji/chart.png" alt="">Обзор</a>
-      <a href="#tablesSection"><img src="/apple-emoji/place-setting.png" alt="">Столы и QR</a>
-      <div class="sidebar-divider"></div>
-      <a href="/kitchen" target="_blank"><img src="/apple-emoji/frying-pan.png" alt="">Кухня</a>
-      <a href="/staff" target="_blank"><img src="/apple-emoji/bellhop.png" alt="">Зал</a>
-      <a href="/" target="_blank"><img src="/apple-emoji/receipt.png" alt="">Открыть меню</a>
-      <div class="sidebar-divider"></div>
-      <button type="button" id="logoutBtn"><img src="/apple-emoji/gear.png" alt="">Выйти</button>
-    </nav>
-  </aside>
-  <div class="admin-main">
-    <header class="top"><div class="ops-title-row"><span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/chart.png" alt=""></span><div class="brand ops-title-copy"><small>Sushi Crazy</small><h1>Обзор</h1></div></div><nav class="nav"><span class="live-capsule"><i class="live-dot"></i>Live</span><a href="/" target="_blank">Меню гостя</a></nav></header>
-    <section class="section-anchor" id="overview">
-      <section class="stats" id="stats"></section>
-      <section class="grid"><article class="card"><div class="card-head"><div><h2>Последние 7 дней</h2><small>Заказы и сумма по дням</small></div><small id="updatedAt">—</small></div><div class="chart" id="chart"></div></article><article class="card"><div class="card-head"><div><h2>Способы расчёта</h2><small>По заказам за 7 дней</small></div></div><div class="payments" id="payments"></div></article></section>
-    </section>
-    <section class="section-anchor" id="tablesSection">
-      <div class="section-head"><div><h2>Столы и QR-коды</h2><p>Создавай столы и управляй QR-кодами для каждого из них.</p></div><form class="add-form" id="addTableForm"><input name="number" id="tableNumber" maxlength="20" placeholder="№ стола" required><input name="label" id="tableLabel" maxlength="80" placeholder="Название, например Стол 2"><button>+ Создать стол</button></form></div>
-      <section class="tables" id="tables"></section>
-    </section>
+<body class="ops ops-admin admin-workspace">
+<div class="login" id="login">
+  <div class="login-symbol"><img class="ops-emoji" src="/apple-emoji/gear.png" alt=""></div>
+  <h1>Администратор</h1>
+  <p>Управление рестораном, столами и QR-кодами.</p>
+  <form id="loginForm">
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN администратора" aria-label="PIN администратора">
+    <button>Войти</button>
+  </form>
+  <div class="error" id="loginError" role="alert"></div>
+</div>
+
+<main class="admin-shell" id="app" hidden>
+  <div class="admin-layout-v2">
+    <aside class="admin-sidebar" aria-label="Навигация администратора">
+      <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="admin-brand">
+        <span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/gear.png" alt=""></span>
+        <div><b>Sushi Crazy</b><span>Панель управления</span></div>
+      </div>
+
+      <nav class="admin-nav" id="adminNav">
+        <button type="button" data-section="overview" class="on">
+          <img src="/apple-emoji/chart.png" alt=""><span>Обзор</span>
+        </button>
+        <button type="button" data-section="tables">
+          <img src="/apple-emoji/place-setting.png" alt=""><span>Столы и QR</span><i id="navTablesCount">0</i>
+        </button>
+        <div class="admin-nav-divider"></div>
+        <a href="/kitchen" target="_blank"><img src="/apple-emoji/frying-pan.png" alt=""><span>Кухня</span></a>
+        <a href="/staff" target="_blank"><img src="/apple-emoji/bellhop.png" alt=""><span>Зал</span></a>
+        <a href="/" target="_blank"><img src="/apple-emoji/receipt.png" alt=""><span>Меню гостя</span></a>
+      </nav>
+
+      <div class="admin-sidebar-bottom">
+        <div class="admin-sync" id="adminSync"><i class="live-dot"></i><span id="sidebarUpdated">Подключаемся…</span></div>
+        <button type="button" class="admin-logout" id="logoutBtn">Выйти</button>
+      </div>
+    </aside>
+
+    <div class="admin-content">
+      <header class="admin-top">
+        <div>
+          <span class="admin-eyebrow" id="pageEyebrow">Sushi Crazy</span>
+          <h1 id="pageTitle">Обзор</h1>
+          <p id="pageSubtitle">Ключевые показатели и состояние ресторана.</p>
+        </div>
+        <div class="admin-top-actions">
+          <button type="button" class="admin-refresh" id="refreshBtn"><span aria-hidden="true">↻</span> Обновить</button>
+          <a href="/" target="_blank">Открыть меню</a>
+        </div>
+      </header>
+
+      <div class="admin-connection" id="connectionBanner" role="status" hidden>
+        <div><b>Нет связи с админ-панелью</b><span id="connectionText">Показываем последние полученные данные.</span></div>
+        <button type="button" onclick="refresh(false)">Повторить</button>
+      </div>
+
+      <section class="admin-page on" id="pageOverview" data-page="overview">
+        <section class="admin-kpis" id="stats"></section>
+
+        <section class="admin-ops-strip">
+          <article class="admin-ops-card">
+            <div class="admin-ops-icon"><img src="/apple-emoji/bell.png" alt=""></div>
+            <div><span>Запросы гостей</span><strong id="opsRequests">0</strong><small>Открытые запросы сейчас</small></div>
+            <a href="/staff" target="_blank">Открыть зал</a>
+          </article>
+          <article class="admin-ops-card">
+            <div class="admin-ops-icon"><img src="/apple-emoji/place-setting.png" alt=""></div>
+            <div><span>QR выключены</span><strong id="opsDisabled">0</strong><small>Столы без активного QR</small></div>
+            <button type="button" data-jump="tables">Проверить столы</button>
+          </article>
+          <article class="admin-ops-card">
+            <div class="admin-ops-icon"><img src="/apple-emoji/frying-pan.png" alt=""></div>
+            <div><span>Рабочие экраны</span><strong>2</strong><small>Кухня и зал</small></div>
+            <a href="/kitchen" target="_blank">Открыть кухню</a>
+          </article>
+        </section>
+
+        <section class="admin-dashboard-grid">
+          <article class="admin-panel admin-chart-panel">
+            <div class="admin-panel-head">
+              <div><span class="panel-eyebrow">7 дней</span><h2>Сумма заказов</h2><p>Динамика оформленных заказов. Это не подтверждённая выручка.</p></div>
+              <small id="updatedAt">—</small>
+            </div>
+            <div class="chart admin-chart" id="chart"></div>
+          </article>
+
+          <article class="admin-panel">
+            <div class="admin-panel-head">
+              <div><span class="panel-eyebrow">7 дней</span><h2>Способы расчёта</h2><p>Что гости выбирают при оформлении.</p></div>
+            </div>
+            <div class="payments admin-payments" id="payments"></div>
+          </article>
+        </section>
+
+        <section class="admin-panel admin-table-ranking">
+          <div class="admin-panel-head">
+            <div><span class="panel-eyebrow">30 дней</span><h2>Активность столов</h2><p>Заказы по столам за последние 30 дней.</p></div>
+            <button type="button" class="panel-link" data-jump="tables">Все столы</button>
+          </div>
+          <div id="tableRanking"></div>
+        </section>
+      </section>
+
+      <section class="admin-page" id="pageTables" data-page="tables" hidden>
+        <div class="tables-toolbar">
+          <div class="table-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="tableSearch" type="search" autocomplete="off" placeholder="Найти стол…" aria-label="Найти стол">
+          </div>
+          <div class="segmented-control admin-table-filters" id="tableFilters" role="tablist" aria-label="Фильтр столов">
+            <button type="button" data-filter="all" aria-selected="true">Все <span id="countAll">0</span></button>
+            <button type="button" data-filter="active" aria-selected="false">QR вкл <span id="countActive">0</span></button>
+            <button type="button" data-filter="off" aria-selected="false">QR выкл <span id="countOff">0</span></button>
+            <button type="button" data-filter="open" aria-selected="false">Открыты <span id="countOpen">0</span></button>
+          </div>
+          <button type="button" class="create-table-btn" id="openCreateTableBtn">+ Создать стол</button>
+        </div>
+
+        <div class="tables-context">
+          <div><b id="tablesResultTitle">Все столы</b><span id="tablesResultMeta">—</span></div>
+          <p>QR нельзя отключить или перевыпустить, пока стол открыт в зале.</p>
+        </div>
+
+        <section class="admin-tables-grid" id="tables"></section>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="modal action-sheet" id="createTableModal" role="dialog" aria-modal="true" aria-labelledby="createTableTitle">
+  <div class="modal-card">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="modal-head"><div><small>Новый стол</small><h2 id="createTableTitle">Создать стол</h2></div><button class="x" type="button" id="closeCreateBtn">×</button></div>
+    <form class="sheet-form" id="addTableForm">
+      <label>Номер стола<input name="number" id="tableNumber" maxlength="20" placeholder="Например, 12" required></label>
+      <label>Название<input name="label" id="tableLabel" maxlength="80" placeholder="Например, Терраса 12"></label>
+      <div class="sheet-actions"><button type="button" id="cancelCreateBtn">Отмена</button><button class="primary" type="submit">Создать стол</button></div>
+    </form>
   </div>
 </div>
-</main>
-<div class="modal action-sheet" id="qrModal"><div class="modal-card"><div class="sheet-grabber" aria-hidden="true"></div><div class="modal-head"><div><small>QR-код стола</small><h2 id="qrTitle">Стол</h2></div><button class="x" type="button" id="closeQrBtn">×</button></div><div class="qr-box"><canvas id="qrCanvas" width="320" height="320"></canvas></div><input class="qr-url" id="qrUrl" readonly><div class="modal-actions"><button type="button" id="copyQrBtn">Скопировать ссылку</button><button type="button" id="downloadQrBtn">Скачать PNG</button></div></div></div>
-<div class="modal action-sheet" id="editTableModal"><div class="modal-card"><div class="sheet-grabber" aria-hidden="true"></div><div class="modal-head"><div><small>Редактирование</small><h2>Настройки стола</h2></div><button class="x" type="button" id="closeEditBtn">×</button></div><form class="sheet-form" id="editTableForm"><label>Номер стола<input id="editTableNumber" maxlength="20" required></label><label>Название<input id="editTableLabel" maxlength="80"></label><div class="sheet-actions"><button type="button" id="cancelEditBtn">Отмена</button><button class="primary" type="submit">Сохранить</button></div></form></div></div>
-<div class="modal action-sheet" id="rotateModal"><div class="modal-card"><div class="sheet-grabber" aria-hidden="true"></div><div class="modal-head"><div><small>Новый QR-код</small><h2>Перевыпустить QR?</h2></div><button class="x" type="button" id="closeRotateBtn">×</button></div><p class="sheet-copy" id="rotateCopy">Старый QR перестанет работать.</p><div class="sheet-actions"><button type="button" id="cancelRotateBtn">Отмена</button><button class="danger" type="button" id="confirmRotateBtn">Перевыпустить</button></div></div></div>
-<div class="toast" id="toast"></div>
+
+<div class="modal action-sheet" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
+  <div class="modal-card">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="modal-head"><div><small>QR-код стола</small><h2 id="qrTitle">Стол</h2></div><button class="x" type="button" id="closeQrBtn">×</button></div>
+    <div class="qr-box"><canvas id="qrCanvas" width="320" height="320"></canvas></div>
+    <input class="qr-url" id="qrUrl" readonly aria-label="Ссылка QR-кода">
+    <div class="modal-actions"><button type="button" id="copyQrBtn">Скопировать ссылку</button><button type="button" id="downloadQrBtn">Скачать PNG</button></div>
+  </div>
+</div>
+
+<div class="modal action-sheet" id="editTableModal" role="dialog" aria-modal="true" aria-labelledby="editTableTitle">
+  <div class="modal-card">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="modal-head"><div><small>Редактирование</small><h2 id="editTableTitle">Настройки стола</h2></div><button class="x" type="button" id="closeEditBtn">×</button></div>
+    <form class="sheet-form" id="editTableForm">
+      <label>Номер стола<input id="editTableNumber" maxlength="20" required></label>
+      <label>Название<input id="editTableLabel" maxlength="80"></label>
+      <div class="sheet-actions"><button type="button" id="cancelEditBtn">Отмена</button><button class="primary" type="submit">Сохранить</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal action-sheet" id="rotateModal" role="dialog" aria-modal="true" aria-labelledby="rotateTitle">
+  <div class="modal-card">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="modal-head"><div><small>Новый QR-код</small><h2 id="rotateTitle">Перевыпустить QR?</h2></div><button class="x" type="button" id="closeRotateBtn">×</button></div>
+    <p class="sheet-copy" id="rotateCopy">Старый QR перестанет работать.</p>
+    <div class="sheet-actions"><button type="button" id="cancelRotateBtn">Отмена</button><button class="danger" type="button" id="confirmRotateBtn">Перевыпустить</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
-let pin=sessionStorage.getItem('sushi-admin-pin')||'',state=null,busy=false,currentQrTable=null,editTableId=null,rotateTableId=null;
+const API_TIMEOUT_MS=12000;
+let pin=sessionStorage.getItem('sushi-admin-pin')||'';
+let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
+const busyTables=new Set();
+let pollTimer=null,toastTimer=null;
+
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>Number(n||0).toLocaleString('ru-RU')+' ₸';
 const payLabels={kaspi:'Kaspi',card:'Карта',cash:'Наличные',unknown:'Другое'};
-async function api(action,payload={}){const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin},body:JSON.stringify({action,...payload})});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}return data}
-function notify(text){const el=document.getElementById('toast');el.textContent=text;el.classList.add('on');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('on'),2300)}
+
+async function api(action,payload={}){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
+  try{
+    const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
+    return data;
+  }catch(error){
+    if(error?.name==='AbortError')throw new Error('Сервер отвечает слишком долго');
+    if(/failed to fetch|networkerror|load failed|network request failed/i.test(String(error?.message||'')))throw new Error('Нет связи с сервером');
+    throw error;
+  }finally{clearTimeout(timeout)}
+}
+
+function notify(text){
+  const el=document.getElementById('toast');if(!el)return;
+  clearTimeout(toastTimer);el.textContent=text;el.classList.add('on');
+  toastTimer=setTimeout(()=>el.classList.remove('on'),2500);
+}
 function qrLink(table){return location.origin+'/?table='+encodeURIComponent(table.qr_token)}
-function renderStats(a){document.getElementById('stats').innerHTML=[['Заказы · 24 часа',a.orders24,'/apple-emoji/receipt.png'],['Сумма заказов · 24 часа',money(a.revenue24),'/apple-emoji/chart.png'],['Средний чек · 7 дней',money(a.averageCheck7),'/apple-emoji/chart.png'],['Открытые столы',a.openTables+' / '+a.activeTables,'/apple-emoji/place-setting.png']].map(x=>'<article class="stat"><span class="stat-emoji-wrap"><img class="ops-emoji" src="'+x[2]+'" alt=""></span><span>'+h(x[0])+'</span><b>'+h(x[1])+'</b></article>').join('')}
-function renderChart(a){const values=(a.daily||[]).map(x=>Number(x.revenue||0)),max=Math.max(1,...values);document.getElementById('chart').innerHTML=(a.daily||[]).map(day=>{const height=Math.max(4,Math.round((Number(day.revenue||0)/max)*120));const label=new Date(day.date+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});return '<div class="bar-wrap"><div class="bar-value">'+day.orders+'</div><div class="bar" style="height:'+height+'px" title="'+money(day.revenue)+'"></div><div class="bar-label">'+label+'</div></div>'}).join('')}
-function renderPayments(a){const entries=Object.entries(a.payments||{}),total=entries.reduce((sum,x)=>sum+Number(x[1]||0),0),el=document.getElementById('payments');if(!entries.length){el.innerHTML='<div class="empty">Пока нет заказов</div>';return}el.innerHTML=entries.sort((a,b)=>b[1]-a[1]).map(([key,count])=>{const pct=total?Math.round(Number(count)*100/total):0;return '<div class="payment"><span>'+h(payLabels[key]||key)+'</span><div class="meter"><i style="width:'+pct+'%"></i></div><b>'+count+'</b></div>'}).join('')}
-function tableCard(table){const label=table.label||('Стол '+table.table_number),active=!!table.is_active;return '<article class="table-card"><div class="table-top"><div class="table-title"><b>'+h(label)+'</b><span>№ '+h(table.table_number)+'</span></div><div class="badges"><span class="badge '+(active?'live':'off')+'">'+(active?'QR активен':'QR выключен')+'</span>'+(table.openSession?'<span class="badge">Стол открыт</span>':'')+'</div></div><div class="table-metrics"><div class="table-metric"><span>Заказов · 30 дней</span><b>'+Number(table.orders30||0)+'</b></div><div class="table-metric"><span>Выручка · 30 дней</span><b>'+money(table.revenue30)+'</b></div></div><div class="table-actions"><button class="primary" data-action="qr" data-id="'+h(table.id)+'">QR-код</button><button data-action="rename" data-id="'+h(table.id)+'">Изменить</button><button class="switch-control '+(active?'on':'')+'" data-action="toggle" data-id="'+h(table.id)+'" data-active="'+(!active)+'" aria-pressed="'+active+'"><span class="switch-track" aria-hidden="true"><i></i></span><span>'+(active?'QR вкл':'QR выкл')+'</span></button><button class="danger" data-action="rotate" data-id="'+h(table.id)+'">Новый QR</button></div></article>'}
-function render(){const a=state.analytics||{};renderStats(a);renderChart(a);renderPayments(a);document.getElementById('tables').innerHTML=(state.tables||[]).length?(state.tables||[]).map(tableCard).join(''):'<div class="empty">Столов пока нет</div>';document.getElementById('updatedAt').textContent='Обновлено '+new Date(state.generatedAt||Date.now()).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}
-async function refresh(silent=false){if(busy)return;busy=true;try{state=await api('dashboard');render();document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent=''}catch(error){if(error.status===401){sessionStorage.removeItem('sushi-admin-pin');pin='';document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;if(!silent)document.getElementById('loginError').textContent='Неверный PIN администратора'}else if(!silent)document.getElementById('loginError').textContent=error.message}finally{busy=false}}
-document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-admin-pin',pin);document.getElementById('loginError').textContent='';refresh(false)});
-document.getElementById('addTableForm').addEventListener('submit',async event=>{event.preventDefault();const tableNumber=document.getElementById('tableNumber').value.trim(),label=document.getElementById('tableLabel').value.trim();try{state=await api('create-table',{tableNumber,label});render();event.target.reset();notify('Стол создан')}catch(error){notify(error.message)}});
-async function toggleTable(tableId,active){try{state=await api('set-table-active',{tableId,active});render();notify(active?'QR включён':'QR выключен')}catch(error){notify(error.message)}}
-function rotateQr(tableId){const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;rotateTableId=tableId;document.getElementById('rotateCopy').textContent='Для '+(table.label||('стола '+table.table_number))+' будет создан новый QR. Старый QR перестанет работать.';document.getElementById('rotateModal').classList.add('on')}
+function anyModalOpen(){return !!document.querySelector('.modal.on')}
+
+function setConnection(ok,message=''){
+  const banner=document.getElementById('connectionBanner');
+  banner.hidden=ok;
+  document.getElementById('adminSync')?.classList.toggle('offline',!ok);
+  if(!ok)document.getElementById('connectionText').textContent=message||'Показываем последние полученные данные.';
+}
+
+function renderStats(a){
+  const cards=[
+    ['Заказы · 24 часа',a.orders24,'Заказов оформлено','/apple-emoji/receipt.png'],
+    ['Сумма заказов · 24 часа',money(a.revenue24),'Без подтверждения оплаты','/apple-emoji/chart.png'],
+    ['Средний чек · 7 дней',money(a.averageCheck7),'По оформленным заказам','/apple-emoji/chart.png'],
+    ['Открытые столы',a.openTables+' / '+a.activeTables,'Открыто / QR активно','/apple-emoji/place-setting.png']
+  ];
+  document.getElementById('stats').innerHTML=cards.map(x=>
+    '<article class="admin-kpi"><div class="admin-kpi-icon"><img src="'+x[3]+'" alt=""></div><span>'+h(x[0])+'</span><strong>'+h(x[1])+'</strong><small>'+h(x[2])+'</small></article>'
+  ).join('');
+}
+
+function renderChart(a){
+  const values=(a.daily||[]).map(x=>Number(x.revenue||0)),max=Math.max(1,...values);
+  document.getElementById('chart').innerHTML=(a.daily||[]).map(day=>{
+    const height=Math.max(5,Math.round((Number(day.revenue||0)/max)*138));
+    const label=new Date(day.date+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});
+    return '<div class="bar-wrap"><div class="bar-value">'+day.orders+' зак.</div><div class="bar admin-bar" style="height:'+height+'px" title="'+h(money(day.revenue))+'"></div><div class="bar-label">'+h(label)+'</div></div>';
+  }).join('');
+}
+
+function renderPayments(a){
+  const entries=Object.entries(a.payments||{}),total=entries.reduce((sum,x)=>sum+Number(x[1]||0),0),el=document.getElementById('payments');
+  if(!entries.length){el.innerHTML='<div class="admin-empty">Пока нет заказов за 7 дней</div>';return}
+  el.innerHTML=entries.sort((a,b)=>b[1]-a[1]).map(([key,count])=>{
+    const pct=total?Math.round(Number(count)*100/total):0;
+    return '<div class="admin-payment"><div class="payment-label"><span>'+h(payLabels[key]||key)+'</span><b>'+pct+'%</b></div><div class="meter"><i style="width:'+pct+'%"></i></div><small>'+count+' заказов</small></div>';
+  }).join('');
+}
+
+function renderOperational(a){
+  const tables=state.tables||[];
+  const disabled=tables.filter(t=>!t.is_active).length;
+  document.getElementById('opsRequests').textContent=Number(a.openRequests||0);
+  document.getElementById('opsDisabled').textContent=disabled;
+}
+
+function renderRanking(){
+  const host=document.getElementById('tableRanking');
+  const rows=[...(state.tables||[])].sort((a,b)=>Number(b.orders30||0)-Number(a.orders30||0)).slice(0,5);
+  if(!rows.length){host.innerHTML='<div class="admin-empty">Столов пока нет</div>';return}
+  const max=Math.max(1,...rows.map(t=>Number(t.orders30||0)));
+  host.innerHTML=rows.map((t,index)=>{
+    const pct=Math.max(4,Math.round(Number(t.orders30||0)*100/max));
+    return '<div class="ranking-row"><span class="ranking-pos">'+(index+1)+'</span><div class="ranking-name"><b>'+h(t.label||('Стол '+t.table_number))+'</b><small>'+Number(t.orders30||0)+' заказов · '+money(t.revenue30)+'</small></div><div class="ranking-meter"><i style="width:'+pct+'%"></i></div></div>';
+  }).join('');
+}
+
+function tableMatches(table){
+  if(tableFilter==='active'&&!table.is_active)return false;
+  if(tableFilter==='off'&&table.is_active)return false;
+  if(tableFilter==='open'&&!table.openSession)return false;
+  if(tableQuery){
+    const hay=(String(table.table_number||'')+' '+String(table.label||'')).toLowerCase();
+    if(!hay.includes(tableQuery.toLowerCase()))return false;
+  }
+  return true;
+}
+
+function tableCard(table){
+  const label=table.label||('Стол '+table.table_number),active=!!table.is_active,open=!!table.openSession,busy=busyTables.has(table.id);
+  const lock=busy||open;
+  return '<article class="admin-table-card '+(open?'is-open ':'')+(!active?'is-disabled':'')+'">'+
+    '<div class="admin-table-top"><div><span class="admin-table-number">№ '+h(table.table_number)+'</span><h3>'+h(label)+'</h3></div>'+
+    '<div class="admin-table-badges">'+(open?'<span class="admin-badge open">Стол открыт</span>':'')+'<span class="admin-badge '+(active?'active':'off')+'">'+(active?'QR активен':'QR выключен')+'</span></div></div>'+
+    '<div class="admin-table-stats"><div><span>Заказы · 30 дней</span><b>'+Number(table.orders30||0)+'</b></div><div><span>Сумма · 30 дней</span><b>'+money(table.revenue30)+'</b></div></div>'+
+    '<div class="admin-table-actions">'+
+      '<button class="primary" type="button" data-action="qr" data-id="'+h(table.id)+'">Показать QR</button>'+
+      '<button type="button" data-action="rename" data-id="'+h(table.id)+'">Изменить</button>'+
+      '<button class="switch-control '+(active?'on':'')+'" type="button" data-action="toggle" data-id="'+h(table.id)+'" data-active="'+(!active)+'" aria-pressed="'+active+'" '+(lock?'disabled':'')+'><span class="switch-track" aria-hidden="true"><i></i></span><span>'+(active?'QR вкл':'QR выкл')+'</span></button>'+
+      '<button class="danger" type="button" data-action="rotate" data-id="'+h(table.id)+'" '+(lock?'disabled':'')+'>Новый QR</button>'+
+    '</div>'+
+    (open?'<p class="admin-table-note">Чтобы отключить или перевыпустить QR, сначала закройте стол в панели зала.</p>':'')+
+  '</article>';
+}
+
+function renderTables(){
+  const all=state.tables||[];
+  const visible=all.filter(tableMatches);
+  const active=all.filter(t=>t.is_active).length,off=all.length-active,open=all.filter(t=>t.openSession).length;
+  document.getElementById('countAll').textContent=all.length;
+  document.getElementById('countActive').textContent=active;
+  document.getElementById('countOff').textContent=off;
+  document.getElementById('countOpen').textContent=open;
+  document.getElementById('navTablesCount').textContent=all.length;
+  document.getElementById('tablesResultTitle').textContent=tableQuery?'Результаты поиска':({all:'Все столы',active:'QR включены',off:'QR выключены',open:'Открытые столы'}[tableFilter]||'Все столы');
+  document.getElementById('tablesResultMeta').textContent='Показано '+visible.length+' из '+all.length;
+  document.getElementById('tables').innerHTML=visible.length?visible.map(tableCard).join(''):'<div class="admin-empty admin-empty-wide">Ничего не найдено</div>';
+}
+
+function render(){
+  if(!state)return;
+  const a=state.analytics||{};
+  renderStats(a);renderChart(a);renderPayments(a);renderOperational(a);renderRanking();renderTables();
+  const updated=new Date(state.generatedAt||Date.now()).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('updatedAt').textContent='Обновлено '+updated;
+  document.getElementById('sidebarUpdated').textContent='Обновлено '+updated;
+}
+
+function switchSection(section,updateHash=true){
+  if(!['overview','tables'].includes(section))section='overview';
+  currentSection=section;
+  document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
+  document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
+  const copy=section==='overview'
+    ?['Sushi Crazy','Обзор','Ключевые показатели и состояние ресторана.']
+    :['Управление','Столы и QR','QR-коды, статусы и активность столов.'];
+  document.getElementById('pageEyebrow').textContent=copy[0];
+  document.getElementById('pageTitle').textContent=copy[1];
+  document.getElementById('pageSubtitle').textContent=copy[2];
+  if(updateHash)history.replaceState(null,'','#'+section);
+  window.scrollTo({top:0,behavior:'auto'});
+}
+
+async function refresh(silent=true){
+  if(refreshBusy||(silent&&(busyTables.size||anyModalOpen())))return;
+  refreshBusy=true;
+  const btn=document.getElementById('refreshBtn');if(btn)btn.disabled=true;
+  try{
+    state=await api('dashboard');render();setConnection(true);
+    document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
+    startPolling();
+    if(!silent)notify('Данные обновлены');
+  }catch(error){
+    if(error.status===401){
+      sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();
+      document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;
+      if(!silent)document.getElementById('loginError').textContent='Неверный PIN администратора';
+    }else if(!state){
+      document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;document.getElementById('loginError').textContent=error.message||'Не удалось загрузить админ-панель';
+    }else{
+      setConnection(false,error.message||'Не удалось обновить данные');
+      if(!silent)notify(error.message||'Не удалось обновить данные');
+    }
+  }finally{refreshBusy=false;if(btn)btn.disabled=false}
+}
+
+function withTableBusy(tableId,task){
+  if(busyTables.has(tableId))return Promise.resolve();
+  busyTables.add(tableId);renderTables();
+  return Promise.resolve(task()).finally(()=>{busyTables.delete(tableId);renderTables()});
+}
+
+function openCreateTable(){
+  document.getElementById('createTableModal').classList.add('on');
+  setTimeout(()=>document.getElementById('tableNumber').focus(),50);
+}
+function closeCreateTable(){
+  document.getElementById('createTableModal').classList.remove('on');
+  document.getElementById('addTableForm').reset();
+}
+async function createTable(event){
+  event.preventDefault();
+  const tableNumber=document.getElementById('tableNumber').value.trim(),label=document.getElementById('tableLabel').value.trim();
+  const submit=event.submitter||event.target.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+  try{state=await api('create-table',{tableNumber,label});render();closeCreateTable();notify('Стол создан')}
+  catch(error){notify(error.message)}
+  finally{if(submit)submit.disabled=false}
+}
+
+async function toggleTable(tableId,active){
+  const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;
+  if(table.openSession){notify('Сначала закройте стол в панели зала');return}
+  await withTableBusy(tableId,async()=>{
+    try{state=await api('set-table-active',{tableId,active});render();notify(active?'QR включён':'QR выключен')}
+    catch(error){notify(error.message)}
+  });
+}
+
+function rotateQr(tableId){
+  const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;
+  if(table.openSession){notify('Нельзя менять QR, пока стол открыт');return}
+  rotateTableId=tableId;
+  document.getElementById('rotateCopy').textContent='Для '+(table.label||('стола '+table.table_number))+' будет создан новый QR. Старый QR перестанет работать.';
+  document.getElementById('rotateModal').classList.add('on');
+}
 function closeRotate(){document.getElementById('rotateModal').classList.remove('on');rotateTableId=null}
-async function confirmRotate(){if(!rotateTableId)return;const tableId=rotateTableId;try{state=await api('rotate-table-qr',{tableId});render();closeRotate();notify('QR-код перевыпущен');openQr(tableId)}catch(error){notify(error.message)}}
-function renameTable(tableId){const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;editTableId=tableId;document.getElementById('editTableNumber').value=table.table_number||'';document.getElementById('editTableLabel').value=table.label||('Стол '+table.table_number);document.getElementById('editTableModal').classList.add('on');setTimeout(()=>document.getElementById('editTableNumber').focus(),50)}
+async function confirmRotate(){
+  if(!rotateTableId)return;
+  const tableId=rotateTableId;
+  await withTableBusy(tableId,async()=>{
+    try{state=await api('rotate-table-qr',{tableId});render();closeRotate();notify('QR-код перевыпущен');openQr(tableId)}
+    catch(error){notify(error.message)}
+  });
+}
+
+function renameTable(tableId){
+  const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;
+  editTableId=tableId;document.getElementById('editTableNumber').value=table.table_number||'';document.getElementById('editTableLabel').value=table.label||('Стол '+table.table_number);
+  document.getElementById('editTableModal').classList.add('on');setTimeout(()=>document.getElementById('editTableNumber').focus(),50);
+}
 function closeEdit(){document.getElementById('editTableModal').classList.remove('on');editTableId=null}
-async function saveEdit(event){event.preventDefault();if(!editTableId)return;const tableNumber=document.getElementById('editTableNumber').value.trim(),label=document.getElementById('editTableLabel').value.trim();try{state=await api('update-table',{tableId:editTableId,tableNumber,label});render();closeEdit();notify('Стол обновлён')}catch(error){notify(error.message)}}
-function openQr(tableId){const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;currentQrTable=table;document.getElementById('qrTitle').textContent=table.label||('Стол '+table.table_number);document.getElementById('qrUrl').value=qrLink(table);document.getElementById('qrModal').classList.add('on');const canvas=document.getElementById('qrCanvas'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);if(window.QRCode&&QRCode.toCanvas){QRCode.toCanvas(canvas,qrLink(table),{width:320,margin:2,errorCorrectionLevel:'M'},error=>{if(error)notify('Не удалось построить QR')})}else{ctx.font='16px system-ui';ctx.textAlign='center';ctx.fillText('QR-библиотека не загрузилась',160,155);ctx.fillText('Скопируйте ссылку ниже',160,180)}}
+async function saveEdit(event){
+  event.preventDefault();if(!editTableId)return;
+  const tableId=editTableId,tableNumber=document.getElementById('editTableNumber').value.trim(),label=document.getElementById('editTableLabel').value.trim();
+  const submit=event.submitter||event.target.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+  await withTableBusy(tableId,async()=>{
+    try{state=await api('update-table',{tableId,tableNumber,label});render();closeEdit();notify('Стол обновлён')}
+    catch(error){notify(error.message)}
+    finally{if(submit)submit.disabled=false}
+  });
+}
+
+function openQr(tableId){
+  const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;
+  currentQrTable=table;document.getElementById('qrTitle').textContent=table.label||('Стол '+table.table_number);
+  document.getElementById('qrUrl').value=qrLink(table);document.getElementById('qrModal').classList.add('on');
+  const canvas=document.getElementById('qrCanvas'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(window.QRCode&&QRCode.toCanvas){
+    QRCode.toCanvas(canvas,qrLink(table),{width:320,margin:2,errorCorrectionLevel:'M'},error=>{if(error)notify('Не удалось построить QR')});
+  }else{
+    ctx.font='16px system-ui';ctx.textAlign='center';ctx.fillText('QR-библиотека не загрузилась',160,155);ctx.fillText('Скопируйте ссылку ниже',160,180);
+  }
+}
 function closeQr(){document.getElementById('qrModal').classList.remove('on');currentQrTable=null}
-async function copyQrLink(){const field=document.getElementById('qrUrl');try{await navigator.clipboard.writeText(field.value);notify('Ссылка скопирована')}catch(_){field.select();document.execCommand('copy');notify('Ссылка скопирована')}}
-function downloadQr(){if(!currentQrTable)return;const link=document.createElement('a');link.download='sushi-crazy-table-'+currentQrTable.table_number+'-qr.png';link.href=document.getElementById('qrCanvas').toDataURL('image/png');link.click()}
-function logout(){sessionStorage.removeItem('sushi-admin-pin');location.reload()}
+async function copyQrLink(){
+  const field=document.getElementById('qrUrl');
+  try{await navigator.clipboard.writeText(field.value);notify('Ссылка скопирована')}
+  catch(_){field.select();document.execCommand('copy');notify('Ссылка скопирована')}
+}
+function downloadQr(){
+  if(!currentQrTable)return;
+  const link=document.createElement('a');link.download='sushi-crazy-table-'+currentQrTable.table_number+'-qr.png';link.href=document.getElementById('qrCanvas').toDataURL('image/png');link.click();
+}
+
+function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(pin&&!document.hidden)refresh(true)},30000)}
+function stopPolling(){clearInterval(pollTimer);pollTimer=null}
+function logout(){stopPolling();sessionStorage.removeItem('sushi-admin-pin');location.reload()}
+
+document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-admin-pin',pin);document.getElementById('loginError').textContent='';refresh(false)});
+document.getElementById('adminNav').addEventListener('click',event=>{const btn=event.target.closest('[data-section]');if(btn)switchSection(btn.dataset.section)});
+document.querySelectorAll('[data-jump]').forEach(btn=>btn.addEventListener('click',()=>switchSection(btn.dataset.jump)));
+document.getElementById('refreshBtn').addEventListener('click',()=>refresh(false));
+document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
+document.getElementById('closeCreateBtn').addEventListener('click',closeCreateTable);
+document.getElementById('cancelCreateBtn').addEventListener('click',closeCreateTable);
+document.getElementById('addTableForm').addEventListener('submit',createTable);
+document.getElementById('tableSearch').addEventListener('input',event=>{tableQuery=event.target.value.trim();renderTables()});
+document.getElementById('tableFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;tableFilter=btn.dataset.filter;document.querySelectorAll('#tableFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderTables()});
 document.getElementById('tables').addEventListener('click',event=>{const btn=event.target.closest('button[data-action]');if(!btn)return;const id=btn.dataset.id,action=btn.dataset.action;if(action==='qr')openQr(id);if(action==='rename')renameTable(id);if(action==='toggle')toggleTable(id,btn.dataset.active==='true');if(action==='rotate')rotateQr(id)});
-document.getElementById('logoutBtn').addEventListener('click',logout);document.getElementById('closeQrBtn').addEventListener('click',closeQr);document.getElementById('closeEditBtn').addEventListener('click',closeEdit);document.getElementById('cancelEditBtn').addEventListener('click',closeEdit);document.getElementById('editTableForm').addEventListener('submit',saveEdit);document.getElementById('closeRotateBtn').addEventListener('click',closeRotate);document.getElementById('cancelRotateBtn').addEventListener('click',closeRotate);document.getElementById('confirmRotateBtn').addEventListener('click',confirmRotate);document.getElementById('copyQrBtn').addEventListener('click',copyQrLink);document.getElementById('downloadQrBtn').addEventListener('click',downloadQr);document.getElementById('qrModal').addEventListener('click',event=>{if(event.target===event.currentTarget)closeQr()});document.getElementById('editTableModal').addEventListener('click',event=>{if(event.target===event.currentTarget)closeEdit()});document.getElementById('rotateModal').addEventListener('click',event=>{if(event.target===event.currentTarget)closeRotate()});document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeQr();closeEdit();closeRotate()}});
+document.getElementById('logoutBtn').addEventListener('click',logout);
+document.getElementById('closeQrBtn').addEventListener('click',closeQr);
+document.getElementById('closeEditBtn').addEventListener('click',closeEdit);
+document.getElementById('cancelEditBtn').addEventListener('click',closeEdit);
+document.getElementById('editTableForm').addEventListener('submit',saveEdit);
+document.getElementById('closeRotateBtn').addEventListener('click',closeRotate);
+document.getElementById('cancelRotateBtn').addEventListener('click',closeRotate);
+document.getElementById('confirmRotateBtn').addEventListener('click',confirmRotate);
+document.getElementById('copyQrBtn').addEventListener('click',copyQrLink);
+document.getElementById('downloadQrBtn').addEventListener('click',downloadQr);
+for(const id of ['createTableModal','qrModal','editTableModal','rotateModal']){
+  document.getElementById(id).addEventListener('click',event=>{if(event.target!==event.currentTarget)return;if(id==='createTableModal')closeCreateTable();if(id==='qrModal')closeQr();if(id==='editTableModal')closeEdit();if(id==='rotateModal')closeRotate()});
+}
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCreateTable();closeQr();closeEdit();closeRotate()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin)refresh(true)});
+window.addEventListener('online',()=>{if(pin)refresh(false)});
+window.addEventListener('hashchange',()=>switchSection(location.hash.slice(1),false));
+
+switchSection(location.hash.slice(1)||'overview',false);
 if(pin)refresh(true);
 </script>
-</body></html>
+</body>
+</html>
