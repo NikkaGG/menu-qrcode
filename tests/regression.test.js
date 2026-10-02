@@ -571,6 +571,12 @@ function dialogHarness({
     pendingOrderText: '',
     pendingOrderPayload: null,
     document,
+    history: { state: null, back() {}, replaceState() {} },
+    activeProductId: null,
+    favoritesRefreshPending: false,
+    clearProductUrlParam() {},
+    render() {},
+    syncFavoritesUi() {},
     window: {
       scrollY: 0,
       scrollTo() {},
@@ -674,7 +680,12 @@ function productCardHarness({ grid = true } = {}) {
     const CN={f:'Роллы'};
     const POPULAR_IDS=[1];
     let isGrid=${grid},activeCat='all',search='',popIndex=0,popularDidDrag=false;
+    let favoritesOnly=false,menuReady=true,activeProductId=null;
+    function pushMenuOverlayState(){}
+    function updateProductFavoriteButton(){}
     ${[
+    'tableEscapeHtml',
+    'productImageHtml',
     'getItem',
     'fmt',
     'priceText',
@@ -1026,6 +1037,7 @@ test('reduced-motion toast stays readable without forced animation choreography 
       },
     },
     prefersReducedMotion: () => true,
+    clearTimeout() {},
     setTimeout(callback, delay) {
       scheduled.push({ callback, delay });
     },
