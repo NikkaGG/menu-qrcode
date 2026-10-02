@@ -232,6 +232,7 @@ function dishPayload(body: any) {
     price,
     image_url: imageUrl,
     detail_image_url: detailImageUrl,
+    is_available: body?.isAvailable !== false,
     is_popular: isPopular,
     sort_order: sortOrder,
     updated_at: new Date().toISOString(),
@@ -308,7 +309,6 @@ Deno.serve(async (req) => {
         body: JSON.stringify([{
           id,
           ...payload,
-          is_available: body?.isAvailable !== false,
           popular_order: null,
         }]),
       });
