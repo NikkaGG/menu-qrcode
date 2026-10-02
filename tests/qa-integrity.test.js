@@ -14,6 +14,7 @@ const statusMigration = read('supabase/migrations/20261002072000_order_status_ev
 const idempotencyMigration = read('supabase/migrations/20261002073000_order_idempotency.sql');
 const atomicSessionMigration = read('supabase/migrations/20261002075000_atomic_session_close.sql');
 const atomicOrderMigration = read('supabase/migrations/20261002078000_atomic_order_create.sql');
+const explicitPoliciesMigration = read('supabase/migrations/20261002079000_explicit_service_only_policies.sql');
 const sw = read('sw.js');
 const manifest = JSON.parse(read('manifest.webmanifest'));
 const vercel = JSON.parse(read('vercel.json'));
@@ -120,4 +121,10 @@ test('order header and items are written atomically through a service-only RPC',
   assert.match(atomicOrderMigration, /grant execute on function public\.create_table_order_atomic[^;]*to service_role/s);
   assert.match(tableApi, /rpc\/create_table_order_atomic/);
   assert.doesNotMatch(tableApi, /await db\("order_items"/);
+});
+
+
+test('service-only QA tables explicitly deny direct browser access', () => {
+  assert.match(explicitPoliciesMigration, /on public\.staff_members[\s\S]*to anon, authenticated[\s\S]*using \(false\)[\s\S]*with check \(false\)/);
+  assert.match(explicitPoliciesMigration, /on public\.order_status_events[\s\S]*to anon, authenticated[\s\S]*using \(false\)[\s\S]*with check \(false\)/);
 });
