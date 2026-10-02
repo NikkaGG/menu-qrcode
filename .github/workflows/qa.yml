@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - task-11-12-access-analytics
+      - task-13-qa-current
   workflow_dispatch:
 
 jobs:
@@ -30,4 +31,4 @@ jobs:
           }
           NODE
       - name: Regression tests
-        run: node --test tests/regression.test.js
+        run: node --test tests/*.test.js
