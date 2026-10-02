@@ -1553,6 +1553,7 @@ test('task 13 makes guest order retries idempotent at browser, API and database 
   assert.match(tableApiSource, /client_request_id=eq/);
   assert.match(tableApiSource, /duplicate: true/);
   assert.match(idempotencyMigration, /orders_guest_request_unique/);
+  assert.match(idempotencyMigration, /table_session_id, guest_token, client_request_id/);
   assert.match(idempotencyMigration, /guest_token, client_request_id/);
 });
 
