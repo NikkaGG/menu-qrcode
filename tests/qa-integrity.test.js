@@ -69,6 +69,8 @@ test('PWA uses network-first navigation and does not precache live menu data', (
   assert.match(sw, /networkFirst\(request,OFFLINE_URL\)/);
   assert.doesNotMatch(sw, /ref-products-dom\.json/);
   assert.doesNotMatch(sw, /supabase\.co/);
+  assert.match(sw, /cache\.match\(request,\{ignoreSearch\}\)/);
+  assert.match(sw, /networkFirst\(request,null,true\)/);
   assert.ok(Array.isArray(manifest.icons) && manifest.icons.some(icon => icon.purpose === 'maskable'));
 });
 
