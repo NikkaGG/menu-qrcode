@@ -15,6 +15,11 @@ const kitchenSource = fs.readFileSync(path.join(root, 'kitchen.html'), 'utf8');
 const staffSource = fs.readFileSync(path.join(root, 'staff.html'), 'utf8');
 const roleAccessMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002071000_role_access.sql'), 'utf8');
 const statusEventsMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002072000_order_status_events.sql'), 'utf8');
+const tableApiSource = fs.readFileSync(path.join(root, 'supabase/functions/table-api/index.ts'), 'utf8');
+const productApiSource = fs.readFileSync(path.join(root, 'api/product/[id].js'), 'utf8');
+const swSource = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+const idempotencyMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002073000_order_idempotency.sql'), 'utf8');
+const dishSequenceMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002074000_dish_id_sequence.sql'), 'utf8');
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -2033,4 +2038,96 @@ test('task 12 reports expose cancellations, preparation time, hourly load and po
   assert.match(adminSource, /Среднее приготовление/);
   assert.match(adminSource, /Загрузка ресторана/);
   assert.match(adminSource, /Популярные блюда/);
+});
+
+
+test('task 13 makes guest order retries idempotent at browser, API and database layers', () => {
+  assert.match(indexSource, /ORDER_REQUEST_TTL_MS/);
+  assert.match(indexSource, /function getOrderRequestId\(payload\)/);
+  assert.match(indexSource, /clientRequestId/);
+  assert.match(indexSource, /clearOrderRequestId\(clientRequestId\)/);
+  assert.match(tableApiSource, /client_request_id=eq/);
+  assert.match(tableApiSource, /duplicate: true/);
+  assert.match(idempotencyMigration, /orders_guest_request_unique/);
+  assert.match(idempotencyMigration, /guest_token, client_request_id/);
+});
+
+test('task 13 does not let background polling reopen a closed table session', () => {
+  assert.match(tableApiSource, /if \(action === "bootstrap"\) \{/);
+  assert.match(tableApiSource, /Table session is closed/);
+  assert.match(tableApiSource, /id=eq\.\$\{encodeURIComponent\(sessionId\)\}/);
+  assert.match(indexSource, /sessionId:tableOrdering\.session\?\.id\|\|''/);
+  assert.match(indexSource, /\[400,404,409\]\.includes\(Number\(error\?\.status\)\)/);
+  assert.match(indexSource, /stopTablePolling\(\)/);
+});
+
+test('task 13 isolates saved carts by QR table', () => {
+  assert.match(indexSource, /const CART_STORAGE_KEY='sushi-crazy-cart-v2'/);
+  assert.match(indexSource, /function cartStorageKey\(\)/);
+  assert.match(indexSource, /tableOrdering\?\.tableToken\|\|'browse'/);
+  assert.match(indexSource, /LEGACY_CART_STORAGE_KEY/);
+  assert.match(indexSource, /localStorage\.setItem\(cartStorageKey\(\),JSON\.stringify\(cart\)\)/);
+});
+
+test('task 13 rejects duplicate item rows that bypass the per-dish quantity cap', () => {
+  assert.match(tableApiSource, /const quantities = new Map<number, number>\(\)/);
+  assert.match(tableApiSource, /const totalQuantity = \(quantities\.get\(id\) \|\| 0\) \+ quantity/);
+  assert.match(tableApiSource, /if \(totalQuantity > 20\)/);
+});
+
+test('task 13 deduplicates simultaneous open service requests', () => {
+  assert.match(idempotencyMigration, /service_requests_one_open_per_guest_kind/);
+  assert.match(idempotencyMigration, /where status = 'open'/);
+  assert.match(tableApiSource, /The unique partial index turns simultaneous taps\/tabs into one open request/);
+});
+
+test('task 13 prevents menu data from injecting HTML into guest cards', () => {
+  assert.match(indexSource, /pop-name">\$\{tableEscapeHtml\(item\.n\)\}/);
+  assert.match(indexSource, /gc-name">\$\{tableEscapeHtml\(item\.n\)\}/);
+  assert.match(indexSource, /lc-desc">\$\{tableEscapeHtml\(item\.d\)\}/);
+  assert.match(indexSource, /ps-desc">\$\{tableEscapeHtml\(item\.d\)\}/);
+  assert.match(indexSource, /ci-name">\$\{tableEscapeHtml\(item\.n\)\}/);
+});
+
+test('task 13 bounds menu and PWA network waits and prevents overlapping table status polls', () => {
+  assert.match(indexSource, /MENU_API_TIMEOUT_MS=12000/);
+  assert.match(indexSource, /tableOrdering\.loading\|\|tableOrdering\.statusLoading/);
+  assert.match(indexSource, /finally\{tableOrdering\.statusLoading=false;\}/);
+  assert.match(indexSource, /signal:controller\.signal/);
+  assert.match(swSource, /NETWORK_TIMEOUT_MS=8000/);
+  assert.match(swSource, /fetch\(request,\{signal:controller\.signal\}\)/);
+});
+
+test('task 13 keeps stopped dishes stopped in product share routes', () => {
+  assert.doesNotMatch(productApiSource, /ref-products-dom\.json/);
+  assert.match(productApiSource, /is_available=eq\.true/);
+  assert.match(productApiSource, /status:'unavailable'/);
+  assert.match(productApiSource, /statusCode=503/);
+  assert.match(productApiSource, /Cache-Control','no-store/);
+});
+
+test('task 13 keeps kitchen cancellation usable while waiter actions remain separate', () => {
+  assert.match(staffOrdersSource, /if \(next === "cancelled"\) return \["submitted", "accepted", "preparing"\]\.includes\(current\)/);
+  assert.match(staffOrdersSource, /role === "waiter"\) return current === "ready" && next === "served"/);
+  assert.match(kitchenSource, /openCancel\(/);
+});
+
+test('task 13 masks operational PIN inputs', () => {
+  assert.match(kitchenSource, /id="pin" type="password" inputmode="numeric" maxlength="12"/);
+  assert.match(staffSource, /id="pin" type="password" inputmode="numeric" maxlength="12"/);
+});
+
+test('task 13 calculates reports in the restaurant timezone instead of UTC', () => {
+  assert.match(adminApiSource, /RESTAURANT_TIME_ZONE = "Europe\/Moscow"/);
+  assert.match(adminApiSource, /restaurantDateKey\(order\.created_at\)/);
+  assert.match(adminApiSource, /restaurantHour\(order\.created_at\)/);
+  assert.doesNotMatch(adminSource, /UTC\+5/);
+});
+
+test('task 13 lets PostgreSQL allocate dish ids atomically', () => {
+  assert.match(dishSequenceMigration, /create sequence if not exists public\.dishes_id_seq/);
+  assert.match(dishSequenceMigration, /alter column id set default nextval/);
+  assert.doesNotMatch(adminApiSource, /function nextDishId/);
+  assert.match(adminApiSource, /Prefer: "return=representation"/);
+  assert.match(adminApiSource, /createdDishId/);
 });
