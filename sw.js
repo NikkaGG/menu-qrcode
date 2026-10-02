@@ -51,10 +51,6 @@ self.addEventListener('fetch',event=>{
     event.respondWith(networkFirst(request,OFFLINE_URL));
     return;
   }
-  if(url.pathname==='/ref-products-dom.json'){
-    event.respondWith(networkFirst(request));
-    return;
-  }
   if(['/styles.css','/app.js','/manifest.webmanifest'].includes(url.pathname)){
     event.respondWith(networkFirst(request));
     return;
