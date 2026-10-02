@@ -1245,6 +1245,12 @@ body.kitchen-workspace{
 .kitchen-segments button[aria-selected="true"] span{background:#f2f2f7}
 
 .kitchen-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+.kitchen-board[data-view="submitted"],
+.kitchen-board[data-view="working"],
+.kitchen-board[data-view="ready"]{grid-template-columns:minmax(0,1fr)}
+.kitchen-board[data-view="submitted"] .kitchen-lane:not(.lane-new),
+.kitchen-board[data-view="working"] .kitchen-lane:not(.lane-working),
+.kitchen-board[data-view="ready"] .kitchen-lane:not(.lane-ready){display:none}
 .kitchen-lane{
   min-width:0;padding:10px;border:1px solid rgba(60,60,67,.08);border-radius:22px;background:var(--k-lane)
 }
