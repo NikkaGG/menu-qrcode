@@ -338,6 +338,7 @@ function guestApiErrorMessage(error){
   const raw=String(error?.message||error||'').trim();
   const translations={
     'Table not found or QR disabled':'QR-код стола недействителен или отключён',
+    'Table session is closed':'Сессия стола закрыта. Обновите QR, если вы всё ещё за этим столом',
     'Invalid table or guest token':'Не удалось распознать QR-код стола',
     'Choose a payment method':'Выберите способ расчёта',
     'Invalid order items':'Проверьте количество блюд в корзине',
@@ -353,7 +354,7 @@ async function tableApiCall(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),TABLE_API_TIMEOUT_MS);
   try{
-    const response=await fetch(TABLE_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,tableToken:tableOrdering.tableToken,guestToken:tableOrdering.guestToken,...payload}),signal:controller.signal});
+    const response=await fetch(TABLE_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,tableToken:tableOrdering.tableToken,guestToken:tableOrdering.guestToken,sessionId:tableOrdering.session?.id||'',...payload}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Не удалось связаться с рестораном');error.status=response.status;throw error;}
     return data;
@@ -472,7 +473,18 @@ async function refreshTableStatus(manual=false){
   if(tableOrdering.loading)return;
   if(!tableOrdering.ready){if(manual)await bootstrapTableOrdering(true);return;}
   try{applyTableOrderState(await tableApiCall('status'));tableOrdering.lastError='';if(manual)showToast('Статус обновлён');}
-  catch(error){if(manual)showToast(guestApiErrorMessage(error));}
+  catch(error){
+    const message=guestApiErrorMessage(error);
+    if([400,404,409].includes(Number(error?.status))){
+      tableOrdering.ready=false;
+      tableOrdering.session=null;
+      tableOrdering.lastError=message;
+      stopTablePolling();
+      renderTableOrderPanel();
+      updateOrderState();
+    }
+    if(manual)showToast(message);
+  }
 }
 async function requestTableService(kind){
   if(!tableOrdering.ready){showToast('Сначала подтвердите QR-код стола');return;}
