@@ -175,6 +175,12 @@
           <article><span>Средний чек</span><strong id="reportAverage30">—</strong><small>По оформленным заказам</small></article>
           <article><span>Лучший день</span><strong id="reportBestDay">—</strong><small id="reportBestDayMeta">По сумме заказов</small></article>
         </div>
+        <div class="menu-admin-summary report-summary report-summary-secondary">
+          <article><span>Отмены</span><strong id="reportCancelled30">—</strong><small id="reportCancelledMeta">За 30 дней</small></article>
+          <article><span>Среднее приготовление</span><strong id="reportPrep30">—</strong><small id="reportPrepMeta">По истории статусов</small></article>
+          <article><span>Подано</span><strong id="reportServed30">—</strong><small>Завершённые заказы</small></article>
+          <article><span>Продано позиций</span><strong id="reportItems30">—</strong><small>Количество блюд</small></article>
+        </div>
 
         <div class="reports-toolbar">
           <div>
@@ -204,6 +210,20 @@
               <div><span class="panel-eyebrow">30 дней</span><h2>Столы</h2><p>Топ по сумме заказов.</p></div>
             </div>
             <div class="report-table-ranking" id="reportTables30"></div>
+          </article>
+
+          <article class="admin-panel report-panel report-panel-wide">
+            <div class="admin-panel-head">
+              <div><span class="panel-eyebrow">По часам</span><h2>Загрузка ресторана</h2><p>Количество заказов по времени оформления, часовой пояс ресторана UTC+5.</p></div>
+            </div>
+            <div class="report-hourly" id="reportHourly30"></div>
+          </article>
+
+          <article class="admin-panel report-panel report-panel-wide">
+            <div class="admin-panel-head">
+              <div><span class="panel-eyebrow">Топ 10</span><h2>Популярные блюда</h2><p>Рейтинг по количеству проданных позиций без отменённых заказов.</p></div>
+            </div>
+            <div class="report-dishes" id="reportDishes30"></div>
           </article>
         </section>
       </section>
@@ -507,6 +527,13 @@ function renderReports(a){
   document.getElementById('reportOrders30').textContent=Number(a.orders30||0);
   document.getElementById('reportRevenue30').textContent=money(a.revenue30||0);
   document.getElementById('reportAverage30').textContent=money(a.averageCheck30||0);
+  document.getElementById('reportCancelled30').textContent=Number(a.cancelled30||0);
+  document.getElementById('reportCancelledMeta').textContent=Number(a.cancellationRate30||0).toLocaleString('ru-RU')+'% всех заказов';
+  document.getElementById('reportPrep30').textContent=a.averagePrepMinutes==null?'—':Number(a.averagePrepMinutes)+' мин';
+  document.getElementById('reportPrepMeta').textContent=a.prepSampleCount?('Медиана '+Number(a.medianPrepMinutes||0)+' мин · '+Number(a.prepSampleCount)+' заказов'):'Начнёт считаться после фиксации статусов';
+  document.getElementById('reportServed30').textContent=Number(a.served30||0);
+  document.getElementById('reportItems30').textContent=Number(a.items30||0).toLocaleString('ru-RU');
+
   const best=daily.reduce((winner,day)=>Number(day.revenue||0)>Number(winner?.revenue||0)?day:winner,null);
   if(best){
     document.getElementById('reportBestDay').textContent=new Date(best.date+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'2-digit',month:'short'});
@@ -533,13 +560,43 @@ function renderReports(a){
   document.getElementById('reportTables30').innerHTML=tables.length?tables.map((table,index)=>
     '<div class="report-table-row"><span>'+(index+1)+'</span><div><b>'+h(table.label||('Стол '+table.table_number))+'</b><small>'+Number(table.orders30||0)+' заказов</small></div><strong>'+h(money(table.revenue30||0))+'</strong></div>'
   ).join(''):'<div class="admin-empty">Столов пока нет</div>';
+
+  const hourly=a.hourly30||[],hourlyMax=Math.max(1,...hourly.map(x=>Number(x.orders||0)));
+  document.getElementById('reportHourly30').innerHTML=hourly.map(slot=>{
+    const pct=Math.max(slot.orders?4:0,Math.round(Number(slot.orders||0)*100/hourlyMax));
+    const hour=String(Number(slot.hour||0)).padStart(2,'0')+':00';
+    return '<div class="report-hour-row"><span>'+hour+'</span><div class="report-hour-meter"><i style="width:'+pct+'%"></i></div><b>'+Number(slot.orders||0)+'</b><small>'+h(money(slot.revenue||0))+'</small></div>';
+  }).join('');
+
+  const dishes=a.popularDishes30||[];
+  document.getElementById('reportDishes30').innerHTML=dishes.length?dishes.map((dish,index)=>
+    '<div class="report-dish-row"><span>'+(index+1)+'</span><div><b>'+h(dish.name)+'</b><small>'+Number(dish.quantity||0)+' шт.</small></div><strong>'+h(money(dish.revenue||0))+'</strong></div>'
+  ).join(''):'<div class="admin-empty">Нет продаж блюд за период</div>';
 }
 
 function exportReportsCsv(){
   const a=state?.analytics||{},daily=a.daily30||[];
   if(!daily.length){notify('Нет данных для выгрузки');return}
-  const rows=[['Дата','Заказы','Сумма, ₸'],...daily.map(day=>[day.date,Number(day.orders||0),Number(day.revenue||0)])];
-  const csv='\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const rows=[
+    ['Сводка','Значение','Комментарий'],
+    ['Заказы',Number(a.orders30||0),'без отменённых'],
+    ['Сумма заказов',Number(a.revenue30||0),'₸'],
+    ['Средний чек',Number(a.averageCheck30||0),'₸'],
+    ['Отмены',Number(a.cancelled30||0),Number(a.cancellationRate30||0)+'%'],
+    ['Среднее приготовление',a.averagePrepMinutes??'','мин'],
+    ['Медиана приготовления',a.medianPrepMinutes??'','мин'],
+    ['Продано позиций',Number(a.items30||0),'шт.'],
+    [],
+    ['Дата','Заказы','Сумма, ₸'],
+    ...daily.map(day=>[day.date,Number(day.orders||0),Number(day.revenue||0)]),
+    [],
+    ['Час','Заказы','Сумма, ₸'],
+    ...(a.hourly30||[]).map(slot=>[String(slot.hour).padStart(2,'0')+':00',Number(slot.orders||0),Number(slot.revenue||0)]),
+    [],
+    ['Блюдо','Количество','Сумма, ₸'],
+    ...(a.popularDishes30||[]).map(dish=>[dish.name,Number(dish.quantity||0),Number(dish.revenue||0)])
+  ];
+  const csv='\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='sushi-crazy-report-30-days.csv';link.click();
