@@ -28,6 +28,7 @@ const dishSequenceMigration = fs.readFileSync(path.join(root, 'supabase/migratio
 const atomicSessionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002075000_atomic_session_close.sql'), 'utf8');
 const visibleCategoryMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002076000_visible_category_guard.sql'), 'utf8');
 const serviceSessionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002077000_service_request_session_guard.sql'), 'utf8');
+const atomicOrderMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002078000_atomic_order_create.sql'), 'utf8');
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -1724,6 +1725,16 @@ test('task 13 paginates large analytics and chunks long relation lookups', () =>
   assert.match(adminApiSource, /dbInChunks\(orderIds/);
 });
 
+
+test('task 13 creates order header and item snapshot in one database transaction', () => {
+  assert.match(atomicOrderMigration, /create or replace function public\.create_table_order_atomic/);
+  assert.match(atomicOrderMigration, /insert into public\.orders/);
+  assert.match(atomicOrderMigration, /insert into public\.order_items/);
+  assert.match(atomicOrderMigration, /security invoker/);
+  assert.match(atomicOrderMigration, /grant execute on function public\.create_table_order_atomic/);
+  assert.match(tableApiSource, /rpc\/create_table_order_atomic/);
+  assert.doesNotMatch(tableApiSource, /await db\("order_items"/);
+});
 
 test('task 13 stale menu prices cannot be charged silently', () => {
   assert.match(appSource, /unitPrice:Number\(item\?\.p\|\|0\)/);
