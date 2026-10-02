@@ -571,11 +571,18 @@ Deno.serve(async (req) => {
       if (current.role === "owner" && current.is_active && (!active || role !== "owner") && !(await canRemoveOwner(memberId))) {
         return reply({ error: "Нельзя отключить последнего активного владельца" }, 409);
       }
-      await db(`staff_members?id=eq.${memberId}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ name, role, is_active: active, updated_at: new Date().toISOString() }),
-      });
+      try {
+        await db(`staff_members?id=eq.${memberId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ name, role, is_active: active, updated_at: new Date().toISOString() }),
+        });
+      } catch (error) {
+        if (String((error as Error)?.message || "").toLowerCase().includes("duplicate")) {
+          return reply({ error: "Такой PIN уже используется в этой роли" }, 409);
+        }
+        throw error;
+      }
       return reply({ ok: true, ...(await adminAccessState()) });
     }
 

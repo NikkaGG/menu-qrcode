@@ -3158,7 +3158,7 @@ body.favorites-mode .search-row{margin-bottom:0!important}
 /* ── TASK 1: GUEST LAYOUT HARDENING ── */
 html,body{
   max-width:100%;
-  overflow-x:hidden;
+  overflow-x:clip;
 }
 body{
   min-width:0;

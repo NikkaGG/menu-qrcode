@@ -5,9 +5,13 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
-const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const menuSource = fs.readFileSync(path.join(root, 'menu.html'), 'utf8');
+const indexHtmlSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const menuRedirectSource = fs.readFileSync(path.join(root, 'menu.html'), 'utf8');
+const stylesSource = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
 const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+// Current app is split across HTML, CSS and JS; combine them for cross-layer UI assertions.
+const indexSource = [indexHtmlSource, stylesSource, appSource].join('\n');
+const menuSource = indexSource;
 const adminSource = fs.readFileSync(path.join(root, 'admin.html'), 'utf8');
 const adminApiSource = fs.readFileSync(path.join(root, 'supabase/functions/admin-api/index.ts'), 'utf8');
 const opsCssSource = fs.readFileSync(path.join(root, 'ops.css'), 'utf8');
@@ -24,6 +28,7 @@ const dishSequenceMigration = fs.readFileSync(path.join(root, 'supabase/migratio
 const atomicSessionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002075000_atomic_session_close.sql'), 'utf8');
 const visibleCategoryMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002076000_visible_category_guard.sql'), 'utf8');
 const serviceSessionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002077000_service_request_session_guard.sql'), 'utf8');
+const atomicOrderMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002078000_atomic_order_create.sql'), 'utf8');
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -95,6 +100,12 @@ function makeClassList(initial = []) {
     contains(name) {
       return classes.has(name);
     },
+    toggle(name, force) {
+      const enabled = force === undefined ? !classes.has(name) : !!force;
+      if (enabled) classes.add(name);
+      else classes.delete(name);
+      return enabled;
+    },
   };
 }
 
@@ -113,6 +124,13 @@ function makeTrackedClassList(initial = []) {
     },
     contains(name) {
       return classes.has(name);
+    },
+    toggle(name, force) {
+      const enabled = force === undefined ? !classes.has(name) : !!force;
+      operations.push(['toggle', name, enabled]);
+      if (enabled) classes.add(name);
+      else classes.delete(name);
+      return enabled;
     },
   };
 }
@@ -553,6 +571,13 @@ function dialogHarness({
     pendingOrderText: '',
     pendingOrderPayload: null,
     document,
+    history: { state: null, back() {}, replaceState() {} },
+    performance: { now() { return 1000; } },
+    activeProductId: null,
+    favoritesRefreshPending: false,
+    clearProductUrlParam() {},
+    render() {},
+    syncFavoritesUi() {},
     window: {
       scrollY: 0,
       scrollTo() {},
@@ -608,8 +633,6 @@ function dialogHarness({
     'unlockPageScroll',
     'openOv',
     'closeOv',
-    'validPhone',
-    'placeOrder',
   ].map((name) => extractFunction(indexSource, name)).concat(accessibilityFunctions).join('\n');
   vm.runInContext(`${declarations};${functions}`, context);
 
@@ -657,7 +680,14 @@ function productCardHarness({ grid = true } = {}) {
     const CATS=[{id:'f',l:'Роллы'}];
     const CN={f:'Роллы'};
     const POPULAR_IDS=[1];
-    let isGrid=${grid},activeCat='all',search='',popIndex=0,popularDidDrag=false;
+    let isGrid=${grid},activeCat='all',search='',popIndex=0,popularDidDrag=false,popularPointerOpenedAt=0;
+    let favoritesOnly=false,menuReady=true,activeProductId=null;
+    const MAX_ITEM_QUANTITY=20;
+    function pushMenuOverlayState(){}
+    function updateProductFavoriteButton(){}
+    function updatePopularDots(){}
+    function tableEscapeHtml(value){return String(value??'');}
+    function productImageHtml(item){return '<img src="'+String(item.img||'')+'" alt="'+tableEscapeHtml(item.n)+'">';}
     ${[
     'getItem',
     'fmt',
@@ -673,6 +703,8 @@ function productCardHarness({ grid = true } = {}) {
     'renderPopularDots',
     'updatePopular',
     'filtered',
+    'menuGridCardHtml',
+    'menuListCardHtml',
     'render',
     'openPopularItem',
     'openProd',
@@ -711,13 +743,13 @@ function assertNoNestedButtons(html) {
   assert.equal(buttonDepth, 0);
 }
 
-test('index.html and menu.html remain byte-identical', () => {
-  assert.deepEqual(
-    fs.readFileSync(path.join(root, 'index.html')),
-    fs.readFileSync(path.join(root, 'menu.html')),
-  );
+test('primary menu uses split assets and legacy menu route preserves query and hash', () => {
+  assert.match(indexHtmlSource, /<link rel="stylesheet" href="\/styles\.css\?v=/);
+  assert.match(indexHtmlSource, /<script src="\/app\.js\?v=/);
+  assert.match(menuRedirectSource, /const target='\/' \+ location\.search \+ location\.hash/);
+  assert.match(menuRedirectSource, /location\.replace\(target\)/);
+  assert.doesNotMatch(menuRedirectSource, /<script src="\/app\.js/);
 });
-
 test('order method control clearly transitions its active state', () => {
   for (const source of [indexSource, menuSource]) {
     const stylesStart = source.lastIndexOf('.del-row{background:#efeff4');
@@ -971,6 +1003,7 @@ test('reduced motion centralizes immediate modal and share closure delays', () =
   let calls = 0;
   const context = vm.createContext({
     prefersReducedMotion: () => true,
+    clearTimeout() {},
     setTimeout(callback, delay) {
       scheduled.push({ callback, delay });
     },
@@ -1009,6 +1042,7 @@ test('reduced-motion toast stays readable without forced animation choreography 
       },
     },
     prefersReducedMotion: () => true,
+    clearTimeout() {},
     setTimeout(callback, delay) {
       scheduled.push({ callback, delay });
     },
@@ -1048,6 +1082,7 @@ test('normal-motion toast preserves forced restart choreography and timing', () 
       },
     },
     prefersReducedMotion: () => false,
+    clearTimeout() {},
     setTimeout(callback, delay) {
       scheduled.push({ callback, delay });
     },
@@ -1067,13 +1102,13 @@ test('all overlays expose named modal dialog semantics', () => {
   assert.match(indexSource, /id="prodOv"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="prodTitle"/);
   assert.match(indexSource, /id="shareOv"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="shareTitle"/);
   assert.match(indexSource, /id="cartOv"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="cartTitle"/);
-  assert.match(indexSource, /class="ps-name" id="prodTitle">\$\{item\.n\}<\/div>/);
+  assert.match(indexSource, /class="ps-name" id="prodTitle">\$\{tableEscapeHtml\(item\.n\)\}<\/div>/);
   assert.match(indexSource, /class="cs-title" id="cartTitle">Корзина<\/div>/);
 });
 
 test('icon-only product and cart controls have accessible names', () => {
-  assert.match(indexSource, /class="ps-icon-btn"[^>]*aria-label="Поделиться"/);
-  assert.match(indexSource, /class="ps-icon-btn"[^>]*aria-label="Закрыть товар"/);
+  assert.match(indexSource, /class="ps-icon-btn [^"]*"[^>]*aria-label="Поделиться"/);
+  assert.match(indexSource, /class="ps-icon-btn [^"]*ps-back-btn[^"]*"[^>]*aria-label="Назад"[^>]*data-dialog-initial-focus/);
   assert.match(indexSource, /class="cs-trash"[^>]*aria-label="Очистить корзину"/);
   assert.match(indexSource, /class="cs-close"[^>]*aria-label="Закрыть корзину"/);
 });
@@ -1129,11 +1164,11 @@ test('rendered list card opens product details from a named native button and re
   assert.equal(card.context.document.activeElement, control);
 });
 
-test('dialog lifecycle stores and restores focus while preserving order transition focus', () => {
-  const openOv = extractFunction(indexSource, 'openOv');
-  const closeOv = extractFunction(indexSource, 'closeOv');
-  const restoreFocus = extractFunction(indexSource, 'restoreFocus');
-  const placeOrder = extractFunction(indexSource, 'placeOrder');
+test('dialog lifecycle stores and restores focus for current direct order flow', () => {
+  const openOv = extractFunction(appSource, 'openOv');
+  const closeOv = extractFunction(appSource, 'closeOv');
+  const restoreFocus = extractFunction(appSource, 'restoreFocus');
+  const placeOrder = extractFunction(appSource, 'placeOrder');
 
   assert.match(openOv, /document\.activeElement/);
   assert.match(openOv, /dialogOpeners\.set\(ov,/);
@@ -1141,10 +1176,9 @@ test('dialog lifecycle stores and restores focus while preserving order transiti
   assert.match(closeOv, /restoreFocus/);
   assert.match(closeOv, /dialogOpeners\.get\(ov\)/);
   assert.match(restoreFocus, /getTopmostOpenDialog\(\)/);
-  assert.match(placeOrder, /const transitionOpener=dialogOpeners\.get\(document\.getElementById\('cartOv'\)\);/);
-  assert.match(placeOrder, /closeOv\('cartOv',false\);\s*openOv\('shareOv',transitionOpener\);/);
+  assert.match(placeOrder, /closeOv\('cartOv'\)/);
+  assert.doesNotMatch(placeOrder, /openOv\('shareOv'/);
 });
-
 test('initial focus retries after first-frame transition visibility and enters each top dialog', () => {
   for (const id of ['prodOv', 'shareOv', 'cartOv']) {
     const dialog = dialogHarness({ firstFrameHidden: true });
@@ -1207,19 +1241,13 @@ test('failed opener focus falls back to the next visible safe control', () => {
   assert.equal(dialog.fallback.focused, true);
 });
 
-test('cart-to-share transition restores focus to the original visible cart opener', () => {
-  const dialog = dialogHarness({ fallbackPrecedesOpener: true });
-
-  dialog.context.openOv('cartOv');
-  dialog.context.placeOrder();
-  dialog.context.closeOv('shareOv');
-  dialog.runScheduled();
-
-  assert.equal(dialog.fallback.focused, false);
-  assert.equal(dialog.opener.focused, true);
-  assert.equal(dialog.context.document.activeElement, dialog.opener);
+test('direct order flow does not route through share dialog', () => {
+  const placeOrder = extractFunction(appSource, 'placeOrder');
+  assert.match(placeOrder, /tableApiCall\('place-order'/);
+  assert.match(placeOrder, /closeOv\('cartOv'\)/);
+  assert.doesNotMatch(placeOrder, /prepareServiceSheet\('order'\)/);
+  assert.doesNotMatch(placeOrder, /openOv\('shareOv'/);
 });
-
 test('only the topmost nested dialog remains exposed and interactive', () => {
   const dialog = dialogHarness();
 
@@ -1297,616 +1325,108 @@ test('cookie consent is visible until cookieOk is persisted', () => {
   assert.equal(acceptedReload.cookieBar.classList.contains('on'), false);
 });
 
-test('contact and product copy actions copy the current page link without clearing the cart', async () => {
-  for (const mode of ['contact', 'product']) {
-    const sharing = sharingHarness();
-    sharing.context.pendingOrderPayload = { existing: true };
-    sharing.context.prepareServiceSheet(mode);
-    sharing.context.copyOrder();
-    await new Promise(setImmediate);
+test('table checkout exposes exactly the current three waiter payment choices', () => {
+  assert.match(indexHtmlSource, /<input type="hidden" id="paymentMethodInp" value="">/);
+  const options = [...indexHtmlSource.matchAll(/<button class="payment-opt"[^>]*data-payment="([^"]+)"[^>]*>([^<]+)<\/button>/g)]
+    .map((match) => [match[1], match[2]]);
+  assert.deepEqual(options, [['kaspi','Kaspi'],['card','Карта'],['cash','Наличные']]);
+  assert.match(indexHtmlSource, /id="commentTa"[^>]*maxlength="1000"/);
+  assert.doesNotMatch(indexHtmlSource, /id="(?:phoneInp|addrInp|pickupTimeTrigger)"/);
+});
 
-    assert.deepEqual(sharing.copied, ['https://example.test/menu?category=rolls#popular']);
-    assert.deepEqual(sharing.context.cart, { 1: 2 });
-    assert.equal(sharing.context.pendingOrderText.includes('+998 71 123 45 67'), true);
-    assert.deepEqual(sharing.context.pendingOrderPayload, { existing: true });
-    assert.equal(sharing.toasts.includes('Ссылка скопирована'), true);
-    assert.equal(sharing.toasts.includes('Текст заказа скопирован'), false);
+test('setPayment writes the hidden value and exposes one pressed option', () => {
+  const input = makeElement('');
+  const a = { classList: makeClassList() };
+  const b = { classList: makeClassList() };
+  const attributes = new Map();
+  for (const button of [a,b]) {
+    button.setAttribute = (name,value) => {
+      if (!attributes.has(button)) attributes.set(button,new Map());
+      attributes.get(button).set(name,String(value));
+    };
   }
-});
-
-test('order copy action copies pending order text and preserves its cart-clearing behavior', async () => {
-  const sharing = sharingHarness();
-  sharing.context.pendingOrderText = 'Новый заказ № 42';
-  sharing.context.pendingOrderPayload = { order: 42 };
-  sharing.context.prepareServiceSheet('order');
-  sharing.context.copyOrder();
-  await new Promise(setImmediate);
-
-  assert.deepEqual(sharing.copied, ['Новый заказ № 42']);
-  assert.equal(Object.keys(sharing.context.cart).length, 0);
-  assert.equal(sharing.context.pendingOrderText, '');
-  assert.equal(sharing.context.pendingOrderPayload, null);
-  assert.equal(sharing.toasts.includes('Текст заказа скопирован'), true);
-  assert.equal(sharing.toasts.includes('Ссылка скопирована'), false);
-});
-
-test('failed copy reports failure without a success toast', async () => {
-  const sharing = sharingHarness({ clipboardRejects: true });
-  sharing.context.prepareServiceSheet('contact');
-  sharing.context.copyOrder();
-  await new Promise(setImmediate);
-
-  assert.deepEqual(sharing.toasts, ['Не удалось скопировать — попробуйте другой способ отправки']);
-  assert.deepEqual(sharing.context.cart, { 1: 2 });
-});
-
-test('failed order copy keeps the cart and pending order for another sending method', async () => {
-  const sharing = sharingHarness({ clipboardRejects: true });
-  sharing.context.pendingOrderText = 'Новый заказ № 42';
-  sharing.context.pendingOrderPayload = { order: 42 };
-  sharing.context.prepareServiceSheet('order');
-  sharing.context.copyOrder();
-  await new Promise(setImmediate);
-
-  assert.deepEqual(sharing.context.cart, { 1: 2 });
-  assert.equal(sharing.context.pendingOrderText, 'Новый заказ № 42');
-  assert.deepEqual(sharing.context.pendingOrderPayload, { order: 42 });
-});
-
-test('phone and address fields have static error descriptions and hidden errors', () => {
-  assert.match(indexSource, /id="phoneInp"[^>]*aria-describedby="phoneErr"/);
-  assert.match(indexSource, /id="addrInp"[^>]*aria-describedby="addrErr"/);
-  assert.match(indexSource, /id="phoneErr"[^>]*hidden/);
-  assert.match(indexSource, /id="addrErr"[^>]*hidden/);
-  assert.match(indexSource, /const SHOP_PHONE='\+998711234567';/);
-});
-
-test('active pages expose one required native payment method select with exact options', () => {
-  const expectedOptions = [
-    ['', 'Способ оплаты'],
-    ['kaspi_invoice', 'Выставить счёт на оплату Kaspi'],
-    ['card', 'Оплата картой'],
-    ['cash', 'Оплата наличными'],
-  ];
-
-  for (const source of [indexSource, menuSource]) {
-    assert.doesNotMatch(source, /id="(?:personsInp|paymentInp)"/);
-    assert.match(
-      source,
-      /<label class="cmnt-title" for="paymentMethodInp">Способ оплаты<\/label>\s*<select\b[^>]*id="paymentMethodInp"/,
-    );
-    const selects = [...source.matchAll(/<select\b[^>]*id="paymentMethodInp"[^>]*>([\s\S]*?)<\/select>/g)];
-    assert.equal(selects.length, 1);
-    assert.match(selects[0][0], /<select\b[^>]*\brequired\b/);
-    assert.match(selects[0][0], /aria-describedby="paymentMethodErr"/);
-    assert.match(
-      selects[0][1],
-      /^\s*<option value="" disabled selected>Способ оплаты<\/option>/,
-    );
-    const options = [...selects[0][1].matchAll(/<option value="([^"]*)"[^>]*>([^<]+)<\/option>/g)]
-      .map((match) => [match[1], match[2]]);
-    assert.deepEqual(options, expectedOptions);
-    assert.match(source, /id="paymentMethodErr"[^>]*hidden/);
-    assert.match(source, /const PAYMENT_METHOD_LABELS=Object\.freeze\(\{/);
-    assert.match(
-      source,
-      /<label class="cmnt-title" for="paymentMethodInp">Способ оплаты<\/label>[\s\S]*?id="paymentMethodErr"[^>]*hidden[^>]*>[\s\S]*?<div class="cmnt-title">Уточнения<\/div>\s*<textarea\b[^>]*id="commentTa"/,
-    );
-  }
-});
-
-test('validPhone accepts only normalized phone numbers containing 10 to 15 digits', () => {
-  const { context } = checkoutHarness();
-
-  assert.equal(context.validPhone(''), false);
-  assert.equal(context.validPhone('+7 (999) 123-45-6'), true);
-  assert.equal(context.validPhone('123456789'), false);
-  assert.equal(context.validPhone('123456789012345'), true);
-  assert.equal(context.validPhone('1234567890123456'), false);
-});
-
-test('updateOrderState requires a valid phone for delivery and pickup', () => {
-  for (const mode of ['d', 'p']) {
-    const empty = checkoutHarness({ phone: '', address: 'Main 1', mode });
-    empty.context.updateOrderState();
-    assert.equal(empty.elements.orderBtn.disabled, true);
-
-    const invalid = checkoutHarness({ phone: '123', address: 'Main 1', mode });
-    invalid.context.updateOrderState();
-    assert.equal(invalid.elements.orderBtn.disabled, true);
-
-    const valid = checkoutHarness({ phone: '+7 (999) 123-45-67', address: 'Main 1', mode });
-    valid.context.updateOrderState();
-    assert.equal(valid.elements.orderBtn.disabled, false);
-  }
-});
-
-test('updateOrderState requires an address only for delivery', () => {
-  const delivery = checkoutHarness({ phone: '1234567890', address: '', mode: 'd' });
-  delivery.context.updateOrderState();
-  assert.equal(delivery.elements.orderBtn.disabled, true);
-
-  const pickup = checkoutHarness({ phone: '1234567890', address: '', mode: 'p' });
-  pickup.context.updateOrderState();
-  assert.equal(pickup.elements.orderBtn.disabled, false);
-});
-
-test('updateOrderState requires a payment method for delivery and pickup', () => {
-  for (const mode of ['d', 'p']) {
-    const checkout = checkoutHarness({
-      phone: '1234567890',
-      address: 'Main 1',
-      paymentMethod: '',
-      mode,
-    });
-    checkout.context.updateOrderState();
-    assert.equal(checkout.elements.orderBtn.disabled, true);
-  }
-});
-
-test('validation errors remain hidden until an invalid submit is attempted', () => {
-  const checkout = checkoutHarness({ phone: '', address: '', mode: 'd' });
-  checkout.context.updateOrderState();
-
-  assert.equal(checkout.elements.phoneErr.hidden, true);
-  assert.equal(checkout.elements.addrErr.hidden, true);
-  assert.equal(checkout.elements.phoneInp.getAttribute('aria-invalid'), null);
-  assert.equal(checkout.elements.addrInp.getAttribute('aria-invalid'), null);
-});
-
-test('placeOrder blocks direct invalid submission and focuses the first invalid field', () => {
-  const checkout = checkoutHarness({ phone: '', address: '', mode: 'd' });
-  checkout.context.placeOrder();
-
-  assert.equal(checkout.wasPrepared(), false);
-  assert.equal(checkout.elements.phoneErr.hidden, false);
-  assert.equal(checkout.elements.addrErr.hidden, false);
-  assert.equal(checkout.elements.phoneInp.getAttribute('aria-invalid'), 'true');
-  assert.equal(checkout.elements.addrInp.getAttribute('aria-invalid'), 'true');
-  assert.equal(checkout.elements.phoneInp.focused, true);
-  assert.equal(checkout.elements.addrInp.focused, false);
-});
-
-test('placeOrder focuses address when it is the first invalid field', () => {
-  const checkout = checkoutHarness({ phone: '1234567890', address: '', mode: 'd' });
-  checkout.context.placeOrder();
-
-  assert.equal(checkout.wasPrepared(), false);
-  assert.equal(checkout.elements.phoneErr.hidden, true);
-  assert.equal(checkout.elements.addrErr.hidden, false);
-  assert.equal(checkout.elements.addrInp.getAttribute('aria-invalid'), 'true');
-  assert.equal(checkout.elements.phoneInp.focused, false);
-  assert.equal(checkout.elements.addrInp.focused, true);
-});
-
-test('placeOrder blocks pickup with an invalid phone and focuses phone', () => {
-  const checkout = checkoutHarness({ phone: '123', mode: 'p' });
-  checkout.context.placeOrder();
-
-  assert.equal(checkout.wasPrepared(), false);
-  assert.equal(checkout.elements.phoneErr.hidden, false);
-  assert.equal(checkout.elements.phoneInp.getAttribute('aria-invalid'), 'true');
-  assert.equal(checkout.elements.phoneInp.focused, true);
-  assert.equal(checkout.elements.addrErr.hidden, true);
-});
-
-test('placeOrder rejects an otherwise valid checkout without payment in both modes', () => {
-  for (const mode of ['d', 'p']) {
-    const checkout = checkoutHarness({
-      phone: '1234567890',
-      address: 'Main 1',
-      paymentMethod: '',
-      mode,
-    });
-    checkout.context.placeOrder();
-
-    assert.equal(checkout.wasPrepared(), false);
-    assert.equal(checkout.elements.paymentMethodErr.hidden, false);
-    assert.equal(checkout.elements.paymentMethodInp.getAttribute('aria-invalid'), 'true');
-    assert.equal(checkout.elements.paymentMethodInp.focused, true);
-  }
-});
-
-test('placeOrder proceeds with valid checkout contacts', () => {
-  const checkout = checkoutHarness({
-    phone: '+7 (999) 123-45-67',
-    address: 'Main 1',
-    mode: 'd',
-  });
-  checkout.context.placeOrder();
-
-  assert.equal(checkout.wasPrepared(), true);
-  assert.equal(checkout.elements.phoneErr.hidden, true);
-  assert.equal(checkout.elements.addrErr.hidden, true);
-  assert.equal(checkout.context.pendingOrderPayload, checkout.orderPayload);
-  assert.equal(checkout.builtTextPayload(), checkout.orderPayload);
-});
-
-test('correcting invalid inputs clears stale errors and aria-invalid', () => {
-  const checkout = checkoutHarness({ phone: '', address: '', mode: 'd' });
-  checkout.context.placeOrder();
-
-  checkout.elements.phoneInp.value = '+7 999 123 45 67';
-  checkout.elements.addrInp.value = 'Main 1';
-  checkout.context.updateOrderState();
-
-  assert.equal(checkout.elements.phoneErr.hidden, true);
-  assert.equal(checkout.elements.addrErr.hidden, true);
-  assert.equal(checkout.elements.phoneInp.getAttribute('aria-invalid'), null);
-  assert.equal(checkout.elements.addrInp.getAttribute('aria-invalid'), null);
-  assert.equal(checkout.elements.orderBtn.disabled, false);
-});
-
-test('choosing payment clears its stale error and enables submit', () => {
-  const checkout = checkoutHarness({
-    phone: '1234567890',
-    address: 'Main 1',
-    paymentMethod: '',
-  });
-  checkout.context.placeOrder();
-  assert.equal(checkout.elements.paymentMethodErr.hidden, false);
-
-  checkout.elements.paymentMethodInp.value = 'cash';
-  checkout.context.updateOrderState();
-
-  assert.equal(checkout.elements.paymentMethodErr.hidden, true);
-  assert.equal(checkout.elements.paymentMethodInp.getAttribute('aria-invalid'), null);
-  assert.equal(checkout.elements.orderBtn.disabled, false);
-});
-
-test('setDel preserves the selected payment method', () => {
-  const checkout = checkoutHarness({ paymentMethod: 'kaspi_invoice' });
-  const pickupButton = checkout.deliveryButtons[1];
-
-  checkout.context.setDel('p', pickupButton);
-
-  assert.equal(checkout.elements.paymentMethodInp.value, 'kaspi_invoice');
-});
-
-test('buildOrderPayload returns the exact copied delivery snapshot contract', () => {
-  const harness = orderPayloadHarness();
-  const payload = harness.context.buildOrderPayload();
-
-  assert.deepEqual(JSON.parse(JSON.stringify(payload)), {
-    items: [{
-      id: 7,
-      name: 'Филадельфия',
-      quantity: 2,
-      unitPrice: 400,
-      lineTotal: 800,
-    }],
-    total: 800,
-    orderMethod: 'delivery',
-    contact: { name: 'Алина', phone: '+7 999 123 45 67' },
-    deliveryAddress: {
-      address: 'Ленина, 1',
-      entrance: '2',
-      floor: '3',
-      flat: '4',
-      intercom: '45',
+  let updates=0;
+  const context=vm.createContext({
+    document:{
+      getElementById(id){return id==='paymentMethodInp'?input:null;},
+      querySelectorAll(selector){return selector==='#cartOv .payment-opt'?[a,b]:[];},
     },
-    pickupTime: null,
-    paymentMethod: 'kaspi_invoice',
-    comment: 'Без лука',
+    updateOrderState(){updates+=1;},
   });
-
-  harness.context.cart[7] = 9;
-  harness.item.n = 'Изменено';
-  harness.item.p = 999;
-  harness.elements.nameInp.value = 'Другой клиент';
-  harness.elements.addrInp.value = 'Другой адрес';
-  assert.equal(payload.items[0].name, 'Филадельфия');
-  assert.equal(payload.items[0].quantity, 2);
-  assert.equal(payload.items[0].unitPrice, 400);
-  assert.equal(payload.contact.name, 'Алина');
-  assert.equal(payload.deliveryAddress.address, 'Ленина, 1');
+  vm.runInContext(`${extractFunction(appSource,'setPayment')};this.setPayment=setPayment;`,context);
+  context.setPayment('card',b);
+  assert.equal(input.value,'card');
+  assert.equal(a.classList.contains('on'),false);
+  assert.equal(b.classList.contains('on'),true);
+  assert.equal(attributes.get(a).get('aria-pressed'),'false');
+  assert.equal(attributes.get(b).get('aria-pressed'),'true');
+  assert.equal(updates,1);
 });
 
-test('buildOrderPayload uses pickup and omits delivery address', () => {
-  const harness = orderPayloadHarness({ mode: 'p', paymentMethod: 'cash' });
-  const payload = harness.context.buildOrderPayload();
-
-  assert.equal(payload.orderMethod, 'pickup');
-  assert.equal(payload.deliveryAddress, null);
-  assert.equal(payload.paymentMethod, 'cash');
-});
-
-test('buildOrderText renders the readable payment label without a persons line', () => {
-  const harness = orderPayloadHarness({ paymentMethod: 'card' });
-  const payload = harness.context.buildOrderPayload();
-  const text = harness.context.buildOrderText(payload);
-
-  assert.match(text, /Оплата: Оплата картой/);
-  assert.doesNotMatch(text, /Персон:/);
-  assert.match(text, /Новый заказ Sushi Crazy\n\n1\. Филадельфия/);
-  assert.doesNotMatch(text, /\\n/);
-});
-
-test('pickup schedule has one machine-readable source and the header renders from it', () => {
-  assert.match(
-    indexSource,
-    /const SHOP_SCHEDULE=Object\.freeze\(\{open:'11:00',close:'22:40',utcOffsetMinutes:300\}\);/,
-  );
-  assert.match(indexSource, /const PICKUP_PREPARATION_MINUTES=40;/);
-  assert.match(indexSource, /const PICKUP_SLOT_STEP_MINUTES=20;/);
-  assert.equal((indexSource.match(/11:00/g) || []).length, 1);
-  assert.equal((indexSource.match(/22:40/g) || []).length, 1);
-  assert.match(indexSource, /id="shopSchedule"/);
-  assert.match(
-    extractFunction(indexSource, 'renderShopSchedule'),
-    /SHOP_SCHEDULE\.open[\s\S]*SHOP_SCHEDULE\.close/,
-  );
-});
-
-test('pickup time helpers use injected dates and UTC-only restaurant arithmetic', () => {
-  const declarations = [
-    "const SHOP_SCHEDULE=Object.freeze({open:'11:00',close:'22:40',utcOffsetMinutes:300})",
-    'const PICKUP_PREPARATION_MINUTES=40',
-    'const PICKUP_SLOT_STEP_MINUTES=20',
-  ].join(';');
-  const helperNames = [
-    'parseTimeMinutes',
-    'formatTimeMinutes',
-    'getRestaurantLocalMinutes',
-    'getAvailablePickupSlots',
-  ];
-  const context = vm.createContext({});
-  vm.runInContext(
-    `${declarations};${helperNames.map((name) => extractFunction(indexSource, name)).join('\n')};`
-      + `this.helpers={${helperNames.join(',')}};`,
-    context,
-  );
-  const helpers = context.helpers;
-
-  assert.equal(helpers.parseTimeMinutes('11:00'), 660);
-  assert.equal(helpers.formatTimeMinutes(1360), '22:40');
-  assert.equal(helpers.getRestaurantLocalMinutes(new Date('2026-07-16T05:00:00Z')), 600);
-  const cases = [
-    ['2026-07-16T05:00:00Z', ['11:00', '11:20']],
-    ['2026-07-16T07:07:00Z', ['13:00', '13:20']],
-    ['2026-07-16T07:20:00Z', ['13:00', '13:20']],
-    ['2026-07-16T07:20:01Z', ['13:20', '13:40']],
-    ['2026-07-16T17:00:00Z', ['22:40']],
-    ['2026-07-16T17:01:00Z', []],
-    ['2026-07-16T20:30:00Z', ['11:00', '11:20']],
-  ];
-  for (const [instant, expectedStart] of cases) {
-    const slots = [...helpers.getAvailablePickupSlots(new Date(instant))];
-    assert.deepEqual(slots.slice(0, expectedStart.length), expectedStart);
-    if (!expectedStart.length) assert.deepEqual(slots, []);
-  }
-});
-
-test('pickup controls and body-level dialog expose accessible semantics', () => {
-  const commentEnd = indexSource.indexOf('</textarea>', indexSource.indexOf('id="commentTa"'));
-  const pickupBlock = indexSource.indexOf('id="pickupTimeBlock"', commentEnd);
-  assert.ok(pickupBlock > commentEnd);
-  assert.equal(indexSource.slice(commentEnd + 11, pickupBlock).trim().startsWith('<div'), true);
-  assert.match(
-    indexSource,
-    /id="pickupTimeBlock"[^>]*hidden[\s\S]*?<label[^>]*for="pickupTimeTrigger"[^>]*>Время самовывоза<\/label>[\s\S]*?<button[^>]*id="pickupTimeTrigger"[^>]*aria-haspopup="dialog"[^>]*aria-controls="pickupTimeOv"[^>]*aria-expanded="false"[^>]*aria-describedby="pickupTimeErr"[^>]*>Выберите время<\/button>[\s\S]*?id="pickupTimeErr"[^>]*hidden/,
-  );
-
-  const cartStart = indexSource.indexOf('<div class="ov" id="cartOv"');
-  const cartEnd = indexSource.indexOf('<div class="toast"', cartStart);
-  const pickupDialog = indexSource.indexOf('<div class="ov pickup-time-ov" id="pickupTimeOv"');
-  assert.ok(pickupDialog > cartEnd, 'pickup dialog must be a body-level sibling after cart');
-  assert.match(
-    indexSource,
-    /id="pickupTimeOv"[^>]*role="dialog"[^>]*aria-modal="true"[^>]*aria-labelledby="pickupTimeTitle"[^>]*aria-describedby="pickupTimeDescription"[^>]*onclick="bgClose\(event,'pickupTimeOv'\)"/,
-  );
-  assert.match(indexSource, /id="pickupTimeTitle"[^>]*>Время самовывоза</);
-  assert.match(indexSource, /id="pickupTimeDescription"/);
-  assert.match(indexSource, /id="pickupTimeClose"[^>]*data-dialog-initial-focus/);
-  assert.match(indexSource, /id="pickupTimeSlots"/);
-  assert.match(indexSource, /id="pickupTimeUnavailable"[^>]*role="status"/);
-});
-
-test('cart overlay closes before the body-level toast and pickup dialog', () => {
-  const closingBoundary = /<button class="order-btn" id="orderBtn"[^>]*>Оформить заказ<\/button>\s*<\/div>\s*<\/div>\s*<\/div>\s*<\/div>\s*<\/div>\s*<div class="toast" id="toastEl"><\/div>\s*<!-- PICKUP TIME OVERLAY -->\s*<div class="ov pickup-time-ov" id="pickupTimeOv"/;
-
-  for (const source of [indexSource, menuSource]) {
-    assert.match(source, closingBoundary);
-  }
-});
-
-test('pickup picker has nested stacking, responsive modes, safe-area, and reduced-motion styling', () => {
-  const sheetMedia = '(max-width:600px), (max-height:600px) and (pointer:coarse)';
-  for (const source of [indexSource, menuSource]) {
-    const rule = source.match(/#pickupTimeOv\{[^}]*z-index:(\d+)!important[^}]*\}/);
-    assert.ok(rule, 'Expected an explicit #pickupTimeOv z-index');
-    assert.ok(Number(rule[1]) > 130, 'Expected #pickupTimeOv to stack above #cartOv');
-    const dragZoneRule = source.match(/\.pickup-time-drag-zone\{([^}]*)\}/);
-    assert.ok(dragZoneRule, 'Expected pickup drag-zone styling');
-    assert.match(dragZoneRule[1], /(?:^|;)-webkit-user-select:none(?:;|$)/);
-    assert.match(dragZoneRule[1], /(?:^|;)user-select:none(?:;|$)/);
-  }
-  assert.match(indexSource, /#pickupTimeOv\{[^}]*background:transparent/);
-  assert.match(indexSource, /#pickupTimeOv \.pickup-time-panel\{[^}]*position:fixed[^}]*transform:scale\(/);
-  for (const source of [indexSource, menuSource]) {
-    const mediaStart = source.indexOf(`@media${sheetMedia}{`);
-    assert.notEqual(mediaStart, -1);
-    const mediaStyles = source.slice(mediaStart, source.indexOf('@media(prefers-reduced-motion:reduce)', mediaStart));
-    assert.match(mediaStyles, /#pickupTimeOv\{[^}]*align-items:flex-end/);
-    assert.match(
-      mediaStyles,
-      /#pickupTimeOv\{[^}]*padding:0 env\(safe-area-inset-right, 0px\) 0 env\(safe-area-inset-left, 0px\)!important/,
-    );
-    assert.match(mediaStyles, /#pickupTimeOv \.pickup-time-panel\{[^}]*padding-bottom:calc\([^}]*safe-area-inset-bottom/);
-    assert.match(mediaStyles, /\.pickup-time-slot\{[^}]*min-height:44px/);
-  }
-  assert.match(indexSource, /@media\(prefers-reduced-motion:reduce\)\{[\s\S]*#pickupTimeOv \.pickup-time-panel/);
-});
-
-test('pickup sheet breakpoint covers portrait and coarse-pointer landscape but not short mouse desktops', () => {
-  const declarations = indexSource.match(
-    /const PICKUP_TIME_SHEET_MEDIA='[^']+';\s*const pickupTimeSheetQuery=window\.matchMedia\?\.\(PICKUP_TIME_SHEET_MEDIA\);/,
-  );
-  assert.ok(declarations);
-  const predicate = extractFunction(indexSource, 'isPickupTimeSheetMode');
-  const cases = [
-    [{ width: 390, height: 844, pointer: 'coarse' }, true],
-    [{ width: 844, height: 390, pointer: 'coarse' }, true],
-    [{ width: 844, height: 390, pointer: 'fine' }, false],
-    [{ width: 1024, height: 768, pointer: 'coarse' }, false],
-  ];
-
-  for (const [viewport, expected] of cases) {
-    let requestedMedia = '';
-    const context = vm.createContext({
-      window: {
-        matchMedia(media) {
-          requestedMedia = media;
-          return {
-            matches: viewport.width <= 600
-              || (viewport.height <= 600 && viewport.pointer === 'coarse'),
-          };
-        },
-      },
+test('table order button requires items, payment, confirmed table and no active submission', () => {
+  function run({cart={1:1},payment='card',ready=true,loading=false,submitting=false}={}){
+    const orderBtn=makeElement(),orderHint=makeElement(),paymentInput=makeElement(payment);
+    const context=vm.createContext({
+      cart,
+      tableOrdering:{ready,loading,submitting,tableToken:ready?'table-token':''},
+      PAYMENT_METHOD_LABELS:{kaspi:'Kaspi',card:'Картой',cash:'Наличными'},
+      document:{getElementById(id){return {orderBtn,orderHint,paymentMethodInp:paymentInput}[id]||null;}},
     });
-    vm.runInContext(
-      `${declarations[0]}${predicate};this.isPickupTimeSheetMode=isPickupTimeSheetMode;`,
-      context,
-    );
-
-    assert.equal(
-      requestedMedia,
-      '(max-width:600px), (max-height:600px) and (pointer:coarse)',
-    );
-    assert.equal(context.isPickupTimeSheetMode(), expected);
+    vm.runInContext(`${extractFunction(appSource,'updateOrderState')};this.updateOrderState=updateOrderState;`,context);
+    context.updateOrderState();
+    return {orderBtn,orderHint};
   }
+  assert.equal(run().orderBtn.disabled,false);
+  assert.equal(run({cart:{}}).orderBtn.disabled,true);
+  assert.equal(run({payment:''}).orderBtn.disabled,true);
+  assert.equal(run({ready:false}).orderBtn.disabled,true);
+  assert.equal(run({submitting:true}).orderBtn.disabled,true);
 });
 
-test('pickup picker generation, stale clearing, selection, and drag lifecycle are wired', () => {
-  const openPicker = extractFunction(indexSource, 'openPickupTimePicker');
-  const positionPanel = extractFunction(indexSource, 'positionPickupTimePanel');
-  const selectTime = extractFunction(indexSource, 'selectPickupTime');
-  const dragStart = extractFunction(indexSource, 'startPickupDrag');
-  const dragMove = extractFunction(indexSource, 'movePickupDrag');
-  const dragEnd = extractFunction(indexSource, 'endPickupDrag');
-  const dragCancel = extractFunction(indexSource, 'cancelPickupDrag');
-
-  assert.match(openPicker, /getAvailablePickupSlots\(new Date\(\)\)/);
-  assert.match(openPicker, /pickupTime=''[\s\S]*syncPickupTimeControl/);
-  assert.match(openPicker, /const sheetMode=isPickupTimeSheetMode\(\)/);
-  assert.match(openPicker, /positionPickupTimePanel\(trigger,sheetMode\)/);
-  assert.match(openPicker, /renderPickupTimeSlots/);
-  assert.match(openPicker, /openOv\('pickupTimeOv'/);
-  assert.match(positionPanel, /if\(!panel\|\|sheetMode\)return/);
-  assert.match(selectTime, /getAvailablePickupSlots\(new Date\(\)\)/);
-  assert.match(selectTime, /pickupTime=time/);
-  assert.match(selectTime, /closeOv\('pickupTimeOv'\)/);
-  assert.match(indexSource, /aria-pressed="\$\{time===pickupTime\}"/);
-
-  assert.match(indexSource, /id="pickupTimeDragZone"[^>]*onpointerdown="startPickupDrag\(event\)"/);
-  assert.doesNotMatch(indexSource, /id="pickupTimeSlots"[^>]*onpointerdown/);
-  assert.match(dragStart, /if\(!isPickupTimeSheetMode\(\)\|\|event\.button!==0\)return/);
-  assert.match(dragStart, /setPointerCapture/);
-  assert.match(dragStart, /addEventListener\('pointermove',movePickupDrag\)/);
-  assert.match(dragMove, /translateY/);
-  assert.match(dragEnd, /releasePointerCapture/);
-  assert.match(dragEnd, /pickupDragOffset>[\d]+[\s\S]*closeOv\('pickupTimeOv'\)/);
-  assert.match(dragCancel, /resetPickupDrag/);
-  assert.match(extractFunction(indexSource, 'cleanupPickupDrag'), /removeEventListener\('pointermove',movePickupDrag\)/);
-});
-
-test('pickup is freshly required only for pickup checkout and stale state is not mutated by availability checks', () => {
-  const stale = checkoutHarness({
-    phone: '1234567890',
-    mode: 'p',
-    pickupTime: '13:00',
-    availablePickupSlots: ['13:20'],
+test('buildOrderPayload snapshots current table cart price, payment and comment', () => {
+  const payment=makeElement('kaspi'),comment=makeElement('  без лука  ');
+  const context=vm.createContext({
+    cart:{7:2},
+    getItem(id){return Number(id)===7?{id:7,p:400}:null;},
+    document:{getElementById(id){return {paymentMethodInp:payment,commentTa:comment}[id]||null;}},
   });
-  stale.context.updateOrderState();
-  assert.equal(stale.elements.orderBtn.disabled, true);
-  assert.equal(stale.context.pickupTime, '13:00');
-
-  const delivery = checkoutHarness({
-    phone: '1234567890',
-    address: 'Main 1',
-    mode: 'd',
-    pickupTime: '',
-    availablePickupSlots: [],
+  vm.runInContext(`${extractFunction(appSource,'buildOrderPayload')};this.buildOrderPayload=buildOrderPayload;`,context);
+  assert.deepEqual(JSON.parse(JSON.stringify(context.buildOrderPayload())),{
+    items:[{id:7,quantity:2,unitPrice:400}],
+    paymentMethod:'kaspi',
+    comment:'без лука',
   });
-  delivery.context.updateOrderState();
-  assert.equal(delivery.elements.orderBtn.disabled, false);
 });
 
-test('placeOrder clears and focuses stale pickup selection after valid phone', () => {
-  const checkout = checkoutHarness({
-    phone: '1234567890',
-    mode: 'p',
-    pickupTime: '13:00',
-    availablePickupSlots: ['13:20'],
-  });
-  checkout.context.placeOrder();
-
-  assert.equal(checkout.wasPrepared(), false);
-  assert.equal(checkout.context.pickupTime, '');
-  assert.equal(checkout.elements.pickupTimeTrigger.textContent, 'Выберите время');
-  assert.equal(checkout.elements.pickupTimeErr.hidden, false);
-  assert.equal(checkout.elements.pickupTimeTrigger.getAttribute('aria-invalid'), 'true');
-  assert.equal(checkout.elements.pickupTimeTrigger.focused, true);
+test('placeOrder is a direct idempotent table API flow and only clears after success', () => {
+  const implementation=extractFunction(appSource,'placeOrder');
+  assert.match(implementation,/if\(tableOrdering\.submitting\)return/);
+  assert.match(implementation,/if\(!tableOrdering\.tableToken\)/);
+  assert.match(implementation,/if\(!tableOrdering\.ready\)/);
+  assert.match(implementation,/getOrderRequestId\(payload\)/);
+  assert.match(implementation,/tableApiCall\('place-order',\{\.\.\.payload,clientRequestId\}\)/);
+  assert.match(implementation,/clearOrderRequestId\(clientRequestId\)/);
+  assert.match(implementation,/applyTableOrderState\(data\);clearCart\(true\)/);
+  const catchIndex=implementation.indexOf('catch(error)');
+  assert.ok(catchIndex>implementation.indexOf('clearCart(true)'));
+  assert.doesNotMatch(implementation.slice(catchIndex),/clearCart\(/);
 });
 
-test('placeOrder focuses missing pickup time before payment after a valid phone', () => {
-  const checkout = checkoutHarness({
-    phone: '1234567890',
-    paymentMethod: '',
-    mode: 'p',
-    pickupTime: '',
-  });
-  checkout.context.placeOrder();
-
-  assert.equal(checkout.elements.pickupTimeTrigger.focused, true);
-  assert.equal(checkout.elements.paymentMethodInp.focused, false);
+test('contact and product share remain separate from order submission', () => {
+  const service=extractFunction(appSource,'prepareServiceSheet');
+  const copy=extractFunction(appSource,'copyOrder');
+  assert.match(service,/mode==='contact'/);
+  assert.match(service,/mode==='product'/);
+  assert.doesNotMatch(service,/mode==='order'/);
+  assert.doesNotMatch(copy,/clearCart\(/);
+  assert.match(copy,/navigator\.clipboard/);
 });
 
-test('pickup payload and text include time while delivery payload explicitly stores null', () => {
-  const pickupHarness = orderPayloadHarness({ mode: 'p', paymentMethod: 'cash' });
-  const pickupPayload = pickupHarness.context.buildOrderPayload();
-  assert.equal(pickupPayload.pickupTime, '13:20');
-  assert.match(pickupHarness.context.buildOrderText(pickupPayload), /Время самовывоза: 13:20/);
-
-  const deliveryHarness = orderPayloadHarness();
-  const deliveryPayload = deliveryHarness.context.buildOrderPayload();
-  assert.equal(deliveryPayload.pickupTime, null);
-  assert.doesNotMatch(deliveryHarness.context.buildOrderText(deliveryPayload), /Время самовывоза:/);
+test('current product dialog uses escaped title content and named icon controls', () => {
+  assert.match(extractFunction(appSource,'openProd'),/id="prodTitle">\$\{tableEscapeHtml\(item\.n\)\}/);
+  assert.match(indexHtmlSource,/ps-share-btn[^>]*aria-label="Поделиться"/);
+  assert.match(indexHtmlSource,/ps-back-btn[^>]*aria-label="Назад"[^>]*data-dialog-initial-focus/);
 });
-
-test('finishOrder resets pickup state, trigger, and error with pending order state', () => {
-  const sharing = sharingHarness();
-  sharing.context.pendingOrderText = 'Новый заказ № 42';
-  sharing.context.pendingOrderPayload = { pickupTime: '13:20' };
-  sharing.elements.pickupTimeErr.hidden = false;
-  sharing.elements.pickupTimeTrigger.setAttribute('aria-invalid', 'true');
-
-  sharing.context.finishOrder();
-
-  assert.equal(sharing.context.pickupTime, '');
-  assert.equal(sharing.elements.pickupTimeTrigger.textContent, 'Выберите время');
-  assert.equal(sharing.elements.pickupTimeTrigger.getAttribute('aria-invalid'), null);
-  assert.equal(sharing.elements.pickupTimeErr.hidden, true);
-  assert.equal(sharing.context.pendingOrderText, '');
-  assert.equal(sharing.context.pendingOrderPayload, null);
-});
-
-test('pickup dialog participates in nested focus, suppression, and restoration lifecycle', () => {
-  const dialog = dialogHarness();
-  dialog.context.openOv('cartOv');
-  dialog.context.document.activeElement = dialog.shareButtons.cartOv;
-  dialog.context.openOv('pickupTimeOv');
-
-  assert.equal(dialog.overlays.pickupTimeOv.inert, false);
-  assert.equal(dialog.overlays.cartOv.inert, true);
-  assert.equal(dialog.context.document.activeElement, dialog.closeButtons.pickupTimeOv);
-
-  dialog.context.closeOv('pickupTimeOv');
-  assert.equal(dialog.overlays.cartOv.inert, false);
-  assert.equal(dialog.context.document.activeElement, dialog.shareButtons.cartOv);
-});
-
-
 test('admin order history workspace exposes search, status and payment filters', () => {
   assert.match(adminSource, /data-section="orders"/);
   assert.match(adminSource, /id="pageOrders"[^>]*data-page="orders"/);
@@ -2057,6 +1577,7 @@ test('task 13 makes guest order retries idempotent at browser, API and database 
   assert.match(tableApiSource, /client_request_id=eq/);
   assert.match(tableApiSource, /duplicate: true/);
   assert.match(idempotencyMigration, /orders_guest_request_unique/);
+  assert.match(idempotencyMigration, /table_session_id, guest_token, client_request_id/);
   assert.match(idempotencyMigration, /guest_token, client_request_id/);
 });
 
@@ -2097,6 +1618,14 @@ test('task 13 prevents menu data from injecting HTML into guest cards', () => {
   assert.match(appSource, /ci-name">\$\{tableEscapeHtml\(item\.n\)\}/);
 });
 
+test('task 13 PWA shell ignores asset cache-busting queries offline', () => {
+  assert.match(swSource, /'\/styles\.css'/);
+  assert.match(swSource, /'\/app\.js'/);
+  assert.doesNotMatch(swSource, /app\.js\?v=/);
+  assert.match(swSource, /cache\.match\(request,\{ignoreSearch\}\)/);
+  assert.match(swSource, /networkFirst\(request,null,true\)/);
+});
+
 test('task 13 bounds menu and PWA network waits and prevents overlapping table status polls', () => {
   assert.match(appSource, /MENU_API_TIMEOUT_MS=12000/);
   assert.match(appSource, /tableOrdering\.loading\|\|tableOrdering\.statusLoading/);
@@ -2112,6 +1641,12 @@ test('task 13 keeps stopped dishes stopped in product share routes', () => {
   assert.match(productApiSource, /status:'unavailable'/);
   assert.match(productApiSource, /statusCode=503/);
   assert.match(productApiSource, /Cache-Control','no-store/);
+});
+
+test('task 13 kitchen response excludes financial item fields', () => {
+  assert.match(staffOrdersSource, /const itemSelect = actor\.role === "kitchen"/);
+  assert.match(staffOrdersSource, /"id,order_id,dish_id,name,quantity,item_comment"/);
+  assert.match(staffOrdersSource, /"id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment"/);
 });
 
 test('task 13 keeps kitchen cancellation usable while waiter actions remain separate', () => {
@@ -2213,6 +1748,16 @@ test('task 13 paginates large analytics and chunks long relation lookups', () =>
   assert.match(adminApiSource, /dbInChunks\(orderIds/);
 });
 
+
+test('task 13 creates order header and item snapshot in one database transaction', () => {
+  assert.match(atomicOrderMigration, /create or replace function public\.create_table_order_atomic/);
+  assert.match(atomicOrderMigration, /insert into public\.orders/);
+  assert.match(atomicOrderMigration, /insert into public\.order_items/);
+  assert.match(atomicOrderMigration, /security invoker/);
+  assert.match(atomicOrderMigration, /grant execute on function public\.create_table_order_atomic/);
+  assert.match(tableApiSource, /rpc\/create_table_order_atomic/);
+  assert.doesNotMatch(tableApiSource, /await db\("order_items"/);
+});
 
 test('task 13 stale menu prices cannot be charged silently', () => {
   assert.match(appSource, /unitPrice:Number\(item\?\.p\|\|0\)/);

@@ -77,7 +77,7 @@ module.exports=async function handler(req,res){
 <script>location.replace(${JSON.stringify(target)})</script>
 </head><body><p>Открываем «${esc(item.name)}»…</p><p><a href="${esc(target)}">Перейти к товару</a></p></body></html>`;
   res.setHeader('Content-Type','text/html; charset=utf-8');
-  res.setHeader('Cache-Control','public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
+  res.setHeader('Cache-Control','no-store');
   res.statusCode=200;
   res.end(html);
 };
