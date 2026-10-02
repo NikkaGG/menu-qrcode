@@ -8,6 +8,30 @@ const cors = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
 const serviceKey = secretKeys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const RESTAURANT_TIME_ZONE = "Europe/Moscow";
+
+const restaurantDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: RESTAURANT_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const restaurantHourFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: RESTAURANT_TIME_ZONE,
+  hour: "2-digit",
+  hourCycle: "h23",
+});
+
+function restaurantDateKey(value: string | number | Date) {
+  const parts = restaurantDateFormatter.formatToParts(new Date(value));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function restaurantHour(value: string | number | Date) {
+  const hour = Number(restaurantHourFormatter.format(new Date(value)));
+  return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : 0;
+}
 
 function reply(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors });
@@ -196,22 +220,19 @@ async function adminDashboard() {
   }));
 
   const dailyFor = (days: number) => {
-    const result = [];
+    const buckets = new Map<string, { date: string; orders: number; revenue: number }>();
     for (let offset = days - 1; offset >= 0; offset--) {
-      const start = new Date(now - offset * 86400000);
-      start.setUTCHours(0, 0, 0, 0);
-      const end = new Date(start.getTime() + 86400000);
-      const dayOrders = orders.filter((order: any) => {
-        const ts = new Date(order.created_at).getTime();
-        return ts >= start.getTime() && ts < end.getTime();
-      });
-      result.push({
-        date: start.toISOString().slice(0, 10),
-        orders: dayOrders.length,
-        revenue: sumTotal(dayOrders),
-      });
+      const date = restaurantDateKey(now - offset * 86400000);
+      buckets.set(date, { date, orders: 0, revenue: 0 });
     }
-    return result;
+    for (const order of orders) {
+      const key = restaurantDateKey(order.created_at);
+      const bucket = buckets.get(key);
+      if (!bucket) continue;
+      bucket.orders += 1;
+      bucket.revenue += Number(order.total || 0);
+    }
+    return [...buckets.values()];
   };
 
   const paymentsFor = (source: any[]) => {
@@ -225,8 +246,7 @@ async function adminDashboard() {
 
   const hourly30 = Array.from({ length: 24 }, (_, hour) => ({ hour, orders: 0, revenue: 0 }));
   for (const order of orders) {
-    // Current restaurant timezone is UTC+5. Task 14 will move this into restaurant settings.
-    const localHour = (new Date(order.created_at).getUTCHours() + 5) % 24;
+    const localHour = restaurantHour(order.created_at);
     hourly30[localHour].orders += 1;
     hourly30[localHour].revenue += Number(order.total || 0);
   }
