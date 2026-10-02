@@ -13,7 +13,11 @@
   <h1>Администратор</h1>
   <p>Управление рестораном, столами и QR-кодами.</p>
   <form id="loginForm">
-    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN администратора" aria-label="PIN администратора">
+    <select id="adminRole" aria-label="Роль">
+      <option value="owner">Владелец</option>
+      <option value="admin">Администратор</option>
+    </select>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN">
     <button>Войти</button>
   </form>
   <div class="error" id="loginError" role="alert"></div>
@@ -43,6 +47,9 @@
         </button>
         <button type="button" data-section="menu">
           <img src="/apple-emoji/receipt.png" alt=""><span>Меню</span><i id="navStopCount">0</i>
+        </button>
+        <button type="button" data-section="access" id="accessNavBtn" hidden>
+          <img src="/apple-emoji/gear.png" alt=""><span>Доступ</span>
         </button>
         <div class="admin-nav-divider"></div>
         <a href="/kitchen" target="_blank"><img src="/apple-emoji/frying-pan.png" alt=""><span>Кухня</span></a>
@@ -201,6 +208,23 @@
         </section>
       </section>
 
+
+      <section class="admin-page" id="pageAccess" data-page="access" hidden>
+        <div class="menu-admin-summary access-summary">
+          <article><span>Владельцы</span><strong id="accessOwners">—</strong><small>Полный доступ</small></article>
+          <article><span>Администраторы</span><strong id="accessAdmins">—</strong><small>Управление рестораном</small></article>
+          <article><span>Официанты</span><strong id="accessWaiters">—</strong><small>Только зал</small></article>
+          <article><span>Кухня</span><strong id="accessKitchen">—</strong><small>Только заказы кухни</small></article>
+        </div>
+        <div class="reports-toolbar access-toolbar">
+          <div><b>Сотрудники и роли</b><span>PIN хранится только как SHA-256 хеш. Отключённый сотрудник сразу теряет доступ.</span></div>
+          <button type="button" class="create-table-btn" id="openCreateStaffBtn">+ Сотрудник</button>
+        </div>
+        <section class="access-list" id="accessList">
+          <div class="admin-empty admin-empty-wide">Загружаем сотрудников…</div>
+        </section>
+      </section>
+
       <section class="admin-page" id="pageTables" data-page="tables" hidden>
         <div class="tables-toolbar">
           <div class="table-search">
@@ -335,6 +359,19 @@
   </div>
 </div>
 
+<div class="modal action-sheet" id="staffModal" role="dialog" aria-modal="true" aria-labelledby="staffModalTitle">
+  <div class="modal-card">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="modal-head"><div><small>Доступ</small><h2 id="staffModalTitle">Добавить сотрудника</h2></div><button class="x" type="button" id="closeStaffBtn">×</button></div>
+    <form class="sheet-form" id="staffForm">
+      <label>Имя<input id="staffName" maxlength="80" required placeholder="Например, Айгерим"></label>
+      <label>Роль<select id="staffRole" required><option value="admin">Администратор</option><option value="waiter">Официант</option><option value="kitchen">Кухня</option><option value="owner">Владелец</option></select></label>
+      <label>PIN<input id="staffPin" type="password" inputmode="numeric" maxlength="12" required placeholder="Цифры"></label>
+      <div class="sheet-actions"><button type="button" id="cancelStaffBtn">Отмена</button><button class="primary" type="submit">Добавить</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/vendor/qrcode-generator.js?v=1"></script>
 <script>
@@ -342,9 +379,11 @@ const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
 const STAFF_API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
 let pin=sessionStorage.getItem('sushi-admin-pin')||'';
+let adminRole=sessionStorage.getItem('sushi-admin-role')||'owner';
 let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
 let orderState=null,orderLoading=false,orderFilter='all',orderQuery='',orderPayment='all';
 let menuState=null,menuLoading=false,menuFilter='all',menuQuery='',menuCategory='all',editDishId=null;
+let accessState=null,accessLoading=false;
 const busyTables=new Set(),busyDishes=new Set(),busyCategories=new Set();
 let pollTimer=null,toastTimer=null;
 
@@ -358,7 +397,7 @@ async function api(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin,'x-admin-role':adminRole},body:JSON.stringify({action,...payload}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
     return data;
@@ -373,7 +412,7 @@ async function staffOrdersFallback(){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action:'dashboard'}),signal:controller.signal});
+    const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin,'x-staff-role':adminRole},body:JSON.stringify({action:'dashboard'}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
     const tablesById=new Map((data.tables||[]).map(table=>[table.id,table]));
@@ -790,17 +829,87 @@ async function saveDish(event){
   finally{submit.disabled=false;submit.textContent='Сохранить'}
 }
 
+const roleLabels={owner:'Владелец',admin:'Администратор',waiter:'Официант',kitchen:'Кухня'};
+
+function syncAccessRole(){
+  const role=state?.actor?.role||adminRole;
+  adminRole=role;
+  sessionStorage.setItem('sushi-admin-role',role);
+  const owner=role==='owner';
+  const nav=document.getElementById('accessNavBtn');
+  if(nav)nav.hidden=!owner;
+  if(currentSection==='access'&&!owner)switchSection('overview');
+}
+
+async function loadAccess(silent=true,force=false){
+  if(adminRole!=='owner')return;
+  if(accessLoading||(!force&&accessState))return;
+  accessLoading=true;
+  try{accessState=await api('access');renderAccess()}
+  catch(error){if(!silent)notify(error.message||'Не удалось загрузить доступы')}
+  finally{accessLoading=false}
+}
+
+function renderAccess(){
+  if(!accessState)return;
+  const members=accessState.members||[];
+  const active=members.filter(x=>x.is_active!==false);
+  const count=role=>active.filter(x=>x.role===role).length;
+  document.getElementById('accessOwners').textContent=count('owner');
+  document.getElementById('accessAdmins').textContent=count('admin');
+  document.getElementById('accessWaiters').textContent=count('waiter');
+  document.getElementById('accessKitchen').textContent=count('kitchen');
+  document.getElementById('accessList').innerHTML=members.length?members.map(member=>{
+    const enabled=member.is_active!==false;
+    return '<article class="access-card '+(enabled?'':'is-disabled')+'"><div><span class="access-role">'+h(roleLabels[member.role]||member.role)+'</span><h3>'+h(member.name)+'</h3><small>'+(enabled?'Доступ активен':'Доступ отключён')+'</small></div><div class="access-actions"><button type="button" data-access-action="pin" data-id="'+member.id+'">Новый PIN</button><button type="button" data-access-action="toggle" data-id="'+member.id+'" data-active="'+String(!enabled)+'">'+(enabled?'Отключить':'Включить')+'</button></div></article>';
+  }).join(''):'<div class="admin-empty admin-empty-wide">Сотрудников пока нет</div>';
+}
+
+function openStaffModal(){
+  document.getElementById('staffForm').reset();
+  document.getElementById('staffModal').classList.add('on');
+  setTimeout(()=>document.getElementById('staffName').focus(),50);
+}
+function closeStaffModal(){document.getElementById('staffModal').classList.remove('on')}
+
+async function createStaff(event){
+  event.preventDefault();
+  const name=document.getElementById('staffName').value.trim();
+  const staffRole=document.getElementById('staffRole').value;
+  const staffPin=document.getElementById('staffPin').value.trim();
+  if(!name||!/^\d{1,12}$/.test(staffPin)){notify('Проверьте имя и PIN');return}
+  const submit=event.submitter||event.target.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
+  try{accessState=await api('create-staff',{name,staffRole,staffPin});renderAccess();closeStaffModal();notify('Сотрудник добавлен')}
+  catch(error){notify(error.message||'Не удалось добавить сотрудника')}
+  finally{if(submit)submit.disabled=false}
+}
+
+async function toggleStaff(memberId,active){
+  const member=(accessState?.members||[]).find(x=>Number(x.id)===Number(memberId));if(!member)return;
+  try{accessState=await api('update-staff',{memberId:Number(member.id),name:member.name,staffRole:member.role,active});renderAccess();notify(active?'Доступ включён':'Доступ отключён')}
+  catch(error){notify(error.message||'Не удалось изменить доступ')}
+}
+
+async function resetStaffPin(memberId){
+  const staffPin=window.prompt('Новый PIN (только цифры)');
+  if(staffPin===null)return;
+  if(!/^\d{1,12}$/.test(staffPin.trim())){notify('PIN должен состоять из цифр');return}
+  try{accessState=await api('set-staff-pin',{memberId:Number(memberId),staffPin:staffPin.trim()});renderAccess();notify('PIN обновлён')}
+  catch(error){notify(error.message||'Не удалось сменить PIN')}
+}
+
 function render(){
   if(!state)return;
   const a=state.analytics||{};
-  renderStats(a);renderChart(a);renderPayments(a);renderOperational(a);renderRanking();renderTables();renderReports(a);
+  renderStats(a);renderChart(a);renderPayments(a);renderOperational(a);renderRanking();renderTables();renderReports(a);syncAccessRole();
   const updated=new Date(state.generatedAt||Date.now()).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('updatedAt').textContent='Обновлено '+updated;
   document.getElementById('sidebarUpdated').textContent='Обновлено '+updated;
 }
 
 function switchSection(section,updateHash=true){
-  if(!['overview','orders','reports','tables','menu'].includes(section))section='overview';
+  if(!['overview','orders','reports','tables','menu','access'].includes(section))section='overview';
+  if(section==='access'&&adminRole!=='owner')section='overview';
   currentSection=section;
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
@@ -809,7 +918,8 @@ function switchSection(section,updateHash=true){
     orders:['Операции','Заказы','История, статусы, состав и способы оплаты.'],
     reports:['Аналитика','Отчёты','30-дневная динамика, оплата и эффективность столов.'],
     tables:['Управление','Столы и QR','QR-коды, статусы и активность столов.'],
-    menu:['Управление','Меню','Блюда, категории и быстрый стоп-лист.']
+    menu:['Управление','Меню','Блюда, категории и быстрый стоп-лист.'],
+    access:['Безопасность','Доступ','Сотрудники, роли и PIN-коды.']
   };
   const copy=copies[section];
   document.getElementById('pageEyebrow').textContent=copy[0];
@@ -817,6 +927,7 @@ function switchSection(section,updateHash=true){
   document.getElementById('pageSubtitle').textContent=copy[2];
   if(section==='orders')loadOrders(true);
   if(section==='menu')loadMenu(true);
+  if(section==='access')loadAccess(true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
 }
@@ -830,13 +941,14 @@ async function refresh(silent=true){
     document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
     if(currentSection==='orders')loadOrders(true,true);
     if(currentSection==='menu')loadMenu(true,true);
+    if(currentSection==='access')loadAccess(true,true);
     startPolling();
     if(!silent)notify('Данные обновлены');
   }catch(error){
     if(error.status===401){
       sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();
       document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;
-      if(!silent)document.getElementById('loginError').textContent='Неверный PIN администратора';
+      if(!silent)document.getElementById('loginError').textContent='Неверный PIN для выбранной роли';
     }else if(!state){
       document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;document.getElementById('loginError').textContent=error.message||'Не удалось загрузить админ-панель';
     }else{
@@ -979,18 +1091,24 @@ function downloadQr(){
   }catch(error){notify(error.message||'Не удалось скачать QR')}
 }
 
-function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(!pin||document.hidden)return;if(currentSection==='orders')loadOrders(true,true);else if(currentSection==='menu')loadMenu(true,true);else refresh(true)},30000)}
+function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(!pin||document.hidden)return;if(currentSection==='orders')loadOrders(true,true);else if(currentSection==='menu')loadMenu(true,true);else if(currentSection==='access')loadAccess(true,true);else refresh(true)},30000)}
 function stopPolling(){clearInterval(pollTimer);pollTimer=null}
 function logout(){stopPolling();sessionStorage.removeItem('sushi-admin-pin');location.reload()}
 
-document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-admin-pin',pin);document.getElementById('loginError').textContent='';refresh(false)});
+document.getElementById('adminRole').value=adminRole;
+document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();adminRole=document.getElementById('adminRole').value;sessionStorage.setItem('sushi-admin-pin',pin);sessionStorage.setItem('sushi-admin-role',adminRole);document.getElementById('loginError').textContent='';refresh(false)});
 document.getElementById('adminNav').addEventListener('click',event=>{const btn=event.target.closest('[data-section]');if(btn)switchSection(btn.dataset.section)});
 document.querySelectorAll('[data-jump]').forEach(btn=>btn.addEventListener('click',()=>switchSection(btn.dataset.jump)));
-document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='orders'?loadOrders(false,true):currentSection==='menu'?loadMenu(false,true):refresh(false));
+document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='orders'?loadOrders(false,true):currentSection==='menu'?loadMenu(false,true):currentSection==='access'?loadAccess(false,true):refresh(false));
 document.getElementById('orderSearch').addEventListener('input',event=>{orderQuery=event.target.value.trim();renderOrders()});
 document.getElementById('orderFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;orderFilter=btn.dataset.filter;document.querySelectorAll('#orderFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderOrders()});
 document.getElementById('orderPayment').addEventListener('change',event=>{orderPayment=event.target.value;renderOrders()});
 document.getElementById('exportReportsCsv').addEventListener('click',exportReportsCsv);
+document.getElementById('openCreateStaffBtn').addEventListener('click',openStaffModal);
+document.getElementById('closeStaffBtn').addEventListener('click',closeStaffModal);
+document.getElementById('cancelStaffBtn').addEventListener('click',closeStaffModal);
+document.getElementById('staffForm').addEventListener('submit',createStaff);
+document.getElementById('accessList').addEventListener('click',event=>{const btn=event.target.closest('button[data-access-action]');if(!btn)return;if(btn.dataset.accessAction==='toggle')toggleStaff(btn.dataset.id,btn.dataset.active==='true');if(btn.dataset.accessAction==='pin')resetStaffPin(btn.dataset.id)});
 document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
 document.getElementById('closeCreateBtn').addEventListener('click',closeCreateTable);
 document.getElementById('cancelCreateBtn').addEventListener('click',closeCreateTable);
