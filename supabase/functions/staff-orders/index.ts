@@ -141,8 +141,11 @@ async function dashboard(actor: StaffActor) {
 
   const orderIds = visibleOrders.map((order: any) => Number(order.id))
     .filter((id: number) => Number.isInteger(id) && id > 0);
+  const itemSelect = actor.role === "kitchen"
+    ? "id,order_id,dish_id,name,quantity,item_comment"
+    : "id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment";
   const itemsRaw = orderIds.length
-    ? await db(`order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order_id=in.(${orderIds.join(",")})&order=order_id.asc,id.asc`)
+    ? await db(`order_items?select=${itemSelect}&order_id=in.(${orderIds.join(",")})&order=order_id.asc,id.asc`)
     : [];
 
   return {
