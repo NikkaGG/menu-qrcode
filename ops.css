@@ -1907,3 +1907,59 @@ body.admin-workspace{background:#f2f2f7}
   .report-day>small{display:none}
   .report-day>b{font-size:11px}
 }
+
+
+/* ── TASK 11: ROLE ACCESS WORKSPACE ── */
+.login form select{
+  width:100%;
+  min-height:48px;
+  border:1px solid rgba(60,60,67,.18);
+  border-radius:14px;
+  background:#fff;
+  padding:0 14px;
+  font:inherit;
+  color:inherit;
+}
+.access-toolbar{margin-bottom:16px}
+.access-list{display:grid;gap:12px}
+.access-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 20px;
+  border:1px solid rgba(60,60,67,.12);
+  border-radius:18px;
+  background:#fff;
+}
+.access-card.is-disabled{opacity:.58}
+.access-card h3{margin:4px 0 3px;font-size:18px}
+.access-card small{color:#777}
+.access-role{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:0 9px;
+  border-radius:999px;
+  background:#f2f2f7;
+  font-size:12px;
+  font-weight:700;
+}
+.access-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.access-actions button{
+  min-height:38px;
+  padding:0 13px;
+  border:0;
+  border-radius:11px;
+  background:#f2f2f7;
+  font:inherit;
+  font-weight:650;
+  cursor:pointer;
+}
+.access-actions button:last-child{background:#fff0f0;color:#b42318}
+.access-card.is-disabled .access-actions button:last-child{background:#edf8ef;color:#267a38}
+@media (max-width:680px){
+  .access-card{align-items:flex-start;flex-direction:column}
+  .access-actions{width:100%;justify-content:stretch}
+  .access-actions button{flex:1}
+}
