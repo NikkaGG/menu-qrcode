@@ -567,9 +567,10 @@ function shownTotal(item){return item.p*Math.max(1,shownQty(item.id));}
 function addBtnHtml(id){const q=shownQty(id);return q>0?`<p>${q}</p>`:svgIcon('plus','svg-icon plus-icon');}
 function addBtnAria(id){const q=shownQty(id);return q>0?`Добавить ещё. Сейчас в корзине: ${q}`:'Добавить в корзину';}
 function cartAddButton(id,cls){
-  const q=shownQty(id);
+  const q=shownQty(id),atMax=q>=MAX_ITEM_QUANTITY;
   const action=` onclick="event.preventDefault();event.stopPropagation();addCart(${id})"`;
-  return `<button type="button" class="${cls} cart-add-btn${q>0?' in-cart':''}" data-add-id="${id}" onpointerdown="event.stopPropagation()"${action} aria-label="${addBtnAria(id)}">${addBtnHtml(id)}</button>`;
+  const aria=atMax?`Максимум ${MAX_ITEM_QUANTITY} штук в корзине`:addBtnAria(id);
+  return `<button type="button" class="${cls} cart-add-btn${q>0?' in-cart':''}" data-add-id="${id}" onpointerdown="event.stopPropagation()"${action} aria-label="${aria}"${atMax?' disabled':''}>${addBtnHtml(id)}</button>`;
 }
 function priceMarkup(item,cls){
   const total=shownTotal(item);
@@ -594,8 +595,10 @@ function syncAddButtons(idFilter=null,animate=false){
     if(idFilter!==null && id!==parseInt(idFilter))return;
     const q=shownQty(id);
     btn.innerHTML=addBtnHtml(id);
-    btn.setAttribute('aria-label',addBtnAria(id));
+    const atMax=q>=MAX_ITEM_QUANTITY;
+    btn.setAttribute('aria-label',atMax?'Максимум '+MAX_ITEM_QUANTITY+' штук в корзине':addBtnAria(id));
     btn.classList.toggle('in-cart',q>0);
+    btn.disabled=atMax;
     btn.setAttribute('onpointerdown','event.stopPropagation()');
     btn.setAttribute('onclick',`event.preventDefault();event.stopPropagation();addCart(${id})`);
     if(animate)bumpNode(btn,'qty-pop');
@@ -976,7 +979,7 @@ function renderCart(){
           <div class="qty-row" aria-label="Количество">
             <button class="qb" onclick="chQ('${id}',-1)" aria-label="Уменьшить количество">${svgIcon('minus','svg-icon plus-icon')}</button>
             <div class="qn">${qty}</div>
-            <button class="qb" onclick="chQ('${id}',1)" aria-label="Увеличить количество">${svgIcon('plus','svg-icon plus-icon')}</button>
+            <button class="qb" onclick="chQ('${id}',1)" aria-label="${qty>=MAX_ITEM_QUANTITY?'Максимальное количество '+MAX_ITEM_QUANTITY:'Увеличить количество'}"${qty>=MAX_ITEM_QUANTITY?' disabled':''}>${svgIcon('plus','svg-icon plus-icon')}</button>
           </div>
         </div>
       </div>
