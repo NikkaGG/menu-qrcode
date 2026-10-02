@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const menuSource = fs.readFileSync(path.join(root, 'menu.html'), 'utf8');
+const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const adminSource = fs.readFileSync(path.join(root, 'admin.html'), 'utf8');
 const adminApiSource = fs.readFileSync(path.join(root, 'supabase/functions/admin-api/index.ts'), 'utf8');
 const opsCssSource = fs.readFileSync(path.join(root, 'ops.css'), 'utf8');
@@ -2049,10 +2050,10 @@ test('task 12 reports expose cancellations, preparation time, hourly load and po
 
 
 test('task 13 makes guest order retries idempotent at browser, API and database layers', () => {
-  assert.match(indexSource, /ORDER_REQUEST_TTL_MS/);
-  assert.match(indexSource, /function getOrderRequestId\(payload\)/);
-  assert.match(indexSource, /clientRequestId/);
-  assert.match(indexSource, /clearOrderRequestId\(clientRequestId\)/);
+  assert.match(appSource, /ORDER_REQUEST_TTL_MS/);
+  assert.match(appSource, /function getOrderRequestId\(payload\)/);
+  assert.match(appSource, /clientRequestId/);
+  assert.match(appSource, /clearOrderRequestId\(clientRequestId\)/);
   assert.match(tableApiSource, /client_request_id=eq/);
   assert.match(tableApiSource, /duplicate: true/);
   assert.match(idempotencyMigration, /orders_guest_request_unique/);
@@ -2063,17 +2064,17 @@ test('task 13 does not let background polling reopen a closed table session', ()
   assert.match(tableApiSource, /if \(action === "bootstrap"\) \{/);
   assert.match(tableApiSource, /Table session is closed/);
   assert.match(tableApiSource, /id=eq\.\$\{encodeURIComponent\(sessionId\)\}/);
-  assert.match(indexSource, /sessionId:tableOrdering\.session\?\.id\|\|''/);
-  assert.match(indexSource, /\[400,404,409\]\.includes\(Number\(error\?\.status\)\)/);
-  assert.match(indexSource, /stopTablePolling\(\)/);
+  assert.match(appSource, /sessionId:tableOrdering\.session\?\.id\|\|''/);
+  assert.match(appSource, /\[400,404,409\]\.includes\(Number\(error\?\.status\)\)/);
+  assert.match(appSource, /stopTablePolling\(\)/);
 });
 
 test('task 13 isolates saved carts by QR table', () => {
-  assert.match(indexSource, /const CART_STORAGE_KEY='sushi-crazy-cart-v2'/);
-  assert.match(indexSource, /function cartStorageKey\(\)/);
-  assert.match(indexSource, /tableOrdering\?\.tableToken\|\|'browse'/);
-  assert.match(indexSource, /LEGACY_CART_STORAGE_KEY/);
-  assert.match(indexSource, /localStorage\.setItem\(cartStorageKey\(\),JSON\.stringify\(cart\)\)/);
+  assert.match(appSource, /const CART_STORAGE_KEY='sushi-crazy-cart-v2'/);
+  assert.match(appSource, /function cartStorageKey\(\)/);
+  assert.match(appSource, /tableOrdering\?\.tableToken\|\|'browse'/);
+  assert.match(appSource, /LEGACY_CART_STORAGE_KEY/);
+  assert.match(appSource, /localStorage\.setItem\(cartStorageKey\(\),JSON\.stringify\(cart\)\)/);
 });
 
 test('task 13 rejects duplicate item rows that bypass the per-dish quantity cap', () => {
@@ -2089,18 +2090,18 @@ test('task 13 deduplicates simultaneous open service requests', () => {
 });
 
 test('task 13 prevents menu data from injecting HTML into guest cards', () => {
-  assert.match(indexSource, /pop-name">\$\{tableEscapeHtml\(item\.n\)\}/);
-  assert.match(indexSource, /gc-name">\$\{tableEscapeHtml\(item\.n\)\}/);
-  assert.match(indexSource, /lc-desc">\$\{tableEscapeHtml\(item\.d\)\}/);
-  assert.match(indexSource, /ps-desc">\$\{tableEscapeHtml\(item\.d\)\}/);
-  assert.match(indexSource, /ci-name">\$\{tableEscapeHtml\(item\.n\)\}/);
+  assert.match(appSource, /pop-name">\$\{tableEscapeHtml\(item\.n\)\}/);
+  assert.match(appSource, /gc-name">\$\{tableEscapeHtml\(item\.n\)\}/);
+  assert.match(appSource, /lc-desc">\$\{tableEscapeHtml\(item\.d\)\}/);
+  assert.match(appSource, /ps-desc">\$\{tableEscapeHtml\(item\.d\)\}/);
+  assert.match(appSource, /ci-name">\$\{tableEscapeHtml\(item\.n\)\}/);
 });
 
 test('task 13 bounds menu and PWA network waits and prevents overlapping table status polls', () => {
-  assert.match(indexSource, /MENU_API_TIMEOUT_MS=12000/);
-  assert.match(indexSource, /tableOrdering\.loading\|\|tableOrdering\.statusLoading/);
-  assert.match(indexSource, /finally\{tableOrdering\.statusLoading=false;\}/);
-  assert.match(indexSource, /signal:controller\.signal/);
+  assert.match(appSource, /MENU_API_TIMEOUT_MS=12000/);
+  assert.match(appSource, /tableOrdering\.loading\|\|tableOrdering\.statusLoading/);
+  assert.match(appSource, /finally\{tableOrdering\.statusLoading=false;\}/);
+  assert.match(appSource, /signal:controller\.signal/);
   assert.match(swSource, /NETWORK_TIMEOUT_MS=8000/);
   assert.match(swSource, /fetch\(request,\{signal:controller\.signal\}\)/);
 });
@@ -2214,8 +2215,8 @@ test('task 13 paginates large analytics and chunks long relation lookups', () =>
 
 
 test('task 13 stale menu prices cannot be charged silently', () => {
-  assert.match(indexSource, /unitPrice:Number\(item\?\.p\|\|0\)/);
-  assert.match(indexSource, /'Menu prices changed':'Цены в меню изменились/);
+  assert.match(appSource, /unitPrice:Number\(item\?\.p\|\|0\)/);
+  assert.match(appSource, /'Menu prices changed':'Цены в меню изменились/);
   assert.match(tableApiSource, /const observedPrices = new Map<number, number>\(\)/);
   assert.match(tableApiSource, /observedUnitPrice: observedPrices\.get\(id\) as number/);
   assert.match(tableApiSource, /Number\(byId\.get\(item\.id\)\?\.price\) !== item\.observedUnitPrice/);
