@@ -417,7 +417,7 @@ async function api(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin,'x-admin-role':adminRole},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin},body:JSON.stringify({action,role:adminRole,...payload}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
     return data;
@@ -432,7 +432,7 @@ async function staffOrdersFallback(){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin,'x-staff-role':adminRole},body:JSON.stringify({action:'dashboard'}),signal:controller.signal});
+    const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action:'dashboard',role:adminRole}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
     const tablesById=new Map((data.tables||[]).map(table=>[table.id,table]));
