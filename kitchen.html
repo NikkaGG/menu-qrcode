@@ -11,9 +11,9 @@
 <div id="login" class="login">
   <div class="login-symbol"><img class="ops-emoji" src="/apple-emoji/frying-pan.png" alt=""></div>
   <h1>Кухня</h1>
-  <p>Введите PIN персонала.</p>
+  <p>Введите PIN кухни.</p>
   <form id="loginForm">
-    <input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN персонала">
+    <input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN кухни">
     <button>Войти</button>
   </form>
   <div class="err" id="loginErr" role="alert"></div>
@@ -112,7 +112,7 @@ const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
 const WARNING_MINUTES=15;
 const CRITICAL_MINUTES=25;
-let pin=sessionStorage.getItem('sushi-staff-pin')||'';
+let pin=sessionStorage.getItem('sushi-kitchen-pin')||'';
 let state=null,refreshBusy=false,cancelTarget=null,firstLoad=true;
 const busyOrders=new Set();
 const justArrived=new Set();
@@ -131,7 +131,7 @@ async function api(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin,'x-staff-role':'kitchen'},body:JSON.stringify({action,...payload}),signal:controller.signal});
     const d=await r.json().catch(()=>({}));
     if(!r.ok){const e=new Error(d.error||'Ошибка');e.status=r.status;throw e}
     return d;
@@ -252,7 +252,7 @@ async function refresh(silent=true){
     startTimers();
   }catch(e){
     if(e.status===401){
-      sessionStorage.removeItem('sushi-staff-pin');pin='';
+      sessionStorage.removeItem('sushi-kitchen-pin');pin='';
       login.hidden=false;app.hidden=true;stopTimers();
       if(!silent)loginErr.textContent='Неверный PIN';
     }else{
@@ -348,11 +348,11 @@ function startTimers(){
   if(!ageTimer)ageTimer=setInterval(()=>{if(state&&!document.hidden)render()},15000);
 }
 function stopTimers(){clearInterval(pollTimer);clearInterval(ageTimer);pollTimer=null;ageTimer=null}
-function logout(){stopTimers();sessionStorage.removeItem('sushi-staff-pin');location.reload()}
+function logout(){stopTimers();sessionStorage.removeItem('sushi-kitchen-pin');location.reload()}
 
 loginForm.onsubmit=e=>{
   e.preventDefault();pin=document.getElementById('pin').value.trim();
-  sessionStorage.setItem('sushi-staff-pin',pin);loginErr.textContent='';refresh(false);
+  sessionStorage.setItem('sushi-kitchen-pin',pin);loginErr.textContent='';refresh(false);
 };
 document.getElementById('kitchenView').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(btn)setKitchenView(btn.dataset.view)});
 document.getElementById('cancelModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCancel()});
