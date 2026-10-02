@@ -147,6 +147,7 @@ function roleCanTransition(role: StaffRole, current: string, next: string) {
   if (!transitions[current]?.includes(next)) return false;
   if (role === "owner" || role === "admin") return true;
   if (role === "kitchen") {
+    if (next === "cancelled") return ["submitted", "accepted", "preparing"].includes(current);
     return (current === "submitted" || current === "accepted") && next === "preparing"
       || current === "preparing" && next === "ready";
   }
