@@ -223,21 +223,15 @@ Deno.serve(async (req) => {
     if (action === "close-session") {
       const sessionId = String(body?.sessionId || "").trim();
       if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return reply({ error: "Invalid session" }, 400);
-      const active = await db(
-        `orders?select=id,status&table_session_id=eq.${encodeURIComponent(sessionId)}&status=in.(submitted,accepted,preparing,ready)&limit=1`
-      );
-      if (Array.isArray(active) && active.length) return reply({ error: "Сначала завершите активные заказы этого стола" }, 409);
 
-      await db(`table_sessions?id=eq.${encodeURIComponent(sessionId)}&status=eq.open`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "closed", closed_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
+      const result = await db("rpc/close_table_session_if_idle", {
+        method: "POST",
+        body: JSON.stringify({ p_session_id: sessionId }),
       });
-      await db(`service_requests?table_session_id=eq.${encodeURIComponent(sessionId)}&status=eq.open`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ status: "resolved", resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
-      });
+      const outcome = typeof result === "string" ? result : Array.isArray(result) ? result[0] : result;
+      if (outcome === "active_orders") return reply({ error: "Сначала завершите активные заказы этого стола" }, 409);
+      if (outcome !== "closed") return reply({ error: "Стол уже закрыт или недоступен" }, 409);
+
       return reply({ ok: true, ...(await dashboard(actor)) });
     }
 
