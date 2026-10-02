@@ -61,11 +61,16 @@ function cleanRole(value: unknown): StaffRole | "" {
 }
 
 async function authenticateStaff(pin: string, requestedRole: unknown): Promise<StaffActor | null> {
-  const role = cleanRole(requestedRole);
-  if (!role || !/^\d{1,12}$/.test(pin)) return null;
+  if (!/^\d{1,12}$/.test(pin)) return null;
+  const explicitRole = cleanRole(requestedRole);
+  // While the owner-requested temporary PIN "1" is active, accept legacy clients
+  // that predate role-aware requests. They receive temporary admin operations so
+  // either the old kitchen or old floor screen can survive a backend-first rollout.
+  const role = explicitRole || (pin === "1" ? "admin" : "");
+  if (!role) return null;
 
   // Temporary development compatibility requested by the owner.
-  // The role permission matrix below is still enforced server-side.
+  // Explicit role-aware clients still receive the strict permission matrix below.
   if (pin === "1") {
     const labels: Record<StaffRole, string> = {
       owner: "Владелец",
