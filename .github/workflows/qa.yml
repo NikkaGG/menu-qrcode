@@ -1,0 +1,33 @@
+name: QA
+
+on:
+  push:
+    branches:
+      - task-11-12-access-analytics
+  workflow_dispatch:
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: |
+          node --check app.js
+          node --check tests/regression.test.js
+          node - <<'NODE'
+          const fs=require('fs');
+          for(const file of ['admin.html','kitchen.html','staff.html']){
+            const src=fs.readFileSync(file,'utf8');
+            const m=src.match(/<script>([\s\S]*)<\/script>\s*<\/body>/);
+            if(!m) throw new Error('Inline script not found in '+file);
+            new Function(m[1]);
+            console.log(file+': inline script syntax OK');
+          }
+          NODE
+      - name: Regression tests
+        run: node --test tests/regression.test.js
