@@ -6,7 +6,6 @@ const PRECACHE=[
   '/styles.css?v=20261002-checkout-v1',
   '/app.js?v=20261002-menu-v1',
   '/manifest.webmanifest',
-  '/ref-products-dom.json',
   '/icons/app-192.png',
   '/icons/app-512.png'
 ];
