@@ -524,8 +524,9 @@ async function saveDish(event){
   if(!payload.name||!Number.isFinite(payload.price)||payload.price<0){notify('Укажите название и корректную цену');return}
   const submit=document.getElementById('saveDishBtn');submit.disabled=true;submit.textContent='Сохраняем…';
   try{
-    menuState=editDishId?await api('update-dish',{dishId:editDishId,...payload}):await api('create-dish',payload);
-    renderMenu();closeDishEditor();notify(editDishId?'Блюдо обновлено':'Блюдо добавлено');
+    const editing=Boolean(editDishId);
+    menuState=editing?await api('update-dish',{dishId:editDishId,...payload}):await api('create-dish',payload);
+    renderMenu();closeDishEditor();notify(editing?'Блюдо обновлено':'Блюдо добавлено');
   }catch(error){notify(error.message||'Не удалось сохранить блюдо')}
   finally{submit.disabled=false;submit.textContent='Сохранить'}
 }
@@ -565,6 +566,7 @@ async function refresh(silent=true){
   try{
     state=await api('dashboard');render();setConnection(true);
     document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
+    if(currentSection==='menu')loadMenu(true,true);
     startPolling();
     if(!silent)notify('Данные обновлены');
   }catch(error){
