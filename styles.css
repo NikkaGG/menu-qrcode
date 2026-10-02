@@ -3398,3 +3398,21 @@ body.cookie-visible.cart-has-items .page{
   opacity:.45!important;
   cursor:not-allowed!important;
 }
+
+
+/* ── TASK 4: CART / CHECKOUT SIMPLIFICATION ── */
+#cartOv .table-checkout{margin-top:10px!important}
+#cartOv .payment-opt{position:relative}
+#cartOv .payment-opt.on::after{
+  content:"✓";
+  display:inline-block;
+  margin-left:5px;
+  font-size:11px;
+  font-weight:800;
+}
+#cartOv .cart-recommendations{margin-top:12px!important}
+#cartOv .cs-trash.armed{
+  background:#fff0f0!important;
+  color:#b4232c!important;
+}
+#cartOv .cmnt-ta{box-sizing:border-box}
