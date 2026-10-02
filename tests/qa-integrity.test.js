@@ -76,9 +76,9 @@ test('critical routes are present and point to role-specific workspaces', () => 
   assert.equal(rewrites.get('/admin'), '/admin.html');
   assert.equal(rewrites.get('/kitchen'), '/kitchen.html');
   assert.equal(rewrites.get('/staff'), '/staff.html');
-  assert.match(kitchen, /'x-staff-role':'kitchen'/);
-  assert.match(staff, /'x-staff-role':'waiter'/);
-  assert.match(admin, /'x-admin-role':adminRole/);
+  assert.match(kitchen, /body:JSON\.stringify\(\{action,role:'kitchen'/);
+  assert.match(staff, /body:JSON\.stringify\(\{action,role:'waiter'/);
+  assert.match(admin, /body:JSON\.stringify\(\{action,role:adminRole/);
 });
 
 test('guest menu keeps server as source of truth for availability and price', () => {
