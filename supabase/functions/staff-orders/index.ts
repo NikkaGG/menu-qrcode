@@ -1,6 +1,6 @@
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, x-staff-pin, apikey, authorization",
+  "Access-Control-Allow-Headers": "content-type, x-staff-pin, x-staff-role, apikey, authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json; charset=utf-8",
 };
@@ -8,6 +8,17 @@ const cors = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
 const serviceKey = secretKeys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+type StaffRole = "owner" | "admin" | "waiter" | "kitchen";
+type StaffActor = { id: number; name: string; role: StaffRole; temporary?: boolean };
+
+const staffRoles = new Set<StaffRole>(["owner", "admin", "waiter", "kitchen"]);
+const actionRoles: Record<string, StaffRole[]> = {
+  dashboard: ["owner", "admin", "waiter", "kitchen"],
+  "update-order": ["owner", "admin", "waiter", "kitchen"],
+  "resolve-request": ["owner", "admin", "waiter"],
+  "close-session": ["owner", "admin", "waiter"],
+};
 
 function reply(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors });
@@ -29,7 +40,12 @@ async function db(path: string, init: RequestInit = {}) {
   if (text) {
     try { data = JSON.parse(text); } catch { data = text; }
   }
-  if (!res.ok) throw new Error(`DB ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}`);
+  if (!res.ok) {
+    const message = typeof data === "string" ? data : String(data?.message || data?.details || JSON.stringify(data));
+    const error = new Error(message) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
+  }
   return data;
 }
 
@@ -39,30 +55,82 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function staffPinOk(pin: string) {
-  if (!/^\d{4,10}$/.test(pin)) return false;
-  const rows = await db("staff_access?select=pin_hash&id=eq.1&limit=1");
-  const expected = Array.isArray(rows) ? rows[0]?.pin_hash : "";
-  return Boolean(expected) && (await sha256(pin)) === expected;
+function cleanRole(value: unknown): StaffRole | "" {
+  const role = String(value || "").trim().toLowerCase() as StaffRole;
+  return staffRoles.has(role) ? role : "";
 }
 
-async function dashboard() {
+async function authenticateStaff(pin: string, requestedRole: unknown): Promise<StaffActor | null> {
+  const role = cleanRole(requestedRole);
+  if (!role || !/^\d{1,12}$/.test(pin)) return null;
+
+  // Temporary development compatibility requested by the owner.
+  // The role permission matrix below is still enforced server-side.
+  if (pin === "1") {
+    const labels: Record<StaffRole, string> = {
+      owner: "Владелец",
+      admin: "Администратор",
+      waiter: "Официант",
+      kitchen: "Кухня",
+    };
+    return { id: 0, name: labels[role], role, temporary: true };
+  }
+
+  const hash = await sha256(pin);
+  const rows = await db(
+    `staff_members?select=id,name,role,is_active&role=eq.${role}&pin_hash=eq.${hash}&is_active=eq.true&limit=1`
+  );
+  const member = Array.isArray(rows) ? rows[0] : null;
+  if (!member) return null;
+  return {
+    id: Number(member.id),
+    name: String(member.name || ""),
+    role: cleanRole(member.role) || role,
+  };
+}
+
+function isAllowed(actor: StaffActor, action: string) {
+  return Boolean(actionRoles[action]?.includes(actor.role));
+}
+
+async function dashboard(actor: StaffActor) {
   const [tables, sessions, orders, items, requests] = await Promise.all([
     db("restaurant_tables?select=id,table_number,label,is_active&is_active=eq.true&order=table_number.asc"),
     db("table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&status=eq.open&order=opened_at.asc"),
     db("orders?select=id,table_session_id,status,payment_method,comment,total,created_at,updated_at&order=created_at.asc"),
     db("order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order=id.asc"),
-    db("service_requests?select=id,table_session_id,kind,status,created_at,resolved_at,updated_at&status=eq.open&order=created_at.asc"),
+    actor.role === "kitchen"
+      ? Promise.resolve([])
+      : db("service_requests?select=id,table_session_id,kind,status,created_at,resolved_at,updated_at&status=eq.open&order=created_at.asc"),
   ]);
-  const openIds = new Set((Array.isArray(sessions) ? sessions : []).map((s: any) => s.id));
+  const openSessions = Array.isArray(sessions) ? sessions : [];
+  const openIds = new Set(openSessions.map((s: any) => s.id));
   const openOrders = (Array.isArray(orders) ? orders : []).filter((o: any) => openIds.has(o.table_session_id));
-  const orderIds = new Set(openOrders.map((o: any) => Number(o.id)));
+  const visibleOrders = actor.role === "kitchen"
+    ? openOrders
+        .filter((o: any) => !["served", "cancelled"].includes(String(o.status || "")))
+        .map((o: any) => ({
+          id: o.id,
+          table_session_id: o.table_session_id,
+          status: o.status,
+          comment: o.comment,
+          created_at: o.created_at,
+          updated_at: o.updated_at,
+        }))
+    : openOrders;
+  const orderIds = new Set(visibleOrders.map((o: any) => Number(o.id)));
+  const visibleTables = Array.isArray(tables) ? tables : [];
+  const visibleRequests = actor.role === "kitchen"
+    ? []
+    : (Array.isArray(requests) ? requests : []).filter((r: any) => openIds.has(r.table_session_id));
+
   return {
-    tables: Array.isArray(tables) ? tables : [],
-    sessions: Array.isArray(sessions) ? sessions : [],
-    orders: openOrders,
+    actor: { id: actor.id, name: actor.name, role: actor.role },
+    tables: visibleTables,
+    sessions: openSessions,
+    orders: visibleOrders,
     items: (Array.isArray(items) ? items : []).filter((i: any) => orderIds.has(Number(i.order_id))),
-    requests: (Array.isArray(requests) ? requests : []).filter((r: any) => openIds.has(r.table_session_id)),
+    requests: visibleRequests,
   };
 }
 
@@ -75,6 +143,17 @@ const transitions: Record<string, string[]> = {
   cancelled: [],
 };
 
+function roleCanTransition(role: StaffRole, current: string, next: string) {
+  if (!transitions[current]?.includes(next)) return false;
+  if (role === "owner" || role === "admin") return true;
+  if (role === "kitchen") {
+    return (current === "submitted" || current === "accepted") && next === "preparing"
+      || current === "preparing" && next === "ready";
+  }
+  if (role === "waiter") return current === "ready" && next === "served";
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("", { headers: cors });
   if (req.method !== "POST") return reply({ error: "Method not allowed" }, 405);
@@ -82,10 +161,13 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const pin = req.headers.get("x-staff-pin") || String(body?.pin || "");
-    if (!(await staffPinOk(pin))) return reply({ error: "Неверный PIN" }, 401);
+    const requestedRole = req.headers.get("x-staff-role") || body?.role;
+    const actor = await authenticateStaff(pin, requestedRole);
+    if (!actor) return reply({ error: "Неверный PIN для выбранной роли" }, 401);
 
     const action = String(body?.action || "dashboard");
-    if (action === "dashboard") return reply(await dashboard());
+    if (!isAllowed(actor, action)) return reply({ error: "Недостаточно прав для этого действия" }, 403);
+    if (action === "dashboard") return reply(await dashboard(actor));
 
     if (action === "update-order") {
       const orderId = Number(body?.orderId);
@@ -95,14 +177,16 @@ Deno.serve(async (req) => {
       const rows = await db(`orders?select=id,status&id=eq.${orderId}&limit=1`);
       const order = Array.isArray(rows) ? rows[0] : null;
       if (!order) return reply({ error: "Order not found" }, 404);
-      if (!(transitions[order.status] || []).includes(next)) return reply({ error: "Недопустимый переход статуса" }, 409);
+      if (!roleCanTransition(actor.role, String(order.status || ""), next)) {
+        return reply({ error: "Недостаточно прав или недопустимый переход статуса" }, 403);
+      }
 
       await db(`orders?id=eq.${orderId}`, {
         method: "PATCH",
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ status: next, updated_at: new Date().toISOString() }),
       });
-      return reply({ ok: true, ...(await dashboard()) });
+      return reply({ ok: true, ...(await dashboard(actor)) });
     }
 
     if (action === "resolve-request") {
@@ -113,7 +197,7 @@ Deno.serve(async (req) => {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ status: "resolved", resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
       });
-      return reply({ ok: true, ...(await dashboard()) });
+      return reply({ ok: true, ...(await dashboard(actor)) });
     }
 
     if (action === "close-session") {
@@ -134,7 +218,7 @@ Deno.serve(async (req) => {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ status: "resolved", resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
       });
-      return reply({ ok: true, ...(await dashboard()) });
+      return reply({ ok: true, ...(await dashboard(actor)) });
     }
 
     return reply({ error: "Unknown action" }, 400);
