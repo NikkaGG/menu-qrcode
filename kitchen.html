@@ -1,37 +1,358 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f5f3">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Кухня</title>
-<link rel="stylesheet" href="/ops.css?v=20261001-apple-v2">
+<link rel="stylesheet" href="/ops.css?v=20261002-kitchen-v1">
 </head>
-<body class="ops ops-kitchen">
-<div id="login" class="login"><div class="login-symbol"><img class="ops-emoji" src="/apple-emoji/frying-pan.png" alt=""></div><h1>Кухня</h1><p>Введите PIN персонала.</p><form id="loginForm"><input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN"><button>Войти</button></form><div class="err" id="loginErr"></div></div>
-<div class="wrap" id="app" hidden>
-<header class="top"><div class="ops-title-row"><span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/frying-pan.png" alt=""></span><div class="ops-title-copy"><span class="ops-kicker">Sushi Crazy</span><h1>Кухня</h1><small id="updated">—</small></div></div><nav><span class="live-capsule"><i class="live-dot"></i>Live</span><a href="/staff">Зал</a><button onclick="logout()">Выйти</button></nav></header>
-<div class="stats" id="stats"></div>
-<div class="segmented-control" id="kitchenView" role="tablist" aria-label="Фильтр заказов"><button type="button" data-view="all" aria-selected="true">Все</button><button type="button" data-view="submitted" aria-selected="false">Новые</button><button type="button" data-view="working" aria-selected="false">В работе</button><button type="button" data-view="ready" aria-selected="false">Готовы</button></div>
-<div class="cols" data-view="all"><section class="col lane-new"><h2>Новые</h2><div id="submitted"></div></section><section class="col lane-working"><h2>Готовятся</h2><div id="working"></div></section><section class="col lane-ready"><h2>Готовы</h2><div id="ready"></div></section></div>
+<body class="ops ops-kitchen kitchen-workspace">
+<div id="login" class="login">
+  <div class="login-symbol"><img class="ops-emoji" src="/apple-emoji/frying-pan.png" alt=""></div>
+  <h1>Кухня</h1>
+  <p>Введите PIN персонала.</p>
+  <form id="loginForm">
+    <input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN персонала">
+    <button>Войти</button>
+  </form>
+  <div class="err" id="loginErr" role="alert"></div>
 </div>
+
+<main class="kitchen-shell" id="app" hidden>
+  <header class="kitchen-top">
+    <div class="kitchen-brand">
+      <span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/frying-pan.png" alt=""></span>
+      <div>
+        <span class="ops-kicker">Sushi Crazy</span>
+        <h1>Кухня</h1>
+        <div class="kitchen-sync"><i class="live-dot"></i><span id="updated">Подключаемся…</span></div>
+      </div>
+    </div>
+    <nav class="kitchen-nav" aria-label="Действия кухни">
+      <button class="kitchen-sound" id="soundBtn" type="button" aria-pressed="false" onclick="toggleSound()">
+        <span class="sound-glyph" aria-hidden="true">♪</span><span id="soundLabel">Звук выкл</span>
+      </button>
+      <a href="/staff">Зал</a>
+      <button type="button" onclick="logout()">Выйти</button>
+    </nav>
+  </header>
+
+  <div class="kitchen-connection" id="connectionBanner" role="status" hidden>
+    <div><b>Нет связи с кухней</b><span id="connectionText">Показываем последние полученные данные.</span></div>
+    <button type="button" onclick="refresh(false)">Повторить</button>
+  </div>
+
+  <section class="kitchen-summary" aria-label="Сводка кухни">
+    <article><span>Новые</span><strong id="statNew">0</strong></article>
+    <article><span>Готовим</span><strong id="statWorking">0</strong></article>
+    <article><span>На выдаче</span><strong id="statReady">0</strong></article>
+    <article><span>Самый старый</span><strong id="statOldest">—</strong></article>
+  </section>
+
+  <div class="kitchen-toolbar">
+    <div class="segmented-control kitchen-segments" id="kitchenView" role="tablist" aria-label="Показать заказы">
+      <button type="button" data-view="all" aria-selected="true">Все <span id="tabAll">0</span></button>
+      <button type="button" data-view="submitted" aria-selected="false">Новые <span id="tabNew">0</span></button>
+      <button type="button" data-view="working" aria-selected="false">Готовим <span id="tabWorking">0</span></button>
+      <button type="button" data-view="ready" aria-selected="false">Выдача <span id="tabReady">0</span></button>
+    </div>
+    <p>Старые заказы всегда выше. Время считается от момента отправки гостем.</p>
+  </div>
+
+  <section class="kitchen-board" id="kitchenBoard" data-view="all">
+    <section class="kitchen-lane lane-new" aria-labelledby="laneNewTitle">
+      <header class="lane-head">
+        <div><span class="lane-dot"></span><h2 id="laneNewTitle">Новые</h2></div>
+        <span class="lane-count" id="laneNewCount">0</span>
+      </header>
+      <p class="lane-note">Начните приготовление одним нажатием.</p>
+      <div class="lane-orders" id="submitted"></div>
+    </section>
+
+    <section class="kitchen-lane lane-working" aria-labelledby="laneWorkingTitle">
+      <header class="lane-head">
+        <div><span class="lane-dot"></span><h2 id="laneWorkingTitle">Готовим</h2></div>
+        <span class="lane-count" id="laneWorkingCount">0</span>
+      </header>
+      <p class="lane-note">Сначала заканчивайте самые старые.</p>
+      <div class="lane-orders" id="working"></div>
+    </section>
+
+    <section class="kitchen-lane lane-ready" aria-labelledby="laneReadyTitle">
+      <header class="lane-head">
+        <div><span class="lane-dot"></span><h2 id="laneReadyTitle">На выдаче</h2></div>
+        <span class="lane-count" id="laneReadyCount">0</span>
+      </header>
+      <p class="lane-note">Готовые заказы забирает зал.</p>
+      <div class="lane-orders" id="ready"></div>
+    </section>
+  </section>
+</main>
+
+<div class="modal action-sheet" id="cancelModal" role="dialog" aria-modal="true" aria-labelledby="cancelTitle">
+  <div class="modal-card">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="modal-head">
+      <div><small>Отмена заказа</small><h2 id="cancelTitle">Отменить заказ?</h2></div>
+      <button class="x" type="button" onclick="closeCancel()" aria-label="Закрыть">×</button>
+    </div>
+    <p class="sheet-copy" id="cancelCopy">Заказ исчезнет с кухни.</p>
+    <div class="sheet-actions">
+      <button type="button" onclick="closeCancel()">Оставить</button>
+      <button class="danger" type="button" id="confirmCancelBtn" onclick="confirmCancel()">Отменить заказ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="kitchenToast" role="status" aria-live="polite"></div>
+
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
-let pin=sessionStorage.getItem('sushi-staff-pin')||'',state=null,busy=false;
+const API_TIMEOUT_MS=12000;
+const WARNING_MINUTES=15;
+const CRITICAL_MINUTES=25;
+let pin=sessionStorage.getItem('sushi-staff-pin')||'';
+let state=null,refreshBusy=false,cancelTarget=null,firstLoad=true;
+const busyOrders=new Set();
+const justArrived=new Set();
+let pollTimer=null,ageTimer=null,toastTimer=null,audioContext=null;
+let soundEnabled=localStorage.getItem('sushi-kitchen-sound')==='1';
+
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const money=n=>Number(n||0).toLocaleString('ru-RU')+' ₸',pay={kaspi:'Kaspi',card:'Карта',cash:'Наличные'};
-async function api(action,payload={}){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action,...payload})});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||'Ошибка');e.status=r.status;throw e}return d}
-function tableFor(o){const s=state.sessions.find(x=>x.id===o.table_session_id),t=state.tables.find(x=>x.id===s?.table_id);return t?.label||('Стол '+(t?.table_number||'?'))}
-function itemsFor(id){return state.items.filter(x=>Number(x.order_id)===Number(id))}
-function age(ts){const m=Math.max(0,Math.floor((Date.now()-new Date(ts))/60000));return m<1?'только что':m+' мин'}
-function card(o){
- let buttons='';if(o.status==='submitted')buttons='<button onclick="move('+o.id+',\'accepted\')">Принять</button>';if(o.status==='accepted')buttons='<button onclick="move('+o.id+',\'preparing\')">Готовить</button>';if(o.status==='preparing')buttons='<button onclick="move('+o.id+',\'ready\')">Готово</button>';if(o.status==='ready')buttons='<button onclick="move('+o.id+',\'served\')">Подан</button>';if(['submitted','accepted','preparing'].includes(o.status))buttons+='<button class="danger" onclick="move('+o.id+',\'cancelled\')">Отменить</button>';
- return '<article class="card '+(o.status==='ready'?'ready':'')+'"><div class="head"><div><b>'+h(tableFor(o))+' · #'+o.id+'</b><br><span>'+age(o.created_at)+'</span></div><div class="sum">'+money(o.total)+'</div></div><div class="items">'+itemsFor(o.id).map(i=>'<div class="item"><span><strong>'+i.quantity+'×</strong> '+h(i.name)+'</span><span>'+money(i.line_total)+'</span></div>').join('')+'</div><div class="meta">Расчёт: '+h(pay[o.payment_method]||o.payment_method)+'</div>'+(o.comment?'<div class="comment">'+h(o.comment)+'</div>':'')+'<div class="actions">'+buttons+'</div></article>';
+const statusLabels={submitted:'Новый',accepted:'Принят',preparing:'Готовится',ready:'Готов'};
+const nextActions={
+  submitted:{status:'preparing',label:'Начать готовить'},
+  accepted:{status:'preparing',label:'Начать готовить'},
+  preparing:{status:'ready',label:'Готово'}
+};
+
+async function api(action,payload={}){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){const e=new Error(d.error||'Ошибка');e.status=r.status;throw e}
+    return d;
+  }catch(error){
+    if(error?.name==='AbortError')throw new Error('Сервер отвечает слишком долго');
+    if(/failed to fetch|networkerror|load failed|network request failed/i.test(String(error?.message||'')))throw new Error('Нет связи с сервером');
+    throw error;
+  }finally{clearTimeout(timeout)}
 }
-function render(){const active=state.orders.filter(o=>!['served','cancelled'].includes(o.status));document.getElementById('stats').innerHTML='<div class="stat"><span>Новые</span><b>'+active.filter(o=>o.status==='submitted').length+'</b></div><div class="stat"><span>В работе</span><b>'+active.filter(o=>['accepted','preparing'].includes(o.status)).length+'</b></div><div class="stat"><span>Готовы</span><b>'+active.filter(o=>o.status==='ready').length+'</b></div>';const sets={submitted:active.filter(o=>o.status==='submitted'),working:active.filter(o=>['accepted','preparing'].includes(o.status)),ready:active.filter(o=>o.status==='ready')};for(const [id,orders] of Object.entries(sets))document.getElementById(id).innerHTML=orders.length?orders.map(card).join(''):'<div class="empty">Пусто</div>';document.getElementById('updated').textContent='Обновлено '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
-async function refresh(silent=false){if(busy)return;busy=true;try{state=await api('dashboard');render();login.hidden=true;app.hidden=false}catch(e){if(e.status===401){sessionStorage.removeItem('sushi-staff-pin');pin='';login.hidden=false;app.hidden=true;if(!silent)loginErr.textContent='Неверный PIN'}}finally{busy=false}}
-async function move(orderId,status){try{state=await api('update-order',{orderId,status});render()}catch(e){alert(e.message)}}
-function setKitchenView(view){const cols=document.querySelector('.cols');if(!cols)return;cols.dataset.view=view;document.querySelectorAll('#kitchenView button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.view===view)))}
-function logout(){sessionStorage.removeItem('sushi-staff-pin');location.reload()}
-loginForm.onsubmit=e=>{e.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-staff-pin',pin);loginErr.textContent='';refresh(false)};document.getElementById('kitchenView').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(btn)setKitchenView(btn.dataset.view)});
-if(pin)refresh(true);setInterval(()=>{if(pin)refresh(true)},3000);
+
+function tableFor(o){
+  const s=state?.sessions?.find(x=>x.id===o.table_session_id);
+  const t=state?.tables?.find(x=>x.id===s?.table_id);
+  return t?.label||('Стол '+(t?.table_number||'?'));
+}
+function itemsFor(id){return (state?.items||[]).filter(x=>Number(x.order_id)===Number(id))}
+function unitsFor(o){return itemsFor(o.id).reduce((sum,item)=>sum+Number(item.quantity||0),0)}
+function minutesSince(ts){return Math.max(0,Math.floor((Date.now()-new Date(ts).getTime())/60000))}
+function ageLabel(ts){
+  const m=minutesSince(ts);
+  if(m<1)return 'только что';
+  if(m<60)return m+' мин';
+  const h=Math.floor(m/60),rest=m%60;
+  return h+' ч'+(rest?' '+rest+' мин':'');
+}
+function timeLabel(ts){return new Date(ts).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}
+function urgencyClass(o){
+  if(o.status==='ready')return '';
+  const m=minutesSince(o.created_at);
+  return m>=CRITICAL_MINUTES?'is-critical':m>=WARNING_MINUTES?'is-warning':'';
+}
+function orderSort(a,b){
+  if(a.status==='ready'&&b.status==='ready')return new Date(a.updated_at||a.created_at)-new Date(b.updated_at||b.created_at);
+  return new Date(a.created_at)-new Date(b.created_at);
+}
+function activeOrders(){return (state?.orders||[]).filter(o=>!['served','cancelled'].includes(o.status))}
+function sets(){
+  const active=activeOrders();
+  return {
+    submitted:active.filter(o=>o.status==='submitted').sort(orderSort),
+    working:active.filter(o=>['accepted','preparing'].includes(o.status)).sort(orderSort),
+    ready:active.filter(o=>o.status==='ready').sort(orderSort)
+  };
+}
+
+function orderCard(o){
+  const items=itemsFor(o.id);
+  const next=nextActions[o.status];
+  const busy=busyOrders.has(Number(o.id));
+  const urgency=urgencyClass(o);
+  const arrived=justArrived.has(Number(o.id))?' just-arrived':'';
+  const itemRows=items.map(i=>'<div class="kitchen-item"><span class="kitchen-qty">'+h(i.quantity)+'×</span><span class="kitchen-item-name">'+h(i.name)+'</span></div>').join('');
+  const primary=next?'<button class="kitchen-primary" type="button" onclick="move('+o.id+',\''+next.status+'\')" '+(busy?'disabled':'')+'>'+(busy?'Сохраняем…':next.label)+'</button>':'<div class="ready-message"><span>✓</span><div><b>Готов к выдаче</b><small>Зал отметит, когда заказ подан.</small></div></div>';
+  const cancel=['submitted','accepted','preparing'].includes(o.status)?'<button class="kitchen-more" type="button" onclick="openCancel('+o.id+')" '+(busy?'disabled':'')+' aria-label="Отменить заказ #'+o.id+'">Отменить</button>':'';
+  return '<article class="kitchen-ticket '+urgency+arrived+'" data-order-id="'+o.id+'">'+
+    '<div class="ticket-top"><div class="ticket-identity"><span class="ticket-table">'+h(tableFor(o))+'</span><span class="ticket-number">#'+o.id+'</span></div>'+
+    '<div class="ticket-clock"><b>'+h(ageLabel(o.created_at))+'</b><span>'+h(timeLabel(o.created_at))+'</span></div></div>'+
+    '<div class="ticket-status"><span class="status-pill status-'+h(o.status)+'">'+h(statusLabels[o.status]||o.status)+'</span><span>'+unitsFor(o)+' поз.</span></div>'+
+    '<div class="kitchen-items">'+itemRows+'</div>'+
+    (o.comment?'<div class="kitchen-comment"><span>Комментарий гостя</span><b>'+h(o.comment)+'</b></div>':'')+
+    '<div class="ticket-actions">'+primary+cancel+'</div>'+
+  '</article>';
+}
+
+function emptyState(kind){
+  const copy={submitted:['Новых заказов нет','Следующий заказ появится здесь автоматически.'],working:['Ничего не готовится','Новые заказы можно начать из соседней колонки.'],ready:['Выдача свободна','Готовые заказы появятся здесь.']}[kind];
+  return '<div class="kitchen-empty"><span>✓</span><b>'+copy[0]+'</b><small>'+copy[1]+'</small></div>';
+}
+
+function render(){
+  if(!state)return;
+  const groups=sets(),active=activeOrders();
+  for(const [id,orders] of Object.entries(groups)){
+    const host=document.getElementById(id);
+    host.innerHTML=orders.length?orders.map(orderCard).join(''):emptyState(id);
+  }
+  const oldest=active.filter(o=>o.status!=='ready').sort(orderSort)[0]||active.sort(orderSort)[0];
+  document.getElementById('statNew').textContent=groups.submitted.length;
+  document.getElementById('statWorking').textContent=groups.working.length;
+  document.getElementById('statReady').textContent=groups.ready.length;
+  document.getElementById('statOldest').textContent=oldest?ageLabel(oldest.created_at):'—';
+  document.getElementById('tabAll').textContent=active.length;
+  document.getElementById('tabNew').textContent=groups.submitted.length;
+  document.getElementById('tabWorking').textContent=groups.working.length;
+  document.getElementById('tabReady').textContent=groups.ready.length;
+  document.getElementById('laneNewCount').textContent=groups.submitted.length;
+  document.getElementById('laneWorkingCount').textContent=groups.working.length;
+  document.getElementById('laneReadyCount').textContent=groups.ready.length;
+}
+
+function announceArrivals(next){
+  if(firstLoad)return;
+  const previous=new Set((state?.orders||[]).filter(o=>o.status==='submitted').map(o=>Number(o.id)));
+  const incoming=(next?.orders||[]).filter(o=>o.status==='submitted').map(o=>Number(o.id)).filter(id=>!previous.has(id));
+  if(!incoming.length)return;
+  incoming.forEach(id=>justArrived.add(id));
+  setTimeout(()=>{incoming.forEach(id=>justArrived.delete(id));render()},8000);
+  showToast(incoming.length===1?'Новый заказ':'Новых заказов: '+incoming.length);
+  playNewOrderSound();
+}
+function applyState(next){
+  announceArrivals(next);
+  state=next;
+  firstLoad=false;
+  render();
+  const now=new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('updated').textContent='Обновлено '+now;
+  setConnection(true);
+}
+
+async function refresh(silent=true){
+  if(refreshBusy)return;
+  refreshBusy=true;
+  try{
+    const next=await api('dashboard');
+    applyState(next);
+    login.hidden=true;app.hidden=false;
+    startTimers();
+  }catch(e){
+    if(e.status===401){
+      sessionStorage.removeItem('sushi-staff-pin');pin='';
+      login.hidden=false;app.hidden=true;stopTimers();
+      if(!silent)loginErr.textContent='Неверный PIN';
+    }else{
+      setConnection(false,e.message||'Не удалось обновить заказы');
+      if(!silent)showToast(e.message||'Не удалось обновить заказы');
+    }
+  }finally{refreshBusy=false}
+}
+
+async function move(orderId,status){
+  const id=Number(orderId);
+  if(busyOrders.has(id))return;
+  busyOrders.add(id);render();
+  try{
+    const next=await api('update-order',{orderId:id,status});
+    state=next;render();setConnection(true);
+  }catch(e){
+    showToast(e.message||'Не удалось изменить заказ');
+    await refresh(true);
+  }finally{busyOrders.delete(id);render()}
+}
+
+function openCancel(orderId){
+  const o=activeOrders().find(x=>Number(x.id)===Number(orderId));if(!o)return;
+  cancelTarget=Number(orderId);
+  document.getElementById('cancelCopy').textContent=(tableFor(o))+' · заказ #'+o.id+'. Отмена сразу исчезнет с кухни.';
+  document.getElementById('cancelModal').classList.add('on');
+}
+function closeCancel(){cancelTarget=null;document.getElementById('cancelModal').classList.remove('on')}
+async function confirmCancel(){
+  if(!cancelTarget)return;
+  const id=cancelTarget;closeCancel();
+  await move(id,'cancelled');
+}
+
+function setKitchenView(view){
+  document.getElementById('kitchenBoard').dataset.view=view;
+  document.querySelectorAll('#kitchenView button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.view===view)));
+  try{sessionStorage.setItem('sushi-kitchen-view',view)}catch(_){}
+}
+function setConnection(ok,message=''){
+  const banner=document.getElementById('connectionBanner');
+  banner.hidden=ok;
+  if(!ok)document.getElementById('connectionText').textContent=message||'Показываем последние полученные данные.';
+  document.querySelector('.kitchen-sync')?.classList.toggle('offline',!ok);
+}
+
+function showToast(message){
+  const el=document.getElementById('kitchenToast');if(!el)return;
+  clearTimeout(toastTimer);el.textContent=message;el.classList.add('on');
+  toastTimer=setTimeout(()=>el.classList.remove('on'),2600);
+}
+
+function syncSoundButton(){
+  const btn=document.getElementById('soundBtn'),label=document.getElementById('soundLabel');
+  btn?.setAttribute('aria-pressed',String(soundEnabled));
+  btn?.classList.toggle('on',soundEnabled);
+  if(label)label.textContent=soundEnabled?'Звук вкл':'Звук выкл';
+}
+function ensureAudio(){
+  if(!audioContext)audioContext=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});
+  return audioContext;
+}
+function beep(delay=0){
+  if(!soundEnabled)return;
+  try{
+    const ctx=ensureAudio(),osc=ctx.createOscillator(),gain=ctx.createGain(),start=ctx.currentTime+delay;
+    osc.type='sine';osc.frequency.value=880;gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(.12,start+.01);gain.gain.exponentialRampToValueAtTime(.0001,start+.16);
+    osc.connect(gain);gain.connect(ctx.destination);osc.start(start);osc.stop(start+.18);
+  }catch(_){}
+}
+function playNewOrderSound(){beep(0);beep(.22)}
+function toggleSound(){
+  soundEnabled=!soundEnabled;
+  localStorage.setItem('sushi-kitchen-sound',soundEnabled?'1':'0');
+  syncSoundButton();
+  if(soundEnabled){ensureAudio();beep(0);showToast('Звук новых заказов включён')}
+  else showToast('Звук выключен');
+}
+
+function startTimers(){
+  if(!pollTimer)pollTimer=setInterval(()=>{if(pin&&!document.hidden)refresh(true)},3000);
+  if(!ageTimer)ageTimer=setInterval(()=>{if(state&&!document.hidden)render()},15000);
+}
+function stopTimers(){clearInterval(pollTimer);clearInterval(ageTimer);pollTimer=null;ageTimer=null}
+function logout(){stopTimers();sessionStorage.removeItem('sushi-staff-pin');location.reload()}
+
+loginForm.onsubmit=e=>{
+  e.preventDefault();pin=document.getElementById('pin').value.trim();
+  sessionStorage.setItem('sushi-staff-pin',pin);loginErr.textContent='';refresh(false);
+};
+document.getElementById('kitchenView').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(btn)setKitchenView(btn.dataset.view)});
+document.getElementById('cancelModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCancel()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCancel()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)return; if(pin)refresh(true)});
+window.addEventListener('online',()=>{if(pin)refresh(false)});
+syncSoundButton();
+setKitchenView(sessionStorage.getItem('sushi-kitchen-view')||'all');
+if(pin)refresh(true);
 </script>
-</body></html>
+</body>
+</html>
