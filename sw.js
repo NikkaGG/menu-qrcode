@@ -1,5 +1,6 @@
-const CACHE_NAME='sushi-crazy-shell-v19-menu-admin';
+const CACHE_NAME='sushi-crazy-shell-v20-qa';
 const OFFLINE_URL='/offline.html';
+const NETWORK_TIMEOUT_MS=8000;
 const PRECACHE=[
   '/',
   OFFLINE_URL,
@@ -24,12 +25,16 @@ self.addEventListener('activate',event=>{
 
 async function networkFirst(request,fallback){
   const cache=await caches.open(CACHE_NAME);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),NETWORK_TIMEOUT_MS);
   try{
-    const response=await fetch(request);
+    const response=await fetch(request,{signal:controller.signal});
     if(response&&response.ok)cache.put(request,response.clone());
     return response;
   }catch(error){
     return (await cache.match(request))||(fallback?await cache.match(fallback):undefined)||Response.error();
+  }finally{
+    clearTimeout(timeout);
   }
 }
 
