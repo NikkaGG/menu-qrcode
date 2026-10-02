@@ -35,6 +35,9 @@
         <button type="button" data-section="orders">
           <img src="/apple-emoji/receipt.png" alt=""><span>Заказы</span><i id="navOrdersCount">0</i>
         </button>
+        <button type="button" data-section="reports">
+          <img src="/apple-emoji/chart.png" alt=""><span>Отчёты</span>
+        </button>
         <button type="button" data-section="tables">
           <img src="/apple-emoji/place-setting.png" alt=""><span>Столы и QR</span><i id="navTablesCount">0</i>
         </button>
@@ -154,6 +157,47 @@
 
         <section class="admin-orders-list" id="ordersList">
           <div class="admin-empty admin-empty-wide">Загружаем заказы…</div>
+        </section>
+      </section>
+
+
+      <section class="admin-page" id="pageReports" data-page="reports" hidden>
+        <div class="menu-admin-summary report-summary">
+          <article><span>Заказов · 30 дней</span><strong id="reportOrders30">—</strong><small>Без отменённых</small></article>
+          <article><span>Сумма заказов</span><strong id="reportRevenue30">—</strong><small>За последние 30 дней</small></article>
+          <article><span>Средний чек</span><strong id="reportAverage30">—</strong><small>По оформленным заказам</small></article>
+          <article><span>Лучший день</span><strong id="reportBestDay">—</strong><small id="reportBestDayMeta">По сумме заказов</small></article>
+        </div>
+
+        <div class="reports-toolbar">
+          <div>
+            <b>Операционный отчёт</b>
+            <span>Данные обновляются вместе с админ-панелью.</span>
+          </div>
+          <button type="button" class="create-table-btn" id="exportReportsCsv">Скачать CSV</button>
+        </div>
+
+        <section class="reports-grid">
+          <article class="admin-panel report-panel report-panel-wide">
+            <div class="admin-panel-head">
+              <div><span class="panel-eyebrow">30 дней</span><h2>Динамика заказов</h2><p>Сумма и количество оформленных заказов по дням.</p></div>
+            </div>
+            <div class="report-daily-chart" id="reportDaily30"></div>
+          </article>
+
+          <article class="admin-panel report-panel">
+            <div class="admin-panel-head">
+              <div><span class="panel-eyebrow">30 дней</span><h2>Способы оплаты</h2><p>Распределение выбора гостей.</p></div>
+            </div>
+            <div class="payments admin-payments" id="reportPayments30"></div>
+          </article>
+
+          <article class="admin-panel report-panel">
+            <div class="admin-panel-head">
+              <div><span class="panel-eyebrow">30 дней</span><h2>Столы</h2><p>Топ по сумме заказов.</p></div>
+            </div>
+            <div class="report-table-ranking" id="reportTables30"></div>
+          </article>
         </section>
       </section>
 
@@ -417,6 +461,51 @@ function renderPayments(a){
     const pct=total?Math.round(Number(count)*100/total):0;
     return '<div class="admin-payment"><div class="payment-label"><span>'+h(payLabels[key]||key)+'</span><b>'+pct+'%</b></div><div class="meter"><i style="width:'+pct+'%"></i></div><small>'+count+' заказов</small></div>';
   }).join('');
+}
+
+function renderReports(a){
+  const daily=a.daily30||[];
+  document.getElementById('reportOrders30').textContent=Number(a.orders30||0);
+  document.getElementById('reportRevenue30').textContent=money(a.revenue30||0);
+  document.getElementById('reportAverage30').textContent=money(a.averageCheck30||0);
+  const best=daily.reduce((winner,day)=>Number(day.revenue||0)>Number(winner?.revenue||0)?day:winner,null);
+  if(best){
+    document.getElementById('reportBestDay').textContent=new Date(best.date+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'2-digit',month:'short'});
+    document.getElementById('reportBestDayMeta').textContent=money(best.revenue)+' · '+Number(best.orders||0)+' зак.';
+  }else{
+    document.getElementById('reportBestDay').textContent='—';
+    document.getElementById('reportBestDayMeta').textContent='Пока нет заказов';
+  }
+
+  const max=Math.max(1,...daily.map(day=>Number(day.revenue||0)));
+  document.getElementById('reportDaily30').innerHTML=daily.length?daily.map(day=>{
+    const pct=Math.max(2,Math.round(Number(day.revenue||0)*100/max));
+    const label=new Date(day.date+'T00:00:00Z').toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit'});
+    return '<div class="report-day"><span>'+h(label)+'</span><div class="report-day-meter"><i style="width:'+pct+'%"></i></div><b>'+h(money(day.revenue||0))+'</b><small>'+Number(day.orders||0)+' зак.</small></div>';
+  }).join(''):'<div class="admin-empty">Нет данных за период</div>';
+
+  const payments=Object.entries(a.payments30||{}),total=payments.reduce((sum,item)=>sum+Number(item[1]||0),0);
+  document.getElementById('reportPayments30').innerHTML=payments.length?payments.sort((x,y)=>Number(y[1])-Number(x[1])).map(([key,count])=>{
+    const pct=total?Math.round(Number(count)*100/total):0;
+    return '<div class="admin-payment"><div class="payment-label"><span>'+h(payLabels[key]||key)+'</span><b>'+pct+'%</b></div><div class="meter"><i style="width:'+pct+'%"></i></div><small>'+Number(count)+' заказов</small></div>';
+  }).join(''):'<div class="admin-empty">Нет данных по оплате</div>';
+
+  const tables=[...(state.tables||[])].sort((x,y)=>Number(y.revenue30||0)-Number(x.revenue30||0)).slice(0,10);
+  document.getElementById('reportTables30').innerHTML=tables.length?tables.map((table,index)=>
+    '<div class="report-table-row"><span>'+(index+1)+'</span><div><b>'+h(table.label||('Стол '+table.table_number))+'</b><small>'+Number(table.orders30||0)+' заказов</small></div><strong>'+h(money(table.revenue30||0))+'</strong></div>'
+  ).join(''):'<div class="admin-empty">Столов пока нет</div>';
+}
+
+function exportReportsCsv(){
+  const a=state?.analytics||{},daily=a.daily30||[];
+  if(!daily.length){notify('Нет данных для выгрузки');return}
+  const rows=[['Дата','Заказы','Сумма, ₸'],...daily.map(day=>[day.date,Number(day.orders||0),Number(day.revenue||0)])];
+  const csv='\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='sushi-crazy-report-30-days.csv';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  notify('CSV отчёт скачан');
 }
 
 function renderOperational(a){
@@ -704,20 +793,21 @@ async function saveDish(event){
 function render(){
   if(!state)return;
   const a=state.analytics||{};
-  renderStats(a);renderChart(a);renderPayments(a);renderOperational(a);renderRanking();renderTables();
+  renderStats(a);renderChart(a);renderPayments(a);renderOperational(a);renderRanking();renderTables();renderReports(a);
   const updated=new Date(state.generatedAt||Date.now()).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('updatedAt').textContent='Обновлено '+updated;
   document.getElementById('sidebarUpdated').textContent='Обновлено '+updated;
 }
 
 function switchSection(section,updateHash=true){
-  if(!['overview','orders','tables','menu'].includes(section))section='overview';
+  if(!['overview','orders','reports','tables','menu'].includes(section))section='overview';
   currentSection=section;
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
   const copies={
     overview:['Sushi Crazy','Обзор','Ключевые показатели и состояние ресторана.'],
     orders:['Операции','Заказы','История, статусы, состав и способы оплаты.'],
+    reports:['Аналитика','Отчёты','30-дневная динамика, оплата и эффективность столов.'],
     tables:['Управление','Столы и QR','QR-коды, статусы и активность столов.'],
     menu:['Управление','Меню','Блюда, категории и быстрый стоп-лист.']
   };
@@ -900,6 +990,7 @@ document.getElementById('refreshBtn').addEventListener('click',()=>currentSectio
 document.getElementById('orderSearch').addEventListener('input',event=>{orderQuery=event.target.value.trim();renderOrders()});
 document.getElementById('orderFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;orderFilter=btn.dataset.filter;document.querySelectorAll('#orderFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderOrders()});
 document.getElementById('orderPayment').addEventListener('change',event=>{orderPayment=event.target.value;renderOrders()});
+document.getElementById('exportReportsCsv').addEventListener('click',exportReportsCsv);
 document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
 document.getElementById('closeCreateBtn').addEventListener('click',closeCreateTable);
 document.getElementById('cancelCreateBtn').addEventListener('click',closeCreateTable);
