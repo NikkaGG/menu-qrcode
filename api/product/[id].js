@@ -9,12 +9,21 @@ function esc(value){
 async function getProduct(id){
   if(!Number.isInteger(id)||id<=0)return {status:'not_found',item:null};
   try{
-    const response=await fetch(`${SUPABASE_URL}/rest/v1/dishes?id=eq.${id}&is_available=eq.true&select=id,name,weight,description,price,image_url,detail_image_url&limit=1`,{
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/dishes?id=eq.${id}&is_available=eq.true&select=id,category_id,name,weight,description,price,image_url,detail_image_url&limit=1`,{
       headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}
     });
     if(!response.ok)throw new Error('Supabase product '+response.status);
     const rows=await response.json();
     if(!rows[0])return {status:'not_found',item:null};
+
+    const categoryResponse=await fetch(
+      `${SUPABASE_URL}/rest/v1/categories?id=eq.${encodeURIComponent(rows[0].category_id)}&is_visible=eq.true&select=id&limit=1`,
+      {headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}}
+    );
+    if(!categoryResponse.ok)throw new Error('Supabase category '+categoryResponse.status);
+    const categories=await categoryResponse.json();
+    if(!categories[0])return {status:'not_found',item:null};
+
     return {status:'ok',item:{
       name:rows[0].name,
       weight:rows[0].weight,
