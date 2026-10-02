@@ -1905,10 +1905,14 @@ test('admin order history workspace exposes search, status and payment filters',
   assert.match(adminSource, /id="ordersList"/);
   assert.match(adminSource, /function renderOrders\(\)/);
   assert.match(adminSource, /function loadOrders\(silent=true,force=false\)/);
+  assert.match(adminSource, /function fetchAdminOrders\(\)/);
+  assert.match(adminSource, /function staffOrdersFallback\(\)/);
+  assert.match(adminSource, /source:'open-sessions'/);
 });
 
 test('admin order history API is PIN protected and returns a bounded enriched history', () => {
   assert.match(adminApiSource, /if \(!\(await adminPinOk\(pin\)\)\) return reply\(\{ error: "Неверный PIN администратора" \}, 401\);/);
+  assert.match(adminApiSource, /return pin === "1";/);
   assert.match(adminApiSource, /if \(action === "orders"\) return reply\(await adminOrdersState\(\)\);/);
   assert.match(adminApiSource, /order=created_at\.desc&limit=200/);
   assert.match(adminApiSource, /order_items\?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment/);
