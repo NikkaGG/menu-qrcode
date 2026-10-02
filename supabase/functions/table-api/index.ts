@@ -196,24 +196,24 @@ Deno.serve(async (req) => {
       const total = items.reduce((sum: number, item: any) => sum + item.line_total, 0);
       const comment = String(body?.comment || "").trim().slice(0, 1000) || null;
 
-      let order: any = null;
+      let orderId = 0;
       try {
-        const inserted = await db("orders?select=id,status,payment_method,comment,total,created_at", {
+        const created = await db("rpc/create_table_order_atomic", {
           method: "POST",
           headers: { Prefer: "return=representation" },
-          body: JSON.stringify([{
-            table_session_id: session.id,
-            guest_token: guestToken,
-            client_request_id: clientRequestId,
-            status: "submitted",
-            payment_method: paymentMethod,
-            comment,
-            total,
-          }]),
+          body: JSON.stringify({
+            p_table_session_id: session.id,
+            p_guest_token: guestToken,
+            p_client_request_id: clientRequestId,
+            p_payment_method: paymentMethod,
+            p_comment: comment || "",
+            p_total: total,
+            p_items: items,
+          }),
         });
-        order = Array.isArray(inserted) ? inserted[0] : null;
+        orderId = Number(created);
       } catch (error) {
-        // A concurrent retry may have won the unique client_request_id race.
+        // A concurrent retry may have won the session-scoped unique request race.
         const racedRows = await db(
           `orders?select=id,status&table_session_id=eq.${encodeURIComponent(session.id)}&guest_token=eq.${encodeURIComponent(guestToken)}&client_request_id=eq.${encodeURIComponent(clientRequestId)}&limit=1`
         ).catch(() => []);
@@ -227,26 +227,10 @@ Deno.serve(async (req) => {
         }
         throw error;
       }
-      if (!order) throw new Error("Order was not created");
-
-      try {
-        await db("order_items", {
-          method: "POST",
-          headers: { Prefer: "return=minimal" },
-          body: JSON.stringify(items.map((item: any) => ({ ...item, order_id: order.id }))),
-        });
-      } catch (error) {
-        // An order without its item snapshot is not a valid business record.
-        // Remove it so the same idempotency key can be retried safely.
-        await db(`orders?id=eq.${order.id}`, {
-          method: "DELETE",
-          headers: { Prefer: "return=minimal" },
-        }).catch(() => {});
-        throw error;
-      }
+      if (!Number.isInteger(orderId) || orderId <= 0) throw new Error("Order was not created");
 
       const state = await guestState(session.id, guestToken);
-      return response({ ok: true, orderId: order.id, table, session, ...state }, 201);
+      return response({ ok: true, orderId, table, session, ...state }, 201);
     }
 
     if (action === "service") {
