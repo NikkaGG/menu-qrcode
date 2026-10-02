@@ -1761,3 +1761,20 @@ body.admin-workspace{background:#f2f2f7}
   .admin-table-filters button{font-size:9px;padding-left:3px;padding-right:3px}
   .admin-table-actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 }
+
+
+/* ── TASK 8: LOCAL QR RELIABILITY ── */
+.qr-health{
+  display:flex;align-items:center;gap:10px;margin:16px 0 10px;padding:10px 11px;
+  border:1px solid rgba(52,199,89,.18);border-radius:13px;background:#f0f9f1;color:#1f6f2d
+}
+.qr-health-dot{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#34c759;box-shadow:0 0 0 3px rgba(52,199,89,.12)}
+.qr-health b,.qr-health small{display:block}.qr-health b{font-size:11px}.qr-health small{margin-top:1px;color:#54815b;font-size:9.5px}
+.qr-health.error{border-color:rgba(255,59,48,.18);background:#fff0f0;color:#a5222e}
+.qr-health.error .qr-health-dot{background:#ff3b30;box-shadow:0 0 0 3px rgba(255,59,48,.11)}
+.qr-health.error small{color:#a85a61}
+#qrModal .qr-box{margin-top:10px;background:#fff;border:1px solid rgba(60,60,67,.08)}
+#qrModal .qr-box canvas{width:min(360px,100%);aspect-ratio:1;height:auto;image-rendering:pixelated}
+.qr-modal-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+.qr-modal-actions button{min-width:0;padding-left:8px;padding-right:8px}
+@media(max-width:520px){.qr-modal-actions{grid-template-columns:1fr}}
