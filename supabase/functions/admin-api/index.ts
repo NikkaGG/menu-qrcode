@@ -167,6 +167,28 @@ async function adminDashboard() {
     payments[method] = (payments[method] || 0) + 1;
   }
 
+  const daily30 = [];
+  for (let offset = 29; offset >= 0; offset--) {
+    const start = new Date(now - offset * 86400000);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(start.getTime() + 86400000);
+    const dayOrders = orders.filter((o: any) => {
+      const ts = new Date(o.created_at).getTime();
+      return ts >= start.getTime() && ts < end.getTime();
+    });
+    daily30.push({
+      date: start.toISOString().slice(0, 10),
+      orders: dayOrders.length,
+      revenue: sumTotal(dayOrders),
+    });
+  }
+
+  const payments30: Record<string, number> = {};
+  for (const order of orders) {
+    const method = String(order.payment_method || "unknown");
+    payments30[method] = (payments30[method] || 0) + 1;
+  }
+
   return {
     generatedAt: new Date(now).toISOString(),
     analytics: {
@@ -175,12 +197,17 @@ async function adminDashboard() {
       orders7: last7.length,
       revenue7: sumTotal(last7),
       averageCheck7: averageCheck(last7),
+      orders30: orders.length,
+      revenue30: sumTotal(orders),
+      averageCheck30: averageCheck(orders),
       openTables: openSessions.length,
       openRequests: requests.length,
       totalTables: tables.length,
       activeTables: tables.filter((table: any) => table.is_active).length,
       daily,
       payments,
+      daily30,
+      payments30,
     },
     tables: enrichedTables,
   };
