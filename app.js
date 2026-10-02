@@ -213,7 +213,9 @@ const CN={f:'Фаст-фуд',r:'Роллы',s:'Сеты',z:'Пицца',a:'Со
 let isGrid=true,activeCat='all',search='',cart={},popIndex=0,favoritesOnly=false;
 let menuReady=false;
 let cartRestored=false;
-const CART_STORAGE_KEY='sushi-crazy-cart-v1';
+const CART_STORAGE_KEY='sushi-crazy-cart-v2';
+const LEGACY_CART_STORAGE_KEY='sushi-crazy-cart-v1';
+function cartStorageKey(){return CART_STORAGE_KEY+':'+(tableOrdering?.tableToken||'browse');}
 const FAVORITES_STORAGE_KEY='sushi-crazy-favorites-v1';
 let favorites=new Set();
 let favoritesRefreshPending=false;
@@ -292,7 +294,16 @@ function toggleFavoritesFilter(){
 
 function restoreCart(){
   try{
-    const saved=JSON.parse(localStorage.getItem(CART_STORAGE_KEY)||'{}');
+    const key=cartStorageKey();
+    let raw=localStorage.getItem(key);
+    if(raw===null){
+      const legacy=localStorage.getItem(LEGACY_CART_STORAGE_KEY);
+      if(legacy!==null){
+        raw=legacy;
+        localStorage.removeItem(LEGACY_CART_STORAGE_KEY);
+      }
+    }
+    const saved=JSON.parse(raw||'{}');
     const next={};
     Object.entries(saved||{}).forEach(([id,qty])=>{
       const item=getItem(id);
@@ -300,12 +311,13 @@ function restoreCart(){
       if(item&&count>0)next[id]=count;
     });
     cart=next;
+    localStorage.setItem(key,JSON.stringify(cart));
   }catch(error){cart={};}
   cartRestored=true;
 }
 function persistCart(){
   if(!cartRestored)return;
-  try{localStorage.setItem(CART_STORAGE_KEY,JSON.stringify(cart));}catch(error){}
+  try{localStorage.setItem(cartStorageKey(),JSON.stringify(cart));}catch(error){}
 }
 const POPULAR_IDS=[15,1,2,3,10,18];
 const REF_CAT_IDS={'Фаст-фуд':'f','Роллы':'r','Сеты':'s','Пицца':'z','Соусы':'a','Напитки':'d'};
