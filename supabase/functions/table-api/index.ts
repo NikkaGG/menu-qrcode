@@ -195,6 +195,9 @@ Deno.serve(async (req) => {
           const state = await guestState(session.id, guestToken);
           return response({ ok: true, duplicate: true, orderId: raced.id, table, session, ...state });
         }
+        if (/Table session is closed/i.test(String((error as Error)?.message || ""))) {
+          return response({ error: "Table session is closed" }, 409);
+        }
         throw error;
       }
       if (!order) throw new Error("Order was not created");
