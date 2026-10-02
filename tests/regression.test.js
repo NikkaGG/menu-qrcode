@@ -684,6 +684,7 @@ function productCardHarness({ grid = true } = {}) {
     const MAX_ITEM_QUANTITY=20;
     function pushMenuOverlayState(){}
     function updateProductFavoriteButton(){}
+    function updatePopularDots(){}
     function tableEscapeHtml(value){return String(value??'');}
     function productImageHtml(item){return '<img src="'+String(item.img||'')+'" alt="'+tableEscapeHtml(item.n)+'">';}
     ${[
