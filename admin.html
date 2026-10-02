@@ -120,7 +120,7 @@
 
       <section class="admin-page" id="pageOrders" data-page="orders" hidden>
         <div class="menu-admin-summary order-admin-summary">
-          <article><span>Заказов</span><strong id="ordersTotalCount">—</strong><small>Последние 200</small></article>
+          <article><span>Заказов</span><strong id="ordersTotalCount">—</strong><small id="ordersTotalScope">Последние 200</small></article>
           <article><span>В работе</span><strong id="ordersActiveCount">—</strong><small>До подачи гостю</small></article>
           <article><span>Сумма заказов</span><strong id="ordersAmount">—</strong><small>Без отменённых</small></article>
           <article><span>Средний чек</span><strong id="ordersAverage">—</strong><small>Без отменённых</small></article>
@@ -149,7 +149,7 @@
 
         <div class="orders-context">
           <div><b id="ordersResultTitle">Все заказы</b><span id="ordersResultMeta">Загрузка…</span></div>
-          <p>История показывает последние 200 заказов. Отменённые сохраняются для контроля.</p>
+          <p id="ordersScopeNote">История показывает последние 200 заказов. Отменённые сохраняются для контроля.</p>
         </div>
 
         <section class="admin-orders-list" id="ordersList">
@@ -295,6 +295,7 @@
 <script src="/vendor/qrcode-generator.js?v=1"></script>
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
+const STAFF_API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
 let pin=sessionStorage.getItem('sushi-admin-pin')||'';
 let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
@@ -322,6 +323,55 @@ async function api(action,payload={}){
     if(/failed to fetch|networkerror|load failed|network request failed/i.test(String(error?.message||'')))throw new Error('Нет связи с сервером');
     throw error;
   }finally{clearTimeout(timeout)}
+}
+
+async function staffOrdersFallback(){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
+  try{
+    const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action:'dashboard'}),signal:controller.signal});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
+    const tablesById=new Map((data.tables||[]).map(table=>[table.id,table]));
+    const sessionsById=new Map((data.sessions||[]).map(session=>[session.id,session]));
+    const itemsByOrder=new Map();
+    for(const item of data.items||[]){
+      const id=Number(item.order_id);
+      if(!itemsByOrder.has(id))itemsByOrder.set(id,[]);
+      itemsByOrder.get(id).push(item);
+    }
+    const orders=(data.orders||[]).map(order=>{
+      const session=sessionsById.get(order.table_session_id)||null;
+      const table=session?tablesById.get(session.table_id)||null:null;
+      return {...order,table,session,items:itemsByOrder.get(Number(order.id))||[]};
+    }).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    const nonCancelled=orders.filter(order=>order.status!=='cancelled');
+    const amount=nonCancelled.reduce((sum,order)=>sum+Number(order.total||0),0);
+    return {
+      generatedAt:new Date().toISOString(),
+      source:'open-sessions',
+      summary:{
+        total:orders.length,
+        active:orders.filter(order=>activeOrderStatuses.has(String(order.status||''))).length,
+        served:orders.filter(order=>order.status==='served').length,
+        cancelled:orders.filter(order=>order.status==='cancelled').length,
+        amount,
+        averageCheck:nonCancelled.length?Math.round(amount/nonCancelled.length):0
+      },
+      orders
+    };
+  }catch(error){
+    if(error?.name==='AbortError')throw new Error('Сервер отвечает слишком долго');
+    throw error;
+  }finally{clearTimeout(timeout)}
+}
+
+async function fetchAdminOrders(){
+  try{return await api('orders')}
+  catch(error){
+    if(error?.status===400&&/unknown action/i.test(String(error?.message||'')))return await staffOrdersFallback();
+    throw error;
+  }
 }
 
 function notify(text){
@@ -474,6 +524,9 @@ function renderOrders(){
   const served=orders.filter(o=>o.status==='served').length;
   const cancelled=orders.filter(o=>o.status==='cancelled').length;
   document.getElementById('ordersTotalCount').textContent=orders.length;
+  const fallback=orderState.source==='open-sessions';
+  document.getElementById('ordersTotalScope').textContent=fallback?'Открытые столы':'Последние 200';
+  document.getElementById('ordersScopeNote').textContent=fallback?'Показаны заказы текущих открытых столов.':'История показывает последние 200 заказов. Отменённые сохраняются для контроля.';
   document.getElementById('ordersActiveCount').textContent=active;
   document.getElementById('ordersAmount').textContent=money(summary.amount||0);
   document.getElementById('ordersAverage').textContent=money(summary.averageCheck||0);
@@ -492,7 +545,7 @@ async function loadOrders(silent=true,force=false){
   if(orderLoading||(!force&&orderState))return;
   orderLoading=true;
   try{
-    orderState=await api('orders');renderOrders();setConnection(true);
+    orderState=await fetchAdminOrders();renderOrders();setConnection(true);
     if(!silent)notify('Заказы обновлены');
   }catch(error){
     if(error.status===401){sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true}
