@@ -398,8 +398,11 @@
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
 const STAFF_API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
-let pin=sessionStorage.getItem('sushi-admin-pin')||'';
-let adminRole=sessionStorage.getItem('sushi-admin-role')||'owner';
+const sessionGet=(key,fallback='')=>{try{return sessionStorage.getItem(key)??fallback}catch(_){return fallback}};
+const sessionSet=(key,value)=>{try{sessionStorage.setItem(key,value)}catch(_){}};
+const sessionRemove=key=>{try{sessionStorage.removeItem(key)}catch(_){}};
+let pin=sessionGet('sushi-admin-pin','');
+let adminRole=sessionGet('sushi-admin-role','owner');
 let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
 let orderState=null,orderLoading=false,orderFilter='all',orderQuery='',orderPayment='all';
 let menuState=null,menuLoading=false,menuFilter='all',menuQuery='',menuCategory='all',editDishId=null;
@@ -733,7 +736,7 @@ async function loadOrders(silent=true,force=false){
     orderState=await fetchAdminOrders();renderOrders();setConnection(true);
     if(!silent)notify('Заказы обновлены');
   }catch(error){
-    if(error.status===401){sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true}
+    if(error.status===401){sessionRemove('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true}
     else{setConnection(false,error.message||'Не удалось загрузить заказы');if(!silent)notify(error.message||'Не удалось загрузить заказы')}
     if(!orderState)document.getElementById('ordersList').innerHTML='<div class="admin-empty admin-empty-wide">Не удалось загрузить заказы</div>';
   }finally{orderLoading=false}
@@ -891,7 +894,7 @@ const roleLabels={owner:'Владелец',admin:'Администратор',wa
 function syncAccessRole(){
   const role=state?.actor?.role||adminRole;
   adminRole=role;
-  sessionStorage.setItem('sushi-admin-role',role);
+  sessionSet('sushi-admin-role',role);
   const owner=role==='owner';
   const nav=document.getElementById('accessNavBtn');
   if(nav)nav.hidden=!owner;
@@ -1003,7 +1006,7 @@ async function refresh(silent=true){
     if(!silent)notify('Данные обновлены');
   }catch(error){
     if(error.status===401){
-      sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();
+      sessionRemove('sushi-admin-pin');pin='';stopPolling();
       document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;
       if(!silent)document.getElementById('loginError').textContent='Неверный PIN для выбранной роли';
     }else if(!state){
@@ -1150,10 +1153,10 @@ function downloadQr(){
 
 function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(!pin||document.hidden)return;if(currentSection==='orders')loadOrders(true,true);else if(currentSection==='menu')loadMenu(true,true);else if(currentSection==='access')loadAccess(true,true);else refresh(true)},30000)}
 function stopPolling(){clearInterval(pollTimer);pollTimer=null}
-function logout(){stopPolling();sessionStorage.removeItem('sushi-admin-pin');location.reload()}
+function logout(){stopPolling();sessionRemove('sushi-admin-pin');location.reload()}
 
 document.getElementById('adminRole').value=adminRole;
-document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();adminRole=document.getElementById('adminRole').value;sessionStorage.setItem('sushi-admin-pin',pin);sessionStorage.setItem('sushi-admin-role',adminRole);document.getElementById('loginError').textContent='';refresh(false)});
+document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();adminRole=document.getElementById('adminRole').value;sessionSet('sushi-admin-pin',pin);sessionSet('sushi-admin-role',adminRole);document.getElementById('loginError').textContent='';refresh(false)});
 document.getElementById('adminNav').addEventListener('click',event=>{const btn=event.target.closest('[data-section]');if(btn)switchSection(btn.dataset.section)});
 document.querySelectorAll('[data-jump]').forEach(btn=>btn.addEventListener('click',()=>switchSection(btn.dataset.jump)));
 document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='orders'?loadOrders(false,true):currentSection==='menu'?loadMenu(false,true):currentSection==='access'?loadAccess(false,true):refresh(false));
