@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261002-qr-v1">
+<link rel="stylesheet" href="/ops.css?v=20261002-menu-v1">
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -34,6 +34,9 @@
         </button>
         <button type="button" data-section="tables">
           <img src="/apple-emoji/place-setting.png" alt=""><span>Столы и QR</span><i id="navTablesCount">0</i>
+        </button>
+        <button type="button" data-section="menu">
+          <img src="/apple-emoji/receipt.png" alt=""><span>Меню</span><i id="navStopCount">0</i>
         </button>
         <div class="admin-nav-divider"></div>
         <a href="/kitchen" target="_blank"><img src="/apple-emoji/frying-pan.png" alt=""><span>Кухня</span></a>
@@ -134,6 +137,45 @@
 
         <section class="admin-tables-grid" id="tables"></section>
       </section>
+
+      <section class="admin-page" id="pageMenu" data-page="menu" hidden>
+        <div class="menu-admin-summary">
+          <article><span>Позиций</span><strong id="menuTotalCount">—</strong><small>Всего в базе</small></article>
+          <article><span>Стоп-лист</span><strong id="menuStopCount">—</strong><small>Не показываются гостям</small></article>
+          <article><span>Популярные</span><strong id="menuPopularCount">—</strong><small>В блоке рекомендаций</small></article>
+          <article><span>Категории</span><strong id="menuCategoryCount">—</strong><small>Видимые / всего</small></article>
+        </div>
+
+        <div class="menu-admin-toolbar">
+          <div class="table-search menu-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="menuSearch" type="search" autocomplete="off" placeholder="Найти блюдо…" aria-label="Найти блюдо">
+          </div>
+          <div class="segmented-control menu-admin-filters" id="menuFilters" role="tablist" aria-label="Фильтр меню">
+            <button type="button" data-filter="all" aria-selected="true">Все</button>
+            <button type="button" data-filter="available" aria-selected="false">В меню</button>
+            <button type="button" data-filter="stop" aria-selected="false">Стоп-лист <span id="filterStopCount">0</span></button>
+            <button type="button" data-filter="popular" aria-selected="false">Популярные</button>
+          </div>
+          <button type="button" class="create-table-btn" id="openCreateDishBtn">+ Добавить блюдо</button>
+        </div>
+
+        <section class="menu-categories-panel">
+          <div class="menu-panel-head">
+            <div><span class="panel-eyebrow">Категории</span><h2>Видимость меню</h2><p>Скрытая категория исчезает из гостевого меню вместе со всеми блюдами.</p></div>
+          </div>
+          <div class="menu-categories" id="menuCategories"></div>
+        </section>
+
+        <div class="menu-list-context">
+          <div><b id="menuResultTitle">Все блюда</b><span id="menuResultMeta">Загрузка…</span></div>
+          <div class="menu-category-filter" id="menuCategoryFilter"></div>
+        </div>
+
+        <section class="menu-dishes-grid" id="menuDishes">
+          <div class="admin-empty admin-empty-wide">Загружаем меню…</div>
+        </section>
+      </section>
     </div>
   </div>
 </main>
@@ -182,6 +224,31 @@
   </div>
 </div>
 
+<div class="modal action-sheet dish-editor-modal" id="dishModal" role="dialog" aria-modal="true" aria-labelledby="dishModalTitle">
+  <div class="modal-card">
+    <div class="sheet-grabber" aria-hidden="true"></div>
+    <div class="modal-head"><div><small id="dishModalEyebrow">Меню</small><h2 id="dishModalTitle">Блюдо</h2></div><button class="x" type="button" id="closeDishBtn">×</button></div>
+    <form class="dish-form" id="dishForm">
+      <div class="dish-form-grid">
+        <label class="dish-field dish-field-wide">Название<input id="dishName" maxlength="140" required></label>
+        <label class="dish-field">Категория<select id="dishCategory" required></select></label>
+        <label class="dish-field">Цена, ₸<input id="dishPrice" type="number" min="0" max="1000000" step="1" inputmode="numeric" required></label>
+        <label class="dish-field">Вес / объём<input id="dishWeight" maxlength="120" placeholder="Например, 250 г"></label>
+        <label class="dish-field">Порядок<input id="dishSort" type="number" min="-100000" max="100000" step="1" value="0"></label>
+        <label class="dish-field dish-field-wide">Описание<textarea id="dishDescription" maxlength="2000" rows="4"></textarea></label>
+        <label class="dish-field dish-field-wide">Фото карточки<input id="dishImage" maxlength="1000" placeholder="/assets/... или https://..."></label>
+        <label class="dish-field dish-field-wide">Фото в карточке блюда<input id="dishDetailImage" maxlength="1000" placeholder="/assets/... или https://..."></label>
+      </div>
+      <div class="dish-form-switches">
+        <label><input id="dishAvailable" type="checkbox" checked><span><b>Показывать в меню</b><small>Выключение сразу отправляет блюдо в стоп-лист.</small></span></label>
+        <label><input id="dishPopular" type="checkbox"><span><b>Популярное</b><small>Показывать в блоке популярных позиций.</small></span></label>
+      </div>
+      <div class="dish-preview" id="dishPreview" hidden><img id="dishPreviewImage" alt=""><div><b id="dishPreviewName"></b><span id="dishPreviewMeta"></span></div></div>
+      <div class="sheet-actions"><button type="button" id="cancelDishBtn">Отмена</button><button class="primary" type="submit" id="saveDishBtn">Сохранить</button></div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/vendor/qrcode-generator.js?v=1"></script>
 <script>
@@ -189,7 +256,8 @@ const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
 const API_TIMEOUT_MS=12000;
 let pin=sessionStorage.getItem('sushi-admin-pin')||'';
 let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
-const busyTables=new Set();
+let menuState=null,menuLoading=false,menuFilter='all',menuQuery='',menuCategory='all',editDishId=null;
+const busyTables=new Set(),busyDishes=new Set(),busyCategories=new Set();
 let pollTimer=null,toastTimer=null;
 
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -316,6 +384,152 @@ function renderTables(){
   document.getElementById('tables').innerHTML=visible.length?visible.map(tableCard).join(''):'<div class="admin-empty admin-empty-wide">Ничего не найдено</div>';
 }
 
+function menuCategoryName(id){
+  return menuState?.categories?.find(c=>c.id===id)?.name||id||'Без категории';
+}
+function menuCategoryVisible(id){
+  return menuState?.categories?.find(c=>c.id===id)?.is_visible!==false;
+}
+function dishMatches(dish){
+  if(menuFilter==='available'&&!dish.is_available)return false;
+  if(menuFilter==='stop'&&dish.is_available)return false;
+  if(menuFilter==='popular'&&!dish.is_popular)return false;
+  if(menuCategory!=='all'&&dish.category_id!==menuCategory)return false;
+  if(menuQuery){
+    const hay=[dish.name,dish.weight,dish.description,menuCategoryName(dish.category_id)].join(' ').toLowerCase();
+    if(!hay.includes(menuQuery.toLowerCase()))return false;
+  }
+  return true;
+}
+function dishCard(dish){
+  const busy=busyDishes.has(Number(dish.id)),available=!!dish.is_available,categoryVisible=menuCategoryVisible(dish.category_id);
+  const image=dish.image_url||dish.detail_image_url||'';
+  const badges=[
+    '<span class="menu-dish-badge category">'+h(menuCategoryName(dish.category_id))+'</span>',
+    !categoryVisible?'<span class="menu-dish-badge hidden-cat">Категория скрыта</span>':'',
+    dish.is_popular?'<span class="menu-dish-badge popular">Популярное</span>':'',
+    !available?'<span class="menu-dish-badge stop">Стоп-лист</span>':''
+  ].join('');
+  return '<article class="menu-dish-card '+(!available?'is-stop ':'')+(!categoryVisible?'is-category-hidden':'')+'" data-dish-id="'+dish.id+'">'+
+    '<div class="menu-dish-image">'+(image?'<img src="'+h(image)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'missing\')">':'')+'</div>'+
+    '<div class="menu-dish-body"><div class="menu-dish-badges">'+badges+'</div><h3>'+h(dish.name)+'</h3>'+
+    '<p>'+h(dish.weight||'Без веса')+(dish.description?' · '+h(dish.description):'')+'</p>'+
+    '<div class="menu-dish-price">'+money(dish.price)+'</div></div>'+
+    '<div class="menu-dish-actions">'+
+      '<button type="button" class="menu-edit-btn" data-menu-action="edit" data-id="'+dish.id+'" '+(busy?'disabled':'')+'>Изменить</button>'+
+      '<button type="button" class="menu-stop-btn '+(available?'':'restore')+'" data-menu-action="availability" data-id="'+dish.id+'" data-available="'+(!available)+'" '+(busy?'disabled':'')+'>'+(busy?'Сохраняем…':available?'В стоп-лист':'Вернуть в меню')+'</button>'+
+    '</div>'+
+  '</article>';
+}
+function renderMenu(){
+  if(!menuState)return;
+  const categories=menuState.categories||[],dishes=menuState.dishes||[];
+  const stop=dishes.filter(d=>!d.is_available).length,popular=dishes.filter(d=>d.is_popular).length,visibleCategories=categories.filter(c=>c.is_visible).length;
+  document.getElementById('menuTotalCount').textContent=dishes.length;
+  document.getElementById('menuStopCount').textContent=stop;
+  document.getElementById('menuPopularCount').textContent=popular;
+  document.getElementById('menuCategoryCount').textContent=visibleCategories+' / '+categories.length;
+  document.getElementById('navStopCount').textContent=stop;
+  document.getElementById('filterStopCount').textContent=stop;
+
+  document.getElementById('menuCategories').innerHTML=categories.map(cat=>{
+    const busy=busyCategories.has(cat.id),count=dishes.filter(d=>d.category_id===cat.id).length,visible=cat.is_visible!==false;
+    return '<article class="menu-category-card '+(!visible?'is-hidden':'')+'"><div><b>'+h(cat.name)+'</b><span>'+count+' позиций</span></div>'+
+      '<button type="button" class="switch-control '+(visible?'on':'')+'" data-category-action="visibility" data-id="'+h(cat.id)+'" data-visible="'+(!visible)+'" aria-pressed="'+visible+'" '+(busy?'disabled':'')+'><span class="switch-track" aria-hidden="true"><i></i></span><span>'+(visible?'Видна':'Скрыта')+'</span></button></article>';
+  }).join('');
+
+  const categoryButtons=['<button type="button" data-category="all" class="'+(menuCategory==='all'?'on':'')+'">Все</button>'].concat(categories.map(cat=>
+    '<button type="button" data-category="'+h(cat.id)+'" class="'+(menuCategory===cat.id?'on':'')+'">'+h(cat.name)+'</button>'
+  ));
+  document.getElementById('menuCategoryFilter').innerHTML=categoryButtons.join('');
+
+  const visible=dishes.filter(dishMatches);
+  const titles={all:'Все блюда',available:'Блюда в меню',stop:'Стоп-лист',popular:'Популярные'};
+  document.getElementById('menuResultTitle').textContent=menuQuery?'Результаты поиска':titles[menuFilter]||'Все блюда';
+  document.getElementById('menuResultMeta').textContent='Показано '+visible.length+' из '+dishes.length;
+  document.getElementById('menuDishes').innerHTML=visible.length?visible.map(dishCard).join(''):'<div class="admin-empty admin-empty-wide">Блюд по этому фильтру нет</div>';
+}
+async function loadMenu(silent=true,force=false){
+  if(menuLoading||(!force&&menuState))return;
+  menuLoading=true;
+  try{
+    menuState=await api('menu');renderMenu();
+    if(!silent)notify('Меню обновлено');
+  }catch(error){
+    if(!silent)notify(error.message||'Не удалось загрузить меню');
+    if(!menuState)document.getElementById('menuDishes').innerHTML='<div class="admin-empty admin-empty-wide">Не удалось загрузить меню</div>';
+  }finally{menuLoading=false}
+}
+async function toggleDishAvailability(dishId,available){
+  const id=Number(dishId);if(!id||busyDishes.has(id))return;
+  busyDishes.add(id);renderMenu();
+  try{menuState=await api('set-dish-available',{dishId:id,available});renderMenu();notify(available?'Блюдо возвращено в меню':'Блюдо добавлено в стоп-лист')}
+  catch(error){notify(error.message||'Не удалось изменить стоп-лист')}
+  finally{busyDishes.delete(id);renderMenu()}
+}
+async function toggleCategoryVisibility(categoryId,visible){
+  if(!categoryId||busyCategories.has(categoryId))return;
+  busyCategories.add(categoryId);renderMenu();
+  try{menuState=await api('set-category-visible',{categoryId,visible});renderMenu();notify(visible?'Категория показана':'Категория скрыта')}
+  catch(error){notify(error.message||'Не удалось изменить категорию')}
+  finally{busyCategories.delete(categoryId);renderMenu()}
+}
+function fillDishCategories(selected=''){
+  const select=document.getElementById('dishCategory'),categories=menuState?.categories||[];
+  select.innerHTML=categories.map(c=>'<option value="'+h(c.id)+'" '+(c.id===selected?'selected':'')+'>'+h(c.name)+(c.is_visible?'':' · скрыта')+'</option>').join('');
+}
+function syncDishPreview(){
+  const name=document.getElementById('dishName').value.trim(),price=document.getElementById('dishPrice').value,image=document.getElementById('dishImage').value.trim()||document.getElementById('dishDetailImage').value.trim();
+  const preview=document.getElementById('dishPreview'),img=document.getElementById('dishPreviewImage');
+  document.getElementById('dishPreviewName').textContent=name||'Новое блюдо';
+  document.getElementById('dishPreviewMeta').textContent=(price?money(price):'Цена не указана')+' · '+menuCategoryName(document.getElementById('dishCategory').value);
+  if(image){img.src=image;img.style.display='block'}else{img.removeAttribute('src');img.style.display='none'}
+  preview.hidden=false;
+}
+function openDishEditor(dishId=null){
+  if(!menuState)return;
+  editDishId=dishId?Number(dishId):null;
+  const dish=editDishId?menuState.dishes.find(d=>Number(d.id)===editDishId):null;
+  document.getElementById('dishModalEyebrow').textContent=dish?'Редактирование':'Новое блюдо';
+  document.getElementById('dishModalTitle').textContent=dish?dish.name:'Добавить блюдо';
+  fillDishCategories(dish?.category_id||menuState.categories?.[0]?.id||'');
+  document.getElementById('dishName').value=dish?.name||'';
+  document.getElementById('dishPrice').value=dish?.price??'';
+  document.getElementById('dishWeight').value=dish?.weight||'';
+  document.getElementById('dishSort').value=dish?.sort_order??0;
+  document.getElementById('dishDescription').value=dish?.description||'';
+  document.getElementById('dishImage').value=dish?.image_url||'';
+  document.getElementById('dishDetailImage').value=dish?.detail_image_url||'';
+  document.getElementById('dishAvailable').checked=dish?dish.is_available!==false:true;
+  document.getElementById('dishPopular').checked=!!dish?.is_popular;
+  syncDishPreview();
+  document.getElementById('dishModal').classList.add('on');
+  setTimeout(()=>document.getElementById('dishName').focus(),50);
+}
+function closeDishEditor(){document.getElementById('dishModal').classList.remove('on');editDishId=null;document.getElementById('dishForm').reset();document.getElementById('dishPreview').hidden=true}
+async function saveDish(event){
+  event.preventDefault();
+  const payload={
+    categoryId:document.getElementById('dishCategory').value,
+    name:document.getElementById('dishName').value.trim(),
+    price:Number(document.getElementById('dishPrice').value),
+    weight:document.getElementById('dishWeight').value.trim(),
+    sortOrder:Number(document.getElementById('dishSort').value||0),
+    description:document.getElementById('dishDescription').value.trim(),
+    imageUrl:document.getElementById('dishImage').value.trim(),
+    detailImageUrl:document.getElementById('dishDetailImage').value.trim(),
+    isAvailable:document.getElementById('dishAvailable').checked,
+    isPopular:document.getElementById('dishPopular').checked
+  };
+  if(!payload.name||!Number.isFinite(payload.price)||payload.price<0){notify('Укажите название и корректную цену');return}
+  const submit=document.getElementById('saveDishBtn');submit.disabled=true;submit.textContent='Сохраняем…';
+  try{
+    menuState=editDishId?await api('update-dish',{dishId:editDishId,...payload}):await api('create-dish',payload);
+    renderMenu();closeDishEditor();notify(editDishId?'Блюдо обновлено':'Блюдо добавлено');
+  }catch(error){notify(error.message||'Не удалось сохранить блюдо')}
+  finally{submit.disabled=false;submit.textContent='Сохранить'}
+}
+
 function render(){
   if(!state)return;
   const a=state.analytics||{};
@@ -326,16 +540,20 @@ function render(){
 }
 
 function switchSection(section,updateHash=true){
-  if(!['overview','tables'].includes(section))section='overview';
+  if(!['overview','tables','menu'].includes(section))section='overview';
   currentSection=section;
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
-  const copy=section==='overview'
-    ?['Sushi Crazy','Обзор','Ключевые показатели и состояние ресторана.']
-    :['Управление','Столы и QR','QR-коды, статусы и активность столов.'];
+  const copies={
+    overview:['Sushi Crazy','Обзор','Ключевые показатели и состояние ресторана.'],
+    tables:['Управление','Столы и QR','QR-коды, статусы и активность столов.'],
+    menu:['Управление','Меню','Блюда, категории и быстрый стоп-лист.']
+  };
+  const copy=copies[section];
   document.getElementById('pageEyebrow').textContent=copy[0];
   document.getElementById('pageTitle').textContent=copy[1];
   document.getElementById('pageSubtitle').textContent=copy[2];
+  if(section==='menu')loadMenu(true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
 }
@@ -496,14 +714,14 @@ function downloadQr(){
   }catch(error){notify(error.message||'Не удалось скачать QR')}
 }
 
-function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(pin&&!document.hidden)refresh(true)},30000)}
+function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(!pin||document.hidden)return;if(currentSection==='menu')loadMenu(true,true);else refresh(true)},30000)}
 function stopPolling(){clearInterval(pollTimer);pollTimer=null}
 function logout(){stopPolling();sessionStorage.removeItem('sushi-admin-pin');location.reload()}
 
 document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-admin-pin',pin);document.getElementById('loginError').textContent='';refresh(false)});
 document.getElementById('adminNav').addEventListener('click',event=>{const btn=event.target.closest('[data-section]');if(btn)switchSection(btn.dataset.section)});
 document.querySelectorAll('[data-jump]').forEach(btn=>btn.addEventListener('click',()=>switchSection(btn.dataset.jump)));
-document.getElementById('refreshBtn').addEventListener('click',()=>refresh(false));
+document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='menu'?loadMenu(false,true):refresh(false));
 document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
 document.getElementById('closeCreateBtn').addEventListener('click',closeCreateTable);
 document.getElementById('cancelCreateBtn').addEventListener('click',closeCreateTable);
@@ -511,6 +729,17 @@ document.getElementById('addTableForm').addEventListener('submit',createTable);
 document.getElementById('tableSearch').addEventListener('input',event=>{tableQuery=event.target.value.trim();renderTables()});
 document.getElementById('tableFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;tableFilter=btn.dataset.filter;document.querySelectorAll('#tableFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderTables()});
 document.getElementById('tables').addEventListener('click',event=>{const btn=event.target.closest('button[data-action]');if(!btn)return;const id=btn.dataset.id,action=btn.dataset.action;if(action==='qr')openQr(id);if(action==='rename')renameTable(id);if(action==='toggle')toggleTable(id,btn.dataset.active==='true');if(action==='rotate')rotateQr(id)});
+document.getElementById('menuSearch').addEventListener('input',event=>{menuQuery=event.target.value.trim();renderMenu()});
+document.getElementById('menuFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;menuFilter=btn.dataset.filter;document.querySelectorAll('#menuFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderMenu()});
+document.getElementById('menuCategoryFilter').addEventListener('click',event=>{const btn=event.target.closest('button[data-category]');if(!btn)return;menuCategory=btn.dataset.category;renderMenu()});
+document.getElementById('menuCategories').addEventListener('click',event=>{const btn=event.target.closest('button[data-category-action]');if(!btn)return;toggleCategoryVisibility(btn.dataset.id,btn.dataset.visible==='true')});
+document.getElementById('menuDishes').addEventListener('click',event=>{const btn=event.target.closest('button[data-menu-action]');if(!btn)return;const id=Number(btn.dataset.id);if(btn.dataset.menuAction==='edit')openDishEditor(id);if(btn.dataset.menuAction==='availability')toggleDishAvailability(id,btn.dataset.available==='true')});
+document.getElementById('openCreateDishBtn').addEventListener('click',()=>openDishEditor());
+document.getElementById('closeDishBtn').addEventListener('click',closeDishEditor);
+document.getElementById('cancelDishBtn').addEventListener('click',closeDishEditor);
+document.getElementById('dishForm').addEventListener('submit',saveDish);
+document.getElementById('dishForm').addEventListener('input',syncDishPreview);
+document.getElementById('dishForm').addEventListener('change',syncDishPreview);
 document.getElementById('logoutBtn').addEventListener('click',logout);
 document.getElementById('closeQrBtn').addEventListener('click',closeQr);
 document.getElementById('closeEditBtn').addEventListener('click',closeEdit);
@@ -522,11 +751,11 @@ document.getElementById('confirmRotateBtn').addEventListener('click',confirmRota
 document.getElementById('copyQrBtn').addEventListener('click',copyQrLink);
 document.getElementById('openQrLinkBtn').addEventListener('click',openQrLink);
 document.getElementById('downloadQrBtn').addEventListener('click',downloadQr);
-for(const id of ['createTableModal','qrModal','editTableModal','rotateModal']){
-  document.getElementById(id).addEventListener('click',event=>{if(event.target!==event.currentTarget)return;if(id==='createTableModal')closeCreateTable();if(id==='qrModal')closeQr();if(id==='editTableModal')closeEdit();if(id==='rotateModal')closeRotate()});
+for(const id of ['createTableModal','qrModal','editTableModal','rotateModal','dishModal']){
+  document.getElementById(id).addEventListener('click',event=>{if(event.target!==event.currentTarget)return;if(id==='createTableModal')closeCreateTable();if(id==='qrModal')closeQr();if(id==='editTableModal')closeEdit();if(id==='rotateModal')closeRotate();if(id==='dishModal')closeDishEditor()});
 }
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCreateTable();closeQr();closeEdit();closeRotate()}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin)refresh(true)});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCreateTable();closeQr();closeEdit();closeRotate();closeDishEditor()}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin){if(currentSection==='menu')loadMenu(true,true);else refresh(true)}});
 window.addEventListener('online',()=>{if(pin)refresh(false)});
 window.addEventListener('hashchange',()=>switchSection(location.hash.slice(1),false));
 
