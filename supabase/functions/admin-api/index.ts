@@ -161,23 +161,37 @@ function averageCheck(orders: any[]) {
 
 async function adminDashboard() {
   const now = Date.now();
-  const since30 = new Date(now - 30 * 86400000).toISOString();
-  const since7 = now - 7 * 86400000;
+  const querySince = new Date(now - 31 * 86400000).toISOString();
   const since24 = now - 24 * 3600000;
+  const calendarKeys = (days: number) => new Set(
+    Array.from({ length: days }, (_, index) => restaurantDateKey(now - index * 86400000))
+  );
+  const dates30 = calendarKeys(30);
+  const dates7 = calendarKeys(7);
 
-  const [tablesRaw, sessionsRaw, ordersRaw, requestsRaw] = await Promise.all([
+  const [tablesRaw, ordersWindowRaw, requestsRaw, openSessionsRaw] = await Promise.all([
     db("restaurant_tables?select=id,table_number,qr_token,label,is_active,created_at,updated_at&order=table_number.asc"),
-    db(`table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&opened_at=gte.${encodeURIComponent(since30)}&order=opened_at.asc`),
-    db(`orders?select=id,table_session_id,status,payment_method,total,created_at,updated_at&created_at=gte.${encodeURIComponent(since30)}&order=created_at.asc`),
+    db(`orders?select=id,table_session_id,status,payment_method,total,created_at,updated_at&created_at=gte.${encodeURIComponent(querySince)}&order=created_at.asc`),
     db("service_requests?select=id,table_session_id,kind,status,created_at,resolved_at&status=eq.open&order=created_at.asc"),
+    db("table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&status=eq.open&order=opened_at.asc"),
   ]);
 
   const tables = Array.isArray(tablesRaw) ? tablesRaw : [];
-  const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
-  const allOrders = Array.isArray(ordersRaw) ? ordersRaw : [];
+  const orderWindow = Array.isArray(ordersWindowRaw) ? ordersWindowRaw : [];
+  const allOrders = orderWindow.filter((order: any) => dates30.has(restaurantDateKey(order.created_at)));
   const orders = allOrders.filter((order: any) => !isCancelled(order));
   const requests = Array.isArray(requestsRaw) ? requestsRaw : [];
+  const openSessions = Array.isArray(openSessionsRaw) ? openSessionsRaw : [];
   const orderIds = allOrders.map((order: any) => Number(order.id)).filter((id: number) => Number.isInteger(id) && id > 0);
+  const sessionIds = [...new Set(allOrders.map((order: any) => cleanUuid(order.table_session_id)).filter(Boolean))];
+  const orderSessionsRaw = sessionIds.length
+    ? await db(`table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&id=in.(${sessionIds.join(",")})`)
+    : [];
+  const sessionsById = new Map<string, any>();
+  for (const session of [...(Array.isArray(orderSessionsRaw) ? orderSessionsRaw : []), ...openSessions]) {
+    sessionsById.set(session.id, session);
+  }
+  const sessions = [...sessionsById.values()];
 
   const loadByOrderIds = async (pathBuilder: (ids: number[]) => string) => {
     if (!orderIds.length) return [];
@@ -196,11 +210,9 @@ async function adminDashboard() {
     ),
   ]);
 
-  const sessionsById = new Map(sessions.map((session: any) => [session.id, session]));
   const validOrderIds = new Set(orders.map((order: any) => Number(order.id)));
   const last24 = orders.filter((order: any) => new Date(order.created_at).getTime() >= since24);
-  const last7 = orders.filter((order: any) => new Date(order.created_at).getTime() >= since7);
-  const openSessions = sessions.filter((session: any) => session.status === "open");
+  const last7 = orders.filter((order: any) => dates7.has(restaurantDateKey(order.created_at)));
 
   const tableStats = new Map<string, { orders: number; revenue: number }>();
   for (const order of orders) {
