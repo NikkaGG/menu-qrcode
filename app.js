@@ -318,7 +318,8 @@ const TABLE_API_URL=SUPABASE_URL+'/functions/v1/table-api';
 const TABLE_PAYMENT_LABELS=Object.freeze({kaspi:'Kaspi',card:'Картой',cash:'Наличными'});
 const MAX_ITEM_QUANTITY=20;
 const TABLE_API_TIMEOUT_MS=12000;
-const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),serviceBusy:new Set(),lastError:'',lastPlacedOrderId:null};
+const ORDER_REQUEST_TTL_MS=15*60*1000;
+const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),serviceBusy:new Set(),lastError:'',lastPlacedOrderId:null,pendingOrderRequest:null};
 function tableEscapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function createGuestUuid(){
   if(crypto.randomUUID)return crypto.randomUUID();
@@ -340,6 +341,7 @@ function guestApiErrorMessage(error){
     'Invalid table or guest token':'Не удалось распознать QR-код стола',
     'Choose a payment method':'Выберите способ расчёта',
     'Invalid order items':'Проверьте количество блюд в корзине',
+    'Invalid order request id':'Не удалось подготовить безопасную отправку заказа',
     'One or more dishes are unavailable':'Некоторые блюда временно недоступны. Обновите меню и попробуйте снова'
   };
   if(translations[raw])return translations[raw];
@@ -361,6 +363,43 @@ async function tableApiCall(action,payload={}){
     throw wrapped;
   }finally{clearTimeout(timeout);}
 }
+function orderRequestFingerprint(payload){
+  const items=[...(payload?.items||[])].map(item=>({id:Number(item.id),quantity:Number(item.quantity)})).sort((a,b)=>a.id-b.id);
+  return JSON.stringify({items,paymentMethod:String(payload?.paymentMethod||''),comment:String(payload?.comment||'')});
+}
+function orderRequestStorageKey(){
+  return 'sushi-crazy-order-request-v1:'+tableOrdering.tableToken;
+}
+function getOrderRequestId(payload){
+  const fingerprint=orderRequestFingerprint(payload),now=Date.now();
+  const memory=tableOrdering.pendingOrderRequest;
+  if(memory&&memory.fingerprint===fingerprint&&now-memory.createdAt<ORDER_REQUEST_TTL_MS)return memory.requestId;
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem(orderRequestStorageKey())||'null');}catch(_){}
+  if(saved&&/^[0-9a-f-]{36}$/i.test(String(saved.requestId||''))&&saved.fingerprint===fingerprint&&now-Number(saved.createdAt||0)<ORDER_REQUEST_TTL_MS){
+    tableOrdering.pendingOrderRequest=saved;
+    return saved.requestId;
+  }
+  const next={requestId:createGuestUuid(),fingerprint,createdAt:now};
+  tableOrdering.pendingOrderRequest=next;
+  try{
+    localStorage.setItem(orderRequestStorageKey(),JSON.stringify(next));
+    const winner=JSON.parse(localStorage.getItem(orderRequestStorageKey())||'null');
+    if(winner&&winner.fingerprint===fingerprint&&/^[0-9a-f-]{36}$/i.test(String(winner.requestId||''))){
+      tableOrdering.pendingOrderRequest=winner;
+      return winner.requestId;
+    }
+  }catch(_){}
+  return next.requestId;
+}
+function clearOrderRequestId(requestId){
+  if(tableOrdering.pendingOrderRequest?.requestId===requestId)tableOrdering.pendingOrderRequest=null;
+  try{
+    const saved=JSON.parse(localStorage.getItem(orderRequestStorageKey())||'null');
+    if(saved?.requestId===requestId)localStorage.removeItem(orderRequestStorageKey());
+  }catch(_){}
+}
+
 function tableStatusStep(status){return ['submitted','accepted','preparing','ready','served'].indexOf(status);}
 function tableOrderStatusMarkup(order){
   if(order.status==='cancelled')return '<div class="table-order-cancelled">Заказ отменён</div>';
@@ -1073,10 +1112,11 @@ async function placeOrder(){
   if(tableOrdering.submitting)return;
   const payload=buildOrderPayload();if(!payload.items.length){showToast('Корзина пуста');return;}if(!tableOrdering.tableToken){showToast('Откройте меню через QR-код на столе');return;}if(!tableOrdering.ready){showToast('Сначала подтвердите QR-код стола');return;}
   if(!PAYMENT_METHOD_LABELS[payload.paymentMethod]){showToast('Выберите способ расчёта');updateOrderState();return;}
+  const clientRequestId=getOrderRequestId(payload);
   tableOrdering.submitting=true;updateOrderState();
   try{
-    const data=await tableApiCall('place-order',payload);const orderId=data.orderId;tableOrdering.lastPlacedOrderId=orderId;applyTableOrderState(data);clearCart(true);
-    closeOv('cartOv');showToast('Заказ #'+orderId+' отправлен на кухню');
+    const data=await tableApiCall('place-order',{...payload,clientRequestId});const orderId=data.orderId;clearOrderRequestId(clientRequestId);tableOrdering.lastPlacedOrderId=orderId;applyTableOrderState(data);clearCart(true);
+    closeOv('cartOv');showToast(data.duplicate?'Заказ #'+orderId+' уже был отправлен':'Заказ #'+orderId+' отправлен на кухню');
     setTimeout(()=>document.getElementById('tableOrderPanel')?.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'center'}),120);
   }catch(error){showToast(guestApiErrorMessage(error));}finally{tableOrdering.submitting=false;updateOrderState();}
 }
