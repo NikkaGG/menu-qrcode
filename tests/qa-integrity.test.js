@@ -13,6 +13,7 @@ const roleMigration = read('supabase/migrations/20261002071000_role_access.sql')
 const statusMigration = read('supabase/migrations/20261002072000_order_status_events.sql');
 const idempotencyMigration = read('supabase/migrations/20261002073000_order_idempotency.sql');
 const atomicSessionMigration = read('supabase/migrations/20261002075000_atomic_session_close.sql');
+const atomicOrderMigration = read('supabase/migrations/20261002078000_atomic_order_create.sql');
 const sw = read('sw.js');
 const manifest = JSON.parse(read('manifest.webmanifest'));
 const vercel = JSON.parse(read('vercel.json'));
@@ -109,4 +110,14 @@ test('atomic session functions do not use unnecessary definer privileges', () =>
   assert.match(atomicSessionMigration, /revoke all on function public\.assert_order_session_open\(\) from public, anon, authenticated/);
   assert.match(atomicSessionMigration, /revoke all on function public\.close_table_session_if_idle\(uuid\) from public, anon, authenticated/);
   assert.match(atomicSessionMigration, /grant execute on function public\.close_table_session_if_idle\(uuid\) to service_role/);
+});
+
+
+test('order header and items are written atomically through a service-only RPC', () => {
+  assert.match(atomicOrderMigration, /create or replace function public\.create_table_order_atomic/);
+  assert.match(atomicOrderMigration, /security invoker/);
+  assert.match(atomicOrderMigration, /revoke all on function public\.create_table_order_atomic/);
+  assert.match(atomicOrderMigration, /grant execute on function public\.create_table_order_atomic[^;]*to service_role/s);
+  assert.match(tableApi, /rpc\/create_table_order_atomic/);
+  assert.doesNotMatch(tableApi, /await db\("order_items"/);
 });
