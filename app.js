@@ -356,7 +356,8 @@ function guestApiErrorMessage(error){
     'Choose a payment method':'Выберите способ расчёта',
     'Invalid order items':'Проверьте количество блюд в корзине',
     'Invalid order request id':'Не удалось подготовить безопасную отправку заказа',
-    'One or more dishes are unavailable':'Некоторые блюда временно недоступны. Обновите меню и попробуйте снова'
+    'One or more dishes are unavailable':'Некоторые блюда временно недоступны. Обновите меню и попробуйте снова',
+    'Menu prices changed':'Цены в меню изменились. Обновите страницу и проверьте корзину перед заказом'
   };
   if(translations[raw])return translations[raw];
   if(error?.name==='AbortError')return 'Ресторан отвечает слишком долго. Попробуйте ещё раз';
@@ -378,7 +379,7 @@ async function tableApiCall(action,payload={}){
   }finally{clearTimeout(timeout);}
 }
 function orderRequestFingerprint(payload){
-  const items=[...(payload?.items||[])].map(item=>({id:Number(item.id),quantity:Number(item.quantity)})).sort((a,b)=>a.id-b.id);
+  const items=[...(payload?.items||[])].map(item=>({id:Number(item.id),quantity:Number(item.quantity),unitPrice:Number(item.unitPrice)})).sort((a,b)=>a.id-b.id);
   return JSON.stringify({items,paymentMethod:String(payload?.paymentMethod||''),comment:String(payload?.comment||'')});
 }
 function orderRequestStorageKey(){
@@ -1021,7 +1022,14 @@ function resetCheckoutDraft(){
   updateOrderState();
 }
 function buildOrderPayload(){
-  return {items:Object.keys(cart).filter(k=>cart[k]>0).map(id=>({id:Number(id),quantity:Number(cart[id])})),paymentMethod:(document.getElementById('paymentMethodInp')?.value||'').trim(),comment:(document.getElementById('commentTa')?.value||'').trim()};
+  return {
+    items:Object.keys(cart).filter(k=>cart[k]>0).map(id=>{
+      const item=getItem(id);
+      return {id:Number(id),quantity:Number(cart[id]),unitPrice:Number(item?.p||0)};
+    }),
+    paymentMethod:(document.getElementById('paymentMethodInp')?.value||'').trim(),
+    comment:(document.getElementById('commentTa')?.value||'').trim()
+  };
 }
 function setSecondService(labelText='Напишите нам в сообщения'){
   const btn=document.getElementById('shareSecondBtn');
