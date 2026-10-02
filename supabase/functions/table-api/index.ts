@@ -135,17 +135,31 @@ Deno.serve(async (req) => {
       const rawItems = Array.isArray(body?.items) ? body.items : [];
       if (!rawItems.length) return response({ error: "Invalid order items" }, 400);
       const quantities = new Map<number, number>();
+      const observedPrices = new Map<number, number>();
       for (const raw of rawItems) {
         const id = Number(raw?.id);
         const quantity = Number(raw?.quantity);
-        if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(quantity) || quantity <= 0 || quantity > 20) {
+        const unitPrice = Number(raw?.unitPrice);
+        if (
+          !Number.isInteger(id) || id <= 0
+          || !Number.isInteger(quantity) || quantity <= 0 || quantity > 20
+          || !Number.isInteger(unitPrice) || unitPrice < 0 || unitPrice > 1000000
+        ) {
+          return response({ error: "Invalid order items" }, 400);
+        }
+        if (observedPrices.has(id) && observedPrices.get(id) !== unitPrice) {
           return response({ error: "Invalid order items" }, 400);
         }
         const totalQuantity = (quantities.get(id) || 0) + quantity;
         if (totalQuantity > 20) return response({ error: "Invalid order items" }, 400);
         quantities.set(id, totalQuantity);
+        observedPrices.set(id, unitPrice);
       }
-      const normalized = [...quantities.entries()].map(([id, quantity]) => ({ id, quantity }));
+      const normalized = [...quantities.entries()].map(([id, quantity]) => ({
+        id,
+        quantity,
+        observedUnitPrice: observedPrices.get(id) as number,
+      }));
 
       const ids = normalized.map((item: any) => item.id);
       const dishes = await db(
@@ -163,6 +177,9 @@ Deno.serve(async (req) => {
           .map((dish: any) => [Number(dish.id), dish])
       );
       if (ids.some((id: number) => !byId.has(id))) return response({ error: "One or more dishes are unavailable" }, 409);
+      if (normalized.some((item: any) => Number(byId.get(item.id)?.price) !== item.observedUnitPrice)) {
+        return response({ error: "Menu prices changed" }, 409);
+      }
 
       const items = normalized.map((item: any) => {
         const dish: any = byId.get(item.id);
