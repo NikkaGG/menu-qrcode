@@ -3392,3 +3392,9 @@ body.cookie-visible.cart-has-items .page{
   .table-flow-state{margin-bottom:10px}
   .cart-table-context button{display:inline}
 }
+
+.cart-add-btn:disabled,
+#cartOv .qb:disabled{
+  opacity:.45!important;
+  cursor:not-allowed!important;
+}
