@@ -94,43 +94,59 @@ function isAllowed(actor: StaffActor, action: string) {
 }
 
 async function dashboard(actor: StaffActor) {
-  const [tables, sessions, orders, items, requests] = await Promise.all([
+  const [tablesRaw, sessionsRaw] = await Promise.all([
     db("restaurant_tables?select=id,table_number,label,is_active&is_active=eq.true&order=table_number.asc"),
     db("table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&status=eq.open&order=opened_at.asc"),
-    db("orders?select=id,table_session_id,status,payment_method,comment,total,created_at,updated_at&order=created_at.asc"),
-    db("order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order=id.asc"),
+  ]);
+  const tables = Array.isArray(tablesRaw) ? tablesRaw : [];
+  const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
+  const sessionIds = sessions.map((session: any) => String(session.id)).filter(Boolean);
+
+  if (!sessionIds.length) {
+    return {
+      actor: { id: actor.id, name: actor.name, role: actor.role },
+      tables,
+      sessions: [],
+      orders: [],
+      items: [],
+      requests: [],
+    };
+  }
+
+  const [ordersRaw, requestsRaw] = await Promise.all([
+    db(`orders?select=id,table_session_id,status,payment_method,comment,total,created_at,updated_at&table_session_id=in.(${sessionIds.join(",")})&order=created_at.asc`),
     actor.role === "kitchen"
       ? Promise.resolve([])
-      : db("service_requests?select=id,table_session_id,kind,status,created_at,resolved_at,updated_at&status=eq.open&order=created_at.asc"),
+      : db(`service_requests?select=id,table_session_id,kind,status,created_at,resolved_at,updated_at&table_session_id=in.(${sessionIds.join(",")})&status=eq.open&order=created_at.asc`),
   ]);
-  const openSessions = Array.isArray(sessions) ? sessions : [];
-  const openIds = new Set(openSessions.map((s: any) => s.id));
-  const openOrders = (Array.isArray(orders) ? orders : []).filter((o: any) => openIds.has(o.table_session_id));
+
+  const openOrders = Array.isArray(ordersRaw) ? ordersRaw : [];
   const visibleOrders = actor.role === "kitchen"
     ? openOrders
-        .filter((o: any) => !["served", "cancelled"].includes(String(o.status || "")))
-        .map((o: any) => ({
-          id: o.id,
-          table_session_id: o.table_session_id,
-          status: o.status,
-          comment: o.comment,
-          created_at: o.created_at,
-          updated_at: o.updated_at,
+        .filter((order: any) => !["served", "cancelled"].includes(String(order.status || "")))
+        .map((order: any) => ({
+          id: order.id,
+          table_session_id: order.table_session_id,
+          status: order.status,
+          comment: order.comment,
+          created_at: order.created_at,
+          updated_at: order.updated_at,
         }))
     : openOrders;
-  const orderIds = new Set(visibleOrders.map((o: any) => Number(o.id)));
-  const visibleTables = Array.isArray(tables) ? tables : [];
-  const visibleRequests = actor.role === "kitchen"
-    ? []
-    : (Array.isArray(requests) ? requests : []).filter((r: any) => openIds.has(r.table_session_id));
+
+  const orderIds = visibleOrders.map((order: any) => Number(order.id))
+    .filter((id: number) => Number.isInteger(id) && id > 0);
+  const itemsRaw = orderIds.length
+    ? await db(`order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order_id=in.(${orderIds.join(",")})&order=order_id.asc,id.asc`)
+    : [];
 
   return {
     actor: { id: actor.id, name: actor.name, role: actor.role },
-    tables: visibleTables,
-    sessions: openSessions,
+    tables,
+    sessions,
     orders: visibleOrders,
-    items: (Array.isArray(items) ? items : []).filter((i: any) => orderIds.has(Number(i.order_id))),
-    requests: visibleRequests,
+    items: Array.isArray(itemsRaw) ? itemsRaw : [],
+    requests: Array.isArray(requestsRaw) ? requestsRaw : [],
   };
 }
 
