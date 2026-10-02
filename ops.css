@@ -1963,3 +1963,42 @@ body.admin-workspace{background:#f2f2f7}
   .access-actions{width:100%;justify-content:stretch}
   .access-actions button{flex:1}
 }
+
+
+/* ── TASK 12: EXTENDED ANALYTICS ── */
+.report-summary-secondary{margin-top:12px}
+.report-hourly{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}
+.report-hour-row{
+  display:grid;
+  grid-template-columns:48px minmax(80px,1fr) 32px 90px;
+  align-items:center;
+  gap:10px;
+  min-height:34px;
+  font-size:13px;
+}
+.report-hour-row>span{font-variant-numeric:tabular-nums;color:#6e6e73}
+.report-hour-row>b{text-align:right;font-variant-numeric:tabular-nums}
+.report-hour-row>small{text-align:right;color:#6e6e73;font-variant-numeric:tabular-nums}
+.report-hour-meter{height:7px;border-radius:999px;background:#ededf2;overflow:hidden}
+.report-hour-meter i{display:block;height:100%;border-radius:inherit;background:currentColor;opacity:.72}
+.report-dishes{display:grid;gap:2px}
+.report-dish-row{
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  min-height:54px;
+  padding:8px 4px;
+  border-bottom:1px solid rgba(60,60,67,.09);
+}
+.report-dish-row:last-child{border-bottom:0}
+.report-dish-row>span{color:#8e8e93;font-variant-numeric:tabular-nums}
+.report-dish-row>div{display:grid;gap:3px}
+.report-dish-row small{color:#777}
+.report-dish-row strong{font-variant-numeric:tabular-nums}
+@media (max-width:800px){
+  .report-hourly{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .report-hour-row{grid-template-columns:44px minmax(64px,1fr) 26px 78px;gap:7px;font-size:12px}
+}
