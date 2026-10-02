@@ -1611,6 +1611,12 @@ test('task 13 keeps stopped dishes stopped in product share routes', () => {
   assert.match(productApiSource, /Cache-Control','no-store/);
 });
 
+test('task 13 kitchen response excludes financial item fields', () => {
+  assert.match(staffOrdersSource, /const itemSelect = actor\.role === "kitchen"/);
+  assert.match(staffOrdersSource, /"id,order_id,dish_id,name,quantity,item_comment"/);
+  assert.match(staffOrdersSource, /"id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment"/);
+});
+
 test('task 13 keeps kitchen cancellation usable while waiter actions remain separate', () => {
   assert.match(staffOrdersSource, /if \(next === "cancelled"\) return \["submitted", "accepted", "preparing"\]\.includes\(current\)/);
   assert.match(staffOrdersSource, /role === "waiter"\) return current === "ready" && next === "served"/);
