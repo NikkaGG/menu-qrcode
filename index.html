@@ -15,7 +15,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icons/app-192.png" type="image/png">
 <link rel="apple-touch-icon" href="/icons/app-192.png">
-<link rel="stylesheet" href="/styles.css?v=20261002-guest-flow-v1">
+<link rel="stylesheet" href="/styles.css?v=20261002-checkout-v1">
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Restaurant","name":"Sushi Crazy","url":"https://menu-qrcode-lt1q.vercel.app/","image":"https://menu-qrcode-lt1q.vercel.app/api/branding?type=banner","telephone":"+7 776 680 78 60","servesCuisine":["Sushi","Pizza","Fast food"],"address":{"@type":"PostalAddress","streetAddress":"улица Трудовиков, 2г","addressLocality":"Грозный","addressRegion":"Чеченская Республика"}}
@@ -243,28 +243,28 @@
 
       <div class="cs-body-scroll">
         <div id="cartItems"></div>
-        <div id="cartRecommendations"></div>
 
         <div class="del-block cart-checkout table-checkout">
           <div class="cart-step cart-form-section">
-            <div class="cmnt-title">Как хотите рассчитаться</div>
-            <div class="table-payment-note">Оплата останется как раньше — официанту. Здесь только укажите удобный способ.</div>
+            <div class="cmnt-title" id="paymentTitle">Как хотите рассчитаться</div>
+            <div class="table-payment-note" id="paymentNote">Выберите способ — оплатите официанту, как обычно.</div>
             <input type="hidden" id="paymentMethodInp" value="">
-            <div class="payment-options" role="group" aria-label="Способ расчёта с официантом">
+            <div class="payment-options" role="group" aria-labelledby="paymentTitle" aria-describedby="paymentNote">
               <button class="payment-opt" type="button" data-payment="kaspi" aria-pressed="false" onclick="setPayment('kaspi',this)">Kaspi</button>
               <button class="payment-opt" type="button" data-payment="card" aria-pressed="false" onclick="setPayment('card',this)">Карта</button>
               <button class="payment-opt" type="button" data-payment="cash" aria-pressed="false" onclick="setPayment('cash',this)">Наличные</button>
             </div>
-            <div class="addr-err" id="paymentMethodErr" hidden>Выберите способ расчёта.</div>
           </div>
 
           <div class="cart-step cart-form-section cart-comment-section">
             <button class="cart-secondary-toggle cart-comment-toggle" type="button" id="commentToggle" aria-expanded="false" onclick="toggleCartComment(this)">+ Добавить комментарий</button>
             <div class="cart-collapsible" id="commentBlock" hidden>
-              <textarea class="cmnt-ta" id="commentTa" placeholder="Например: без лука, соус отдельно, приборы на 2 персоны."></textarea>
+              <textarea class="cmnt-ta" id="commentTa" maxlength="500" placeholder="Например: без лука, соус отдельно, приборы на 2 персоны."></textarea>
             </div>
           </div>
         </div>
+
+        <div id="cartRecommendations"></div>
       </div>
 
       <div class="cs-foot">
@@ -283,27 +283,7 @@
 
 <div class="toast" id="toastEl"></div>
 
-<!-- PICKUP TIME OVERLAY -->
-<div class="ov pickup-time-ov" id="pickupTimeOv" role="dialog" aria-modal="true" aria-labelledby="pickupTimeTitle" aria-describedby="pickupTimeDescription" onclick="bgClose(event,'pickupTimeOv')">
-  <div class="pickup-time-panel" id="pickupTimePanel" onclick="event.stopPropagation()">
-    <div class="pickup-time-drag-zone" id="pickupTimeDragZone" onpointerdown="startPickupDrag(event)">
-      <div class="pickup-time-handle" aria-hidden="true"></div>
-      <div class="pickup-time-header">
-        <div>
-          <div class="pickup-time-title" id="pickupTimeTitle">Время самовывоза</div>
-          <div class="pickup-time-description" id="pickupTimeDescription">Выберите ближайшее удобное время.</div>
-        </div>
-        <button class="pickup-time-close" type="button" id="pickupTimeClose" onclick="closeOv('pickupTimeOv')" aria-label="Закрыть выбор времени" data-dialog-initial-focus>×</button>
-      </div>
-    </div>
-    <div class="pickup-time-content">
-      <div class="pickup-time-slots" id="pickupTimeSlots"></div>
-      <div class="pickup-time-unavailable" id="pickupTimeUnavailable" role="status" hidden>Сегодня доступного времени не осталось.</div>
-    </div>
-  </div>
-</div>
-
-<script src="/app.js?v=20261002-guest-flow-v1"></script>
+<script src="/app.js?v=20261002-checkout-v1"></script>
 
 </body>
 </html>
