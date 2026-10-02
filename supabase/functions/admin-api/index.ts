@@ -188,6 +188,75 @@ async function adminDashboard() {
   };
 }
 
+
+async function adminOrdersState() {
+  const ordersRaw = await db("orders?select=id,table_session_id,status,payment_method,comment,total,created_at,updated_at&order=created_at.desc&limit=200");
+  const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
+  const orderIds = orders.map((order: any) => Number(order.id)).filter((id: number) => Number.isInteger(id) && id > 0);
+  const sessionIds = [...new Set(orders.map((order: any) => cleanUuid(order.table_session_id)).filter(Boolean))];
+
+  const [tablesRaw, sessionsRaw, itemsRaw] = await Promise.all([
+    db("restaurant_tables?select=id,table_number,label&order=table_number.asc"),
+    sessionIds.length
+      ? db(`table_sessions?select=id,table_id,status,opened_at,closed_at&id=in.(${sessionIds.join(",")})`)
+      : Promise.resolve([]),
+    orderIds.length
+      ? db(`order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order_id=in.(${orderIds.join(",")})&order=order_id.desc,id.asc`)
+      : Promise.resolve([]),
+  ]);
+
+  const tables = Array.isArray(tablesRaw) ? tablesRaw : [];
+  const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
+  const tablesById = new Map(tables.map((table: any) => [table.id, table]));
+  const sessionsById = new Map(sessions.map((session: any) => [session.id, session]));
+  const itemsByOrder = new Map<number, any[]>();
+
+  for (const item of items) {
+    const orderId = Number(item.order_id);
+    if (!itemsByOrder.has(orderId)) itemsByOrder.set(orderId, []);
+    itemsByOrder.get(orderId)!.push(item);
+  }
+
+  const enriched = orders.map((order: any) => {
+    const session: any = sessionsById.get(order.table_session_id);
+    const table: any = session ? tablesById.get(session.table_id) : null;
+    return {
+      ...order,
+      table: table ? { id: table.id, table_number: table.table_number, label: table.label } : null,
+      session: session ? {
+        id: session.id,
+        status: session.status,
+        opened_at: session.opened_at,
+        closed_at: session.closed_at,
+      } : null,
+      items: itemsByOrder.get(Number(order.id)) || [],
+    };
+  });
+
+  const activeStatuses = new Set(["submitted", "accepted", "preparing", "ready"]);
+  const nonCancelled = enriched.filter((order: any) => !isCancelled(order));
+  const paymentCounts: Record<string, number> = {};
+  for (const order of enriched) {
+    const key = String(order.payment_method || "unknown");
+    paymentCounts[key] = (paymentCounts[key] || 0) + 1;
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    summary: {
+      total: enriched.length,
+      active: enriched.filter((order: any) => activeStatuses.has(String(order.status || ""))).length,
+      served: enriched.filter((order: any) => order.status === "served").length,
+      cancelled: enriched.filter((order: any) => isCancelled(order)).length,
+      amount: sumTotal(nonCancelled),
+      averageCheck: averageCheck(nonCancelled),
+      payments: paymentCounts,
+    },
+    orders: enriched,
+  };
+}
+
 async function adminMenuState() {
   const [categoriesRaw, dishesRaw] = await Promise.all([
     db("categories?select=id,name,sort_order,is_visible,updated_at&order=sort_order.asc,id.asc"),
@@ -257,6 +326,7 @@ Deno.serve(async (req) => {
 
     const action = String(body?.action || "dashboard");
     if (action === "dashboard") return reply(await adminDashboard());
+    if (action === "orders") return reply(await adminOrdersState());
     if (action === "menu") return reply(await adminMenuState());
 
     if (action === "set-dish-available") {
