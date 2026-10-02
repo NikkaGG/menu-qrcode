@@ -330,8 +330,9 @@ const TABLE_API_URL=SUPABASE_URL+'/functions/v1/table-api';
 const TABLE_PAYMENT_LABELS=Object.freeze({kaspi:'Kaspi',card:'Картой',cash:'Наличными'});
 const MAX_ITEM_QUANTITY=20;
 const TABLE_API_TIMEOUT_MS=12000;
+const MENU_API_TIMEOUT_MS=12000;
 const ORDER_REQUEST_TTL_MS=15*60*1000;
-const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),serviceBusy:new Set(),lastError:'',lastPlacedOrderId:null,pendingOrderRequest:null};
+const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,statusLoading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),serviceBusy:new Set(),lastError:'',lastPlacedOrderId:null,pendingOrderRequest:null};
 function tableEscapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function createGuestUuid(){
   if(crypto.randomUUID)return crypto.randomUUID();
@@ -482,8 +483,9 @@ async function bootstrapTableOrdering(manual=false){
   }
 }
 async function refreshTableStatus(manual=false){
-  if(tableOrdering.loading)return;
+  if(tableOrdering.loading||tableOrdering.statusLoading)return;
   if(!tableOrdering.ready){if(manual)await bootstrapTableOrdering(true);return;}
+  tableOrdering.statusLoading=true;
   try{applyTableOrderState(await tableApiCall('status'));tableOrdering.lastError='';if(manual)showToast('Статус обновлён');}
   catch(error){
     const message=guestApiErrorMessage(error);
@@ -496,7 +498,7 @@ async function refreshTableStatus(manual=false){
       updateOrderState();
     }
     if(manual)showToast(message);
-  }
+  }finally{tableOrdering.statusLoading=false;}
 }
 async function requestTableService(kind){
   if(!tableOrdering.ready){showToast('Сначала подтвердите QR-код стола');return;}
@@ -525,11 +527,19 @@ window.addEventListener('online',()=>{if(!tableOrdering.tableToken)return;if(tab
 
 
 async function fetchSupabaseRows(table,query){
-  const response=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{
-    headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}
-  });
-  if(!response.ok)throw new Error(`Supabase ${table} ${response.status}`);
-  return response.json();
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),MENU_API_TIMEOUT_MS);
+  try{
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'},
+      signal:controller.signal
+    });
+    if(!response.ok)throw new Error(`Supabase ${table} ${response.status}`);
+    return await response.json();
+  }catch(error){
+    if(error?.name==='AbortError')throw new Error('Menu request timeout');
+    throw error;
+  }finally{clearTimeout(timeout);}
 }
 
 async function loadMenuData(){
