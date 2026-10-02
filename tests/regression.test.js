@@ -702,6 +702,8 @@ function productCardHarness({ grid = true } = {}) {
     'renderPopularDots',
     'updatePopular',
     'filtered',
+    'menuGridCardHtml',
+    'menuListCardHtml',
     'render',
     'openPopularItem',
     'openProd',
