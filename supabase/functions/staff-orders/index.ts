@@ -198,11 +198,14 @@ Deno.serve(async (req) => {
         return reply({ error: "Недостаточно прав или недопустимый переход статуса" }, 403);
       }
 
-      await db(`orders?id=eq.${orderId}`, {
+      const updated = await db(`orders?id=eq.${orderId}&status=eq.${encodeURIComponent(String(order.status))}`, {
         method: "PATCH",
-        headers: { Prefer: "return=minimal" },
+        headers: { Prefer: "return=representation" },
         body: JSON.stringify({ status: next, updated_at: new Date().toISOString() }),
       });
+      if (!Array.isArray(updated) || !updated.length) {
+        return reply({ error: "Заказ уже изменён на другом экране. Обновите данные" }, 409);
+      }
       return reply({ ok: true, ...(await dashboard(actor)) });
     }
 
