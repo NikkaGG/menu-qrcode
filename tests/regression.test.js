@@ -683,9 +683,9 @@ function productCardHarness({ grid = true } = {}) {
     let favoritesOnly=false,menuReady=true,activeProductId=null;
     function pushMenuOverlayState(){}
     function updateProductFavoriteButton(){}
+    function tableEscapeHtml(value){return String(value??'');}
+    function productImageHtml(item){return '<img src="'+String(item.img||'')+'" alt="'+tableEscapeHtml(item.n)+'">';}
     ${[
-    'tableEscapeHtml',
-    'productImageHtml',
     'getItem',
     'fmt',
     'priceText',
