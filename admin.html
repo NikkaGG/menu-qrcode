@@ -154,9 +154,10 @@
   <div class="modal-card">
     <div class="sheet-grabber" aria-hidden="true"></div>
     <div class="modal-head"><div><small>QR-код стола</small><h2 id="qrTitle">Стол</h2></div><button class="x" type="button" id="closeQrBtn">×</button></div>
-    <div class="qr-box"><canvas id="qrCanvas" width="320" height="320"></canvas></div>
+    <div class="qr-health"><span class="qr-health-dot"></span><div><b id="qrHealthTitle">Локальный QR готов</b><small id="qrHealthText">Генерируется прямо в админке, без внешнего сервиса.</small></div></div>
+    <div class="qr-box"><canvas id="qrCanvas" width="360" height="360" aria-label="QR-код стола"></canvas></div>
     <input class="qr-url" id="qrUrl" readonly aria-label="Ссылка QR-кода">
-    <div class="modal-actions"><button type="button" id="copyQrBtn">Скопировать ссылку</button><button type="button" id="downloadQrBtn">Скачать PNG</button></div>
+    <div class="modal-actions qr-modal-actions"><button type="button" id="copyQrBtn">Скопировать ссылку</button><button type="button" id="openQrLinkBtn">Открыть меню</button><button type="button" id="downloadQrBtn">Скачать PNG</button></div>
   </div>
 </div>
 
@@ -182,7 +183,7 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<script src="/vendor/qrcode-generator.js?v=1"></script>
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
 const API_TIMEOUT_MS=12000;
@@ -428,15 +429,49 @@ async function saveEdit(event){
   });
 }
 
+function buildQr(text){
+  if(typeof window.qrcode!=='function')throw new Error('Локальный QR-движок не загрузился');
+  const qr=window.qrcode(0,'M');
+  qr.addData(text,'Byte');
+  qr.make();
+  return qr;
+}
+function drawQr(canvas,text,size=360){
+  const qr=buildQr(text),modules=qr.getModuleCount(),margin=4,total=modules+margin*2;
+  const pixel=Math.max(1,Math.floor(size/total)),drawSize=pixel*total,offset=Math.floor((size-drawSize)/2);
+  canvas.width=size;canvas.height=size;
+  const ctx=canvas.getContext('2d',{alpha:false});
+  ctx.imageSmoothingEnabled=false;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);
+  ctx.fillStyle='#000';
+  for(let row=0;row<modules;row++)for(let col=0;col<modules;col++){
+    if(qr.isDark(row,col))ctx.fillRect(offset+(col+margin)*pixel,offset+(row+margin)*pixel,pixel,pixel);
+  }
+  return {modules,pixel};
+}
+function setQrHealth(ok,message=''){
+  const box=document.querySelector('#qrModal .qr-health');
+  const title=document.getElementById('qrHealthTitle'),copy=document.getElementById('qrHealthText');
+  box?.classList.toggle('error',!ok);
+  if(title)title.textContent=ok?'Локальный QR готов':'QR не построен';
+  if(copy)copy.textContent=message||(ok?'Генерируется прямо в админке, без внешнего сервиса.':'Скопируйте ссылку и повторите попытку после обновления страницы.');
+  document.getElementById('downloadQrBtn').disabled=!ok;
+}
 function openQr(tableId){
   const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;
-  currentQrTable=table;document.getElementById('qrTitle').textContent=table.label||('Стол '+table.table_number);
-  document.getElementById('qrUrl').value=qrLink(table);document.getElementById('qrModal').classList.add('on');
-  const canvas=document.getElementById('qrCanvas'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(window.QRCode&&QRCode.toCanvas){
-    QRCode.toCanvas(canvas,qrLink(table),{width:320,margin:2,errorCorrectionLevel:'M'},error=>{if(error)notify('Не удалось построить QR')});
-  }else{
-    ctx.font='16px system-ui';ctx.textAlign='center';ctx.fillText('QR-библиотека не загрузилась',160,155);ctx.fillText('Скопируйте ссылку ниже',160,180);
+  currentQrTable=table;
+  const url=qrLink(table);
+  document.getElementById('qrTitle').textContent=table.label||('Стол '+table.table_number);
+  document.getElementById('qrUrl').value=url;
+  document.getElementById('qrModal').classList.add('on');
+  const canvas=document.getElementById('qrCanvas');
+  try{
+    const meta=drawQr(canvas,url,360);
+    setQrHealth(true,'Локально · '+meta.modules+'×'+meta.modules+' модулей · коррекция M');
+  }catch(error){
+    const ctx=canvas.getContext('2d');canvas.width=360;canvas.height=360;ctx.fillStyle='#fff';ctx.fillRect(0,0,360,360);
+    ctx.fillStyle='#6e6e73';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('Не удалось построить QR',180,172);ctx.fillText('Ссылка ниже остаётся рабочей',180,194);
+    setQrHealth(false,error.message);notify(error.message);
   }
 }
 function closeQr(){document.getElementById('qrModal').classList.remove('on');currentQrTable=null}
@@ -445,9 +480,20 @@ async function copyQrLink(){
   try{await navigator.clipboard.writeText(field.value);notify('Ссылка скопирована')}
   catch(_){field.select();document.execCommand('copy');notify('Ссылка скопирована')}
 }
+function openQrLink(){
+  const url=document.getElementById('qrUrl').value;
+  if(url)window.open(url,'_blank','noopener,noreferrer');
+}
 function downloadQr(){
   if(!currentQrTable)return;
-  const link=document.createElement('a');link.download='sushi-crazy-table-'+currentQrTable.table_number+'-qr.png';link.href=document.getElementById('qrCanvas').toDataURL('image/png');link.click();
+  try{
+    const canvas=document.createElement('canvas');
+    drawQr(canvas,qrLink(currentQrTable),1200);
+    const link=document.createElement('a');
+    link.download='sushi-crazy-table-'+currentQrTable.table_number+'-qr-1200.png';
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+  }catch(error){notify(error.message||'Не удалось скачать QR')}
 }
 
 function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(pin&&!document.hidden)refresh(true)},30000)}
@@ -474,6 +520,7 @@ document.getElementById('closeRotateBtn').addEventListener('click',closeRotate);
 document.getElementById('cancelRotateBtn').addEventListener('click',closeRotate);
 document.getElementById('confirmRotateBtn').addEventListener('click',confirmRotate);
 document.getElementById('copyQrBtn').addEventListener('click',copyQrLink);
+document.getElementById('openQrLinkBtn').addEventListener('click',openQrLink);
 document.getElementById('downloadQrBtn').addEventListener('click',downloadQr);
 for(const id of ['createTableModal','qrModal','editTableModal','rotateModal']){
   document.getElementById(id).addEventListener('click',event=>{if(event.target!==event.currentTarget)return;if(id==='createTableModal')closeCreateTable();if(id==='qrModal')closeQr();if(id==='editTableModal')closeEdit();if(id==='rotateModal')closeRotate()});
