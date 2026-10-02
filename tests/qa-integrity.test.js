@@ -33,7 +33,7 @@ test('table order idempotency is enforced in code and database schema', () => {
 test('open service requests are protected against rapid duplicate taps and tabs', () => {
   assert.match(tableApi, /service_requests\?select=id,kind,status,created_at/);
   assert.match(tableApi, /unique partial index turns simultaneous taps\/tabs into one open request/);
-  assert.match(idempotencyMigration, /create unique index if not exists service_requests_one_open_kind_per_guest/);
+  assert.match(idempotencyMigration, /create unique index if not exists service_requests_one_open_per_guest_kind/);
   assert.match(idempotencyMigration, /table_session_id, guest_token, kind/);
   assert.match(idempotencyMigration, /where status = 'open'/);
 });
