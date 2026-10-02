@@ -99,13 +99,18 @@
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
+const sessionGet=(key,fallback='')=>{try{return sessionStorage.getItem(key)??fallback}catch(_){return fallback}};
+const sessionSet=(key,value)=>{try{sessionStorage.setItem(key,value)}catch(_){}};
+const sessionRemove=key=>{try{sessionStorage.removeItem(key)}catch(_){}};
+const localGet=(key,fallback='')=>{try{return localStorage.getItem(key)??fallback}catch(_){return fallback}};
+const localSet=(key,value)=>{try{localStorage.setItem(key,value)}catch(_){}};
 const ATTENTION_WARNING_MINUTES=8;
 const ATTENTION_CRITICAL_MINUTES=15;
-let pin=sessionStorage.getItem('sushi-waiter-pin')||'';
+let pin=sessionGet('sushi-waiter-pin','');
 let state=null,refreshBusy=false,firstLoad=true,tableFilter='all',closeTableTarget=null;
 const busyRequests=new Set(),busyOrders=new Set(),busySessions=new Set(),newAttentionKeys=new Set();
 let pollTimer=null,ageTimer=null,toastTimer=null,audioContext=null;
-let soundEnabled=localStorage.getItem('sushi-floor-sound')==='1';
+let soundEnabled=localGet('sushi-floor-sound','0')==='1';
 
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>Number(n||0).toLocaleString('ru-RU')+' ₸';
@@ -263,7 +268,7 @@ async function refresh(silent=true){
     applyState(next);login.hidden=true;app.hidden=false;startTimers();
   }catch(e){
     if(e.status===401){
-      sessionStorage.removeItem('sushi-waiter-pin');pin='';login.hidden=false;app.hidden=true;stopTimers();
+      sessionRemove('sushi-waiter-pin');pin='';login.hidden=false;app.hidden=true;stopTimers();
       if(!silent)loginErr.textContent='Неверный PIN';
     }else if(!state){
       login.hidden=false;app.hidden=true;loginErr.textContent=e.message||'Не удалось подключиться к залу';
@@ -311,7 +316,7 @@ function setTableFilter(filter){
   if(!['all','active','closable'].includes(filter))filter='all';
   tableFilter=filter;
   document.querySelectorAll('#tableFilter button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.filter===filter)));
-  try{sessionStorage.setItem('sushi-floor-filter',filter)}catch(_){}
+  try{sessionSet('sushi-floor-filter',filter)}catch(_){}
   render();
 }
 function scrollToAttention(){document.getElementById('attentionTitle')?.scrollIntoView({behavior:'smooth',block:'start'})}
@@ -348,7 +353,7 @@ function beep(delay=0,frequency=660){
 }
 function playAttentionSound(){beep(0,660);beep(.2,820)}
 function toggleSound(){
-  soundEnabled=!soundEnabled;localStorage.setItem('sushi-floor-sound',soundEnabled?'1':'0');syncSoundButton();
+  soundEnabled=!soundEnabled;localSet('sushi-floor-sound',soundEnabled?'1':'0');syncSoundButton();
   if(soundEnabled){ensureAudio();beep(0,760);showToast('Звук новых действий включён')}else showToast('Звук выключен');
 }
 
@@ -357,11 +362,11 @@ function startTimers(){
   if(!ageTimer)ageTimer=setInterval(()=>{if(state&&!document.hidden)render()},15000);
 }
 function stopTimers(){clearInterval(pollTimer);clearInterval(ageTimer);pollTimer=null;ageTimer=null}
-function logout(){stopTimers();sessionStorage.removeItem('sushi-waiter-pin');location.reload()}
+function logout(){stopTimers();sessionRemove('sushi-waiter-pin');location.reload()}
 
 loginForm.onsubmit=e=>{
   e.preventDefault();pin=document.getElementById('pin').value.trim();
-  sessionStorage.setItem('sushi-waiter-pin',pin);loginErr.textContent='';refresh(false);
+  sessionSet('sushi-waiter-pin',pin);loginErr.textContent='';refresh(false);
 };
 document.getElementById('tableFilter').addEventListener('click',e=>{const btn=e.target.closest('button[data-filter]');if(btn)setTableFilter(btn.dataset.filter)});
 document.getElementById('closeTableModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCloseTable()});
@@ -369,7 +374,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCloseTable()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin)refresh(true)});
 window.addEventListener('online',()=>{if(pin)refresh(false)});
 syncSoundButton();
-setTableFilter(sessionStorage.getItem('sushi-floor-filter')||'all');
+setTableFilter(sessionGet('sushi-floor-filter','all'));
 if(pin)refresh(true);
 </script>
 </body>
