@@ -85,7 +85,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return response({ error: "Method not allowed" }, 405);
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return response({ error: "Invalid JSON body" }, 400);
+    }
     const action = String(body?.action || "");
     const tableToken = cleanUuid(body?.tableToken);
     const guestToken = cleanUuid(body?.guestToken);
@@ -133,7 +136,7 @@ Deno.serve(async (req) => {
       }
 
       const rawItems = Array.isArray(body?.items) ? body.items : [];
-      if (!rawItems.length) return response({ error: "Invalid order items" }, 400);
+      if (!rawItems.length || rawItems.length > 100) return response({ error: "Invalid order items" }, 400);
       const quantities = new Map<number, number>();
       const observedPrices = new Map<number, number>();
       for (const raw of rawItems) {
