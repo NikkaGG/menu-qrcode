@@ -131,7 +131,7 @@ async function api(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin,'x-staff-role':'kitchen'},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action,role:'kitchen',...payload}),signal:controller.signal});
     const d=await r.json().catch(()=>({}));
     if(!r.ok){const e=new Error(d.error||'Ошибка');e.status=r.status;throw e}
     return d;
