@@ -196,7 +196,7 @@ function tableCard(session){
   const lastOrder=orders.find(o=>o.status!=='cancelled');
   const payment=lastOrder?payLabels[lastOrder.payment_method]||lastOrder.payment_method:'—';
   const busy=busySessions.has(session.id);
-  const closable=active.length===0;
+  const closable=active.length===0&&requests.length===0;
   const stateClass=requests.length||ready.length?'needs-attention':working.length?'is-active':'is-calm';
   const orderRows=orders.filter(o=>!['cancelled'].includes(o.status)).slice(0,4).map(o=>
     '<div class="floor-order-row '+(o.status==='ready'?'ready':'')+'"><span>#'+o.id+' · '+h(statusLabels[o.status]||o.status)+'</span><b>'+money(o.total)+'</b></div>'
@@ -231,11 +231,11 @@ function render(){
   document.getElementById('attentionList').innerHTML=attention.length?attention.map(attentionCard).join(''):'<div class="floor-all-clear"><span>✓</span><div><b>Срочных действий нет</b><small>Новые вызовы и готовые заказы появятся здесь автоматически.</small></div></div>';
 
   const activeCount=sessions.filter(s=>activeOrdersFor(s.id).length>0).length;
-  const closableCount=sessions.filter(s=>activeOrdersFor(s.id).length===0).length;
+  const closableCount=sessions.filter(s=>activeOrdersFor(s.id).length===0&&sessionRequests(s.id).length===0).length;
   document.getElementById('filterAllCount').textContent=sessions.length;
   document.getElementById('filterActiveCount').textContent=activeCount;
   document.getElementById('filterClosableCount').textContent=closableCount;
-  const visible=sessions.filter(s=>tableFilter==='all'||(tableFilter==='active'&&activeOrdersFor(s.id).length>0)||(tableFilter==='closable'&&activeOrdersFor(s.id).length===0));
+  const visible=sessions.filter(s=>tableFilter==='all'||(tableFilter==='active'&&(activeOrdersFor(s.id).length>0||sessionRequests(s.id).length>0))||(tableFilter==='closable'&&activeOrdersFor(s.id).length===0&&sessionRequests(s.id).length===0));
   document.getElementById('tables').innerHTML=visible.length?visible.map(tableCard).join(''):'<div class="floor-empty-filter">Столов в этой категории нет</div>';
 }
 
@@ -290,10 +290,11 @@ async function serveOrder(orderId){
 }
 
 function openCloseTable(sessionId){
-  const s=(state.sessions||[]).find(x=>x.id===sessionId);if(!s||activeOrdersFor(sessionId).length)return;
+  const s=(state.sessions||[]).find(x=>x.id===sessionId);if(!s)return;
+  if(activeOrdersFor(sessionId).length){showToast('Сначала завершите активные заказы');return;}
+  if(sessionRequests(sessionId).length){showToast('Сначала выполните запрос гостя');return;}
   closeTableTarget=sessionId;
-  const requests=sessionRequests(sessionId);
-  document.getElementById('closeTableCopy').textContent=tableLabel(sessionId)+(requests.length?' · открытые запросы будут закрыты автоматически.':' · после закрытия стол исчезнет из списка.');
+  document.getElementById('closeTableCopy').textContent=tableLabel(sessionId)+' · после закрытия стол исчезнет из списка.';
   document.getElementById('closeTableModal').classList.add('on');
 }
 function closeCloseTable(){closeTableTarget=null;document.getElementById('closeTableModal').classList.remove('on')}
