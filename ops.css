@@ -1712,3 +1712,52 @@ body.admin-workspace{background:#f2f2f7}
   .admin-table-stats{grid-template-columns:1fr}
   .admin-table-filters button span{display:none}
 }
+
+
+/* Task 7 mobile overflow hardening */
+.admin-workspace .admin-shell,
+.admin-layout-v2,
+.admin-sidebar,
+.admin-nav,
+.admin-content,
+.admin-top,
+.admin-page,
+.tables-toolbar,
+.admin-table-filters,
+.admin-tables-grid,
+.admin-table-card,
+.admin-table-actions{min-width:0;max-width:100%}
+.admin-table-filters{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-auto-flow:unset;
+  grid-auto-columns:unset;
+  overflow:hidden;
+}
+.admin-table-filters button{
+  min-width:0;
+  max-width:100%;
+  padding-left:5px;
+  padding-right:5px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.admin-table-actions button{
+  min-width:0;
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.admin-table-actions .switch-control{
+  min-width:0;
+  width:100%;
+  justify-content:center;
+}
+@media(max-width:640px){
+  .admin-sidebar{overflow:hidden}
+  .admin-nav{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+  .admin-table-filters{overflow:visible}
+}
+@media(max-width:420px){
+  .admin-table-filters button{font-size:9px;padding-left:3px;padding-right:3px}
+  .admin-table-actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+}
