@@ -20,6 +20,7 @@ const productApiSource = fs.readFileSync(path.join(root, 'api/product/[id].js'),
 const swSource = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const idempotencyMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002073000_order_idempotency.sql'), 'utf8');
 const dishSequenceMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002074000_dish_id_sequence.sql'), 'utf8');
+const atomicSessionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002075000_atomic_session_close.sql'), 'utf8');
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -2001,13 +2002,17 @@ test('task 11 enforces kitchen and waiter permissions on the server', () => {
   assert.match(staffOrdersSource, /Недостаточно прав/);
 });
 
-test('task 11 workspaces identify their role explicitly instead of sharing one browser session', () => {
-  assert.match(kitchenSource, /'x-staff-role':'kitchen'/);
+test('task 11 workspaces identify their role explicitly without requiring new CORS headers', () => {
+  assert.match(kitchenSource, /JSON\.stringify\(\{action,role:'kitchen',\.\.\.payload\}\)/);
   assert.match(kitchenSource, /sushi-kitchen-pin/);
+  assert.doesNotMatch(kitchenSource, /x-staff-role/);
   assert.doesNotMatch(kitchenSource, /sessionStorage\.getItem\('sushi-staff-pin'\)/);
-  assert.match(staffSource, /'x-staff-role':'waiter'/);
+  assert.match(staffSource, /JSON\.stringify\(\{action,role:'waiter',\.\.\.payload\}\)/);
   assert.match(staffSource, /sushi-waiter-pin/);
+  assert.doesNotMatch(staffSource, /x-staff-role/);
   assert.doesNotMatch(staffSource, /sessionStorage\.getItem\('sushi-staff-pin'\)/);
+  assert.match(adminSource, /JSON\.stringify\(\{action,role:adminRole,\.\.\.payload\}\)/);
+  assert.doesNotMatch(adminSource, /'x-admin-role':adminRole/);
 });
 
 test('task 11 owner can manage access while admin cannot', () => {
@@ -2130,4 +2135,47 @@ test('task 13 lets PostgreSQL allocate dish ids atomically', () => {
   assert.doesNotMatch(adminApiSource, /function nextDishId/);
   assert.match(adminApiSource, /Prefer: "return=representation"/);
   assert.match(adminApiSource, /createdDishId/);
+});
+
+
+test('task 13 serializes table closing against concurrent order creation', () => {
+  assert.match(atomicSessionMigration, /create trigger orders_require_open_session/);
+  assert.match(atomicSessionMigration, /before insert on public\.orders/);
+  assert.match(atomicSessionMigration, /for share/);
+  assert.match(atomicSessionMigration, /create or replace function public\.close_table_session_if_idle/);
+  assert.match(atomicSessionMigration, /for update/);
+  assert.match(atomicSessionMigration, /status in \('submitted','accepted','preparing','ready'\)/);
+  assert.match(staffOrdersSource, /rpc\/close_table_session_if_idle/);
+  assert.match(tableApiSource, /Table session is closed/);
+});
+
+test('task 13 makes competing order status updates compare-and-set', () => {
+  assert.match(staffOrdersSource, /orders\?id=eq\.\$\{orderId\}&status=eq\.\$\{encodeURIComponent\(String\(order\.status\)\)\}/);
+  assert.match(staffOrdersSource, /Prefer: "return=representation"/);
+  assert.match(staffOrdersSource, /Заказ уже изменён на другом экране/);
+  assert.match(staffOrdersSource, /409/);
+});
+
+test('task 13 scopes staff polling to open sessions instead of full order history', () => {
+  assert.match(staffOrdersSource, /status=eq\.open&order=opened_at\.asc/);
+  assert.match(staffOrdersSource, /table_session_id=in\.\(\$\{sessionIds\.join\(","\)\}\)/);
+  assert.match(staffOrdersSource, /order_id=in\.\(\$\{orderIds\.join\(","\)\}\)/);
+  assert.doesNotMatch(staffOrdersSource, /db\("orders\?select=[^"]*&order=created_at\.asc"\)/);
+  assert.doesNotMatch(staffOrdersSource, /db\("order_items\?select=[^"]*&order=id\.asc"\)/);
+});
+
+test('task 13 operational workspaces tolerate unavailable Web Storage', () => {
+  assert.match(adminSource, /const sessionGet=.*try\{return sessionStorage\.getItem/);
+  assert.match(adminSource, /const sessionSet=.*try\{sessionStorage\.setItem/);
+  assert.match(kitchenSource, /const sessionGet=.*try\{return sessionStorage\.getItem/);
+  assert.match(kitchenSource, /const localGet=.*try\{return localStorage\.getItem/);
+  assert.match(staffSource, /const sessionGet=.*try\{return sessionStorage\.getItem/);
+  assert.match(staffSource, /const localSet=.*try\{localStorage\.setItem/);
+});
+
+test('task 13 30-day analytics uses local calendar dates and counts old open sessions', () => {
+  assert.match(adminApiSource, /const dates30 = calendarKeys\(30\)/);
+  assert.match(adminApiSource, /orderWindow\.filter\(\(order: any\) => dates30\.has\(restaurantDateKey\(order\.created_at\)\)\)/);
+  assert.match(adminApiSource, /table_sessions\?select=id,table_id,status,opened_at,closed_at,updated_at&status=eq\.open/);
+  assert.match(adminApiSource, /const openSessions = Array\.isArray\(openSessionsRaw\)/);
 });
