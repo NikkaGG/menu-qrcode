@@ -15,7 +15,7 @@ create index if not exists order_status_events_order_created_idx
 create or replace function public.capture_order_status_change()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = public
 as $$
 begin
@@ -33,3 +33,6 @@ after update of status on public.orders
 for each row
 when (old.status is distinct from new.status)
 execute function public.capture_order_status_change();
+
+
+revoke execute on function public.capture_order_status_change() from public, anon, authenticated;
