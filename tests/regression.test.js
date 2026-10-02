@@ -2211,3 +2211,13 @@ test('task 13 paginates large analytics and chunks long relation lookups', () =>
   assert.match(adminApiSource, /dbInChunks\(sessionIds/);
   assert.match(adminApiSource, /dbInChunks\(orderIds/);
 });
+
+
+test('task 13 stale menu prices cannot be charged silently', () => {
+  assert.match(indexSource, /unitPrice:Number\(item\?\.p\|\|0\)/);
+  assert.match(indexSource, /'Menu prices changed':'Цены в меню изменились/);
+  assert.match(tableApiSource, /const observedPrices = new Map<number, number>\(\)/);
+  assert.match(tableApiSource, /observedUnitPrice: observedPrices\.get\(id\) as number/);
+  assert.match(tableApiSource, /Number\(byId\.get\(item\.id\)\?\.price\) !== item\.observedUnitPrice/);
+  assert.match(tableApiSource, /return response\(\{ error: "Menu prices changed" \}, 409\)/);
+});
