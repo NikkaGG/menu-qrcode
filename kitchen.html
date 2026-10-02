@@ -110,14 +110,19 @@
 <script>
 const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
+const sessionGet=(key,fallback='')=>{try{return sessionStorage.getItem(key)??fallback}catch(_){return fallback}};
+const sessionSet=(key,value)=>{try{sessionStorage.setItem(key,value)}catch(_){}};
+const sessionRemove=key=>{try{sessionStorage.removeItem(key)}catch(_){}};
+const localGet=(key,fallback='')=>{try{return localStorage.getItem(key)??fallback}catch(_){return fallback}};
+const localSet=(key,value)=>{try{localStorage.setItem(key,value)}catch(_){}};
 const WARNING_MINUTES=15;
 const CRITICAL_MINUTES=25;
-let pin=sessionStorage.getItem('sushi-kitchen-pin')||'';
+let pin=sessionGet('sushi-kitchen-pin','');
 let state=null,refreshBusy=false,cancelTarget=null,firstLoad=true;
 const busyOrders=new Set();
 const justArrived=new Set();
 let pollTimer=null,ageTimer=null,toastTimer=null,audioContext=null;
-let soundEnabled=localStorage.getItem('sushi-kitchen-sound')==='1';
+let soundEnabled=localGet('sushi-kitchen-sound','0')==='1';
 
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const statusLabels={submitted:'Новый',accepted:'Принят',preparing:'Готовится',ready:'Готов'};
@@ -252,7 +257,7 @@ async function refresh(silent=true){
     startTimers();
   }catch(e){
     if(e.status===401){
-      sessionStorage.removeItem('sushi-kitchen-pin');pin='';
+      sessionRemove('sushi-kitchen-pin');pin='';
       login.hidden=false;app.hidden=true;stopTimers();
       if(!silent)loginErr.textContent='Неверный PIN';
     }else{
@@ -297,7 +302,7 @@ function setKitchenView(view){
   if(!['all','submitted','working','ready'].includes(view))view='all';
   document.getElementById('kitchenBoard').dataset.view=view;
   document.querySelectorAll('#kitchenView button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.view===view)));
-  try{sessionStorage.setItem('sushi-kitchen-view',view)}catch(_){}
+  try{sessionSet('sushi-kitchen-view',view)}catch(_){}
 }
 function setConnection(ok,message=''){
   const banner=document.getElementById('connectionBanner');
@@ -337,7 +342,7 @@ function beep(delay=0){
 function playNewOrderSound(){beep(0);beep(.22)}
 function toggleSound(){
   soundEnabled=!soundEnabled;
-  localStorage.setItem('sushi-kitchen-sound',soundEnabled?'1':'0');
+  localSet('sushi-kitchen-sound',soundEnabled?'1':'0');
   syncSoundButton();
   if(soundEnabled){ensureAudio();beep(0);showToast('Звук новых заказов включён')}
   else showToast('Звук выключен');
@@ -348,11 +353,11 @@ function startTimers(){
   if(!ageTimer)ageTimer=setInterval(()=>{if(state&&!document.hidden)render()},15000);
 }
 function stopTimers(){clearInterval(pollTimer);clearInterval(ageTimer);pollTimer=null;ageTimer=null}
-function logout(){stopTimers();sessionStorage.removeItem('sushi-kitchen-pin');location.reload()}
+function logout(){stopTimers();sessionRemove('sushi-kitchen-pin');location.reload()}
 
 loginForm.onsubmit=e=>{
   e.preventDefault();pin=document.getElementById('pin').value.trim();
-  sessionStorage.setItem('sushi-kitchen-pin',pin);loginErr.textContent='';refresh(false);
+  sessionSet('sushi-kitchen-pin',pin);loginErr.textContent='';refresh(false);
 };
 document.getElementById('kitchenView').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(btn)setKitchenView(btn.dataset.view)});
 document.getElementById('cancelModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCancel()});
@@ -360,7 +365,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCancel()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return; if(pin)refresh(true)});
 window.addEventListener('online',()=>{if(pin)refresh(false)});
 syncSoundButton();
-setKitchenView(sessionStorage.getItem('sushi-kitchen-view')||'all');
+setKitchenView(sessionGet('sushi-kitchen-view','all'));
 if(pin)refresh(true);
 </script>
 </body>
