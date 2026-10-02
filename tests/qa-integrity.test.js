@@ -11,7 +11,8 @@ const staffOrders = read('supabase/functions/staff-orders/index.ts');
 const adminApi = read('supabase/functions/admin-api/index.ts');
 const roleMigration = read('supabase/migrations/20261002071000_role_access.sql');
 const statusMigration = read('supabase/migrations/20261002072000_order_status_events.sql');
-const idempotencyMigration = read('supabase/migrations/20261002073000_qa_idempotency_guards.sql');
+const idempotencyMigration = read('supabase/migrations/20261002073000_order_idempotency.sql');
+const atomicSessionMigration = read('supabase/migrations/20261002075000_atomic_session_close.sql');
 const sw = read('sw.js');
 const manifest = JSON.parse(read('manifest.webmanifest'));
 const vercel = JSON.parse(read('vercel.json'));
@@ -25,7 +26,7 @@ test('table order idempotency is enforced in code and database schema', () => {
   assert.match(tableApi, /client_request_id: clientRequestId/);
   assert.match(idempotencyMigration, /add column if not exists client_request_id uuid/);
   assert.match(idempotencyMigration, /create unique index if not exists orders_guest_request_unique/);
-  assert.match(idempotencyMigration, /table_session_id, guest_token, client_request_id/);
+  assert.match(idempotencyMigration, /guest_token, client_request_id/);
   assert.match(idempotencyMigration, /where client_request_id is not null/);
 });
 
@@ -97,4 +98,13 @@ test('public menu exposes installable PWA metadata', () => {
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, '/');
   assert.equal(manifest.scope, '/');
+});
+
+
+test('atomic session functions do not use unnecessary definer privileges', () => {
+  assert.match(atomicSessionMigration, /security invoker/g);
+  assert.doesNotMatch(atomicSessionMigration, /security definer/i);
+  assert.match(atomicSessionMigration, /revoke all on function public\.assert_order_session_open\(\) from public, anon, authenticated/);
+  assert.match(atomicSessionMigration, /revoke all on function public\.close_table_session_if_idle\(uuid\) from public, anon, authenticated/);
+  assert.match(atomicSessionMigration, /grant execute on function public\.close_table_session_if_idle\(uuid\) to service_role/);
 });
