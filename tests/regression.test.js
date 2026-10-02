@@ -100,6 +100,12 @@ function makeClassList(initial = []) {
     contains(name) {
       return classes.has(name);
     },
+    toggle(name, force) {
+      const enabled = force === undefined ? !classes.has(name) : !!force;
+      if (enabled) classes.add(name);
+      else classes.delete(name);
+      return enabled;
+    },
   };
 }
 
@@ -118,6 +124,13 @@ function makeTrackedClassList(initial = []) {
     },
     contains(name) {
       return classes.has(name);
+    },
+    toggle(name, force) {
+      const enabled = force === undefined ? !classes.has(name) : !!force;
+      operations.push(['toggle', name, enabled]);
+      if (enabled) classes.add(name);
+      else classes.delete(name);
+      return enabled;
     },
   };
 }
@@ -613,8 +626,6 @@ function dialogHarness({
     'unlockPageScroll',
     'openOv',
     'closeOv',
-    'validPhone',
-    'placeOrder',
   ].map((name) => extractFunction(indexSource, name)).concat(accessibilityFunctions).join('\n');
   vm.runInContext(`${declarations};${functions}`, context);
 
@@ -976,6 +987,7 @@ test('reduced motion centralizes immediate modal and share closure delays', () =
   let calls = 0;
   const context = vm.createContext({
     prefersReducedMotion: () => true,
+    clearTimeout() {},
     setTimeout(callback, delay) {
       scheduled.push({ callback, delay });
     },
@@ -1053,6 +1065,7 @@ test('normal-motion toast preserves forced restart choreography and timing', () 
       },
     },
     prefersReducedMotion: () => false,
+    clearTimeout() {},
     setTimeout(callback, delay) {
       scheduled.push({ callback, delay });
     },
@@ -1134,11 +1147,11 @@ test('rendered list card opens product details from a named native button and re
   assert.equal(card.context.document.activeElement, control);
 });
 
-test('dialog lifecycle stores and restores focus while preserving order transition focus', () => {
-  const openOv = extractFunction(indexSource, 'openOv');
-  const closeOv = extractFunction(indexSource, 'closeOv');
-  const restoreFocus = extractFunction(indexSource, 'restoreFocus');
-  const placeOrder = extractFunction(indexSource, 'placeOrder');
+test('dialog lifecycle stores and restores focus for current direct order flow', () => {
+  const openOv = extractFunction(appSource, 'openOv');
+  const closeOv = extractFunction(appSource, 'closeOv');
+  const restoreFocus = extractFunction(appSource, 'restoreFocus');
+  const placeOrder = extractFunction(appSource, 'placeOrder');
 
   assert.match(openOv, /document\.activeElement/);
   assert.match(openOv, /dialogOpeners\.set\(ov,/);
@@ -1146,10 +1159,9 @@ test('dialog lifecycle stores and restores focus while preserving order transiti
   assert.match(closeOv, /restoreFocus/);
   assert.match(closeOv, /dialogOpeners\.get\(ov\)/);
   assert.match(restoreFocus, /getTopmostOpenDialog\(\)/);
-  assert.match(placeOrder, /const transitionOpener=dialogOpeners\.get\(document\.getElementById\('cartOv'\)\);/);
-  assert.match(placeOrder, /closeOv\('cartOv',false\);\s*openOv\('shareOv',transitionOpener\);/);
+  assert.match(placeOrder, /closeOv\('cartOv'\)/);
+  assert.doesNotMatch(placeOrder, /openOv\('shareOv'/);
 });
-
 test('initial focus retries after first-frame transition visibility and enters each top dialog', () => {
   for (const id of ['prodOv', 'shareOv', 'cartOv']) {
     const dialog = dialogHarness({ firstFrameHidden: true });
@@ -1212,19 +1224,13 @@ test('failed opener focus falls back to the next visible safe control', () => {
   assert.equal(dialog.fallback.focused, true);
 });
 
-test('cart-to-share transition restores focus to the original visible cart opener', () => {
-  const dialog = dialogHarness({ fallbackPrecedesOpener: true });
-
-  dialog.context.openOv('cartOv');
-  dialog.context.placeOrder();
-  dialog.context.closeOv('shareOv');
-  dialog.runScheduled();
-
-  assert.equal(dialog.fallback.focused, false);
-  assert.equal(dialog.opener.focused, true);
-  assert.equal(dialog.context.document.activeElement, dialog.opener);
+test('direct order flow does not route through share dialog', () => {
+  const placeOrder = extractFunction(appSource, 'placeOrder');
+  assert.match(placeOrder, /tableApiCall\('place-order'/);
+  assert.match(placeOrder, /closeOv\('cartOv'\)/);
+  assert.doesNotMatch(placeOrder, /prepareServiceSheet\('order'\)/);
+  assert.doesNotMatch(placeOrder, /openOv\('shareOv'/);
 });
-
 test('only the topmost nested dialog remains exposed and interactive', () => {
   const dialog = dialogHarness();
 
