@@ -758,7 +758,7 @@ for(const id of ['createTableModal','qrModal','editTableModal','rotateModal','di
 }
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCreateTable();closeQr();closeEdit();closeRotate();closeDishEditor()}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin){if(currentSection==='menu')loadMenu(true,true);else refresh(true)}});
-window.addEventListener('online',()=>{if(pin)refresh(false)});
+window.addEventListener('online',()=>{if(pin){if(currentSection==='menu')loadMenu(false,true);else refresh(false)}});
 window.addEventListener('hashchange',()=>switchSection(location.hash.slice(1),false));
 
 switchSection(location.hash.slice(1)||'overview',false);
