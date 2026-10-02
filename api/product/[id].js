@@ -1,4 +1,3 @@
-const products=require('../../ref-products-dom.json');
 const PUBLIC_ORIGIN='https://menu-qrcode-lt1q.vercel.app';
 const SUPABASE_URL='https://gelezvudpcsnhqgjaqkl.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_w24dlBQIlqYyQwY-6bJPmw_KNa-FCRK';
@@ -8,31 +7,40 @@ function esc(value){
 }
 
 async function getProduct(id){
-  if(!Number.isInteger(id)||id<=0)return null;
+  if(!Number.isInteger(id)||id<=0)return {status:'not_found',item:null};
   try{
-    const response=await fetch(`${SUPABASE_URL}/rest/v1/dishes?id=eq.${id}&select=id,name,weight,description,price,image_url,detail_image_url&limit=1`,{
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/dishes?id=eq.${id}&is_available=eq.true&select=id,name,weight,description,price,image_url,detail_image_url&limit=1`,{
       headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}
     });
     if(!response.ok)throw new Error('Supabase product '+response.status);
     const rows=await response.json();
-    if(rows[0])return {
+    if(!rows[0])return {status:'not_found',item:null};
+    return {status:'ok',item:{
       name:rows[0].name,
       weight:rows[0].weight,
       desc:rows[0].description,
       price:Number(rows[0].price)||0,
       img:rows[0].image_url,
       detailImg:rows[0].detail_image_url
-    };
+    }};
   }catch(error){
     console.warn(error);
+    return {status:'unavailable',item:null};
   }
-  return products[id-1]||null;
 }
 
 module.exports=async function handler(req,res){
   const id=Number(req.query.id);
-  const item=await getProduct(id);
-  if(!item){res.statusCode=404;res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><title>Товар не найден — Sushi Crazy</title><p>Товар не найден.</p>');return;}
+  const result=await getProduct(id);
+  if(result.status==='unavailable'){
+    res.statusCode=503;
+    res.setHeader('Content-Type','text/html; charset=utf-8');
+    res.setHeader('Cache-Control','no-store');
+    res.end('<!doctype html><meta charset="utf-8"><title>Меню временно недоступно — Sushi Crazy</title><p>Не удалось проверить актуальность блюда. Попробуйте позже.</p>');
+    return;
+  }
+  const item=result.item;
+  if(!item){res.statusCode=404;res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end('<!doctype html><meta charset="utf-8"><title>Товар не найден — Sushi Crazy</title><p>Товар недоступен или не найден.</p>');return;}
   const origin=PUBLIC_ORIGIN;
   const target=origin+'/?product='+id;
   const image=item.detailImg||item.img||'/icons/app-512.png';
