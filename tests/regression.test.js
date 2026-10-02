@@ -681,6 +681,7 @@ function productCardHarness({ grid = true } = {}) {
     const POPULAR_IDS=[1];
     let isGrid=${grid},activeCat='all',search='',popIndex=0,popularDidDrag=false;
     let favoritesOnly=false,menuReady=true,activeProductId=null;
+    const MAX_ITEM_QUANTITY=20;
     function pushMenuOverlayState(){}
     function updateProductFavoriteButton(){}
     function tableEscapeHtml(value){return String(value??'');}
