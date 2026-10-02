@@ -472,11 +472,13 @@ async function fetchSupabaseRows(table,query){
 async function loadMenuData(){
   try{
     const [categories,dishes]=await Promise.all([
-      fetchSupabaseRows('categories','select=id,name,sort_order&order=sort_order.asc'),
-      fetchSupabaseRows('dishes','select=id,category_id,name,weight,description,price,image_url,detail_image_url,is_popular,popular_order,sort_order&order=sort_order.asc,id.asc')
+      fetchSupabaseRows('categories','select=id,name,sort_order,is_visible&is_visible=eq.true&order=sort_order.asc'),
+      fetchSupabaseRows('dishes','select=id,category_id,name,weight,description,price,image_url,detail_image_url,is_available,is_popular,popular_order,sort_order&is_available=eq.true&order=sort_order.asc,id.asc')
     ]);
-    if(!Array.isArray(categories)||!categories.length||!Array.isArray(dishes)||!dishes.length)throw new Error('Supabase menu is empty');
-    return {categories,dishes};
+    if(!Array.isArray(categories)||!categories.length||!Array.isArray(dishes))throw new Error('Supabase menu is empty');
+    const visibleCategoryIds=new Set(categories.map(x=>x.id));
+    const visibleDishes=dishes.filter(x=>visibleCategoryIds.has(x.category_id));
+    return {categories,dishes:visibleDishes};
   }catch(error){
     console.warn('Supabase menu unavailable; using local fallback',error);
     const response=await fetch('ref-products-dom.json');
