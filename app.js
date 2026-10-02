@@ -675,14 +675,14 @@ function renderPopular(){
     if(!item)return '';
     return `<div class="popular-slide">
       <div class="pop-card">
-        <button type="button" class="product-details-btn" data-product-id="${item.id}" onclick="openPopularItem(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
+        <button type="button" class="product-details-btn" data-product-id="${item.id}" onclick="openPopularItem(${item.id},this)" aria-label="Подробнее о ${tableEscapeHtml(item.n)}"></button>
         <div class="pop-img">${productImageHtml(item)}</div>
         ${cartAddButton(item.id,'add-sq pop-add-top')}
         <div class="pop-body">
           <div class="pop-main">
-            <div class="pop-name">${item.n}</div>
-            <div class="pop-weight">${item.w}</div>
-            <div class="pop-desc">${item.d}</div>
+            <div class="pop-name">${tableEscapeHtml(item.n)}</div>
+            <div class="pop-weight">${tableEscapeHtml(item.w)}</div>
+            <div class="pop-desc">${tableEscapeHtml(item.d)}</div>
           </div>
           <div class="pop-footer">
             ${qtyPriceHtml(item,'pop-price')}
@@ -712,25 +712,25 @@ function filtered(){
 }
 function menuGridCardHtml(item){
   return `<div class="gc">
-    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
+    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${tableEscapeHtml(item.n)}"></button>
     <div class="gc-img">${productImageHtml(item)}
       ${cartAddButton(item.id,'gc-plus')}
     </div>
     <div class="gc-foot">
-      <div class="gc-name">${item.n}</div>
-      <div class="gc-weight">${item.w}</div>
+      <div class="gc-name">${tableEscapeHtml(item.n)}</div>
+      <div class="gc-weight">${tableEscapeHtml(item.w)}</div>
     </div>
     ${qtyPriceHtml(item,'gc-price')}
   </div>`;
 }
 function menuListCardHtml(item){
   return `<div class="lc">
-    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${item.n}"></button>
+    <button type="button" class="product-details-btn" onclick="openProd(${item.id},this)" aria-label="Подробнее о ${tableEscapeHtml(item.n)}"></button>
     <div class="lc-img">${productImageHtml(item)}</div>
     <div class="lc-info">
-      <div class="lc-name">${item.n}</div>
-      <div class="lc-weight">${item.w}</div>
-      <div class="lc-desc">${item.d}</div>
+      <div class="lc-name">${tableEscapeHtml(item.n)}</div>
+      <div class="lc-weight">${tableEscapeHtml(item.w)}</div>
+      <div class="lc-desc">${tableEscapeHtml(item.d)}</div>
     </div>
     <div class="lc-right">
       ${cartAddButton(item.id,'add-sq')}
@@ -782,7 +782,7 @@ function render(){
   items.forEach(i=>{if(!byCat[i.c])byCat[i.c]=[];byCat[i.c].push(i)});
   let html='';
   for(const cat in byCat){
-    html+=`<h2 class="menu-sec-title" id="sec-${cat}">${CN[cat]||cat}</h2>`;
+    html+=`<h2 class="menu-sec-title" id="sec-${tableEscapeHtml(cat)}">${tableEscapeHtml(CN[cat]||cat)}</h2>`;
     if(isGrid){
       html+=`<div class="g4">${byCat[cat].map(menuGridCardHtml).join('')}</div>`;
     }else{
@@ -819,9 +819,9 @@ function openProd(id,opener,skipHistory=false){
     <div class="ps-img${item.detailImg?' detail-generated':''}">${productImageHtml(item,{detail:true,lazy:false})}</div>
     <div class="ps-dot" aria-hidden="true"></div>
     <div class="ps-body">
-      <div class="ps-name" id="prodTitle">${item.n}</div>
-      <div class="ps-weight">${item.w}</div>
-      <div class="ps-desc">${item.d}</div>
+      <div class="ps-name" id="prodTitle">${tableEscapeHtml(item.n)}</div>
+      <div class="ps-weight">${tableEscapeHtml(item.w)}</div>
+      <div class="ps-desc">${tableEscapeHtml(item.d)}</div>
     </div>
     <div class="ps-footer" style="margin:0 20px 20px">
       ${qtyPriceHtml(item,'ps-price')}
@@ -889,8 +889,8 @@ function renderCartRecommendations(){
     <div class="cart-recommendations-list">
       ${items.map(item=>`<div class="cart-rec-item">
         <div class="cart-rec-img">${productImageHtml(item,{className:'product-img'})}</div>
-        <div class="cart-rec-copy"><strong>${item.n}</strong><span>${fmt(item.p)}</span></div>
-        <button type="button" class="cart-rec-add" onclick="addCart(${item.id})" aria-label="Добавить ${item.n}">${svgIcon('plus','svg-icon')}</button>
+        <div class="cart-rec-copy"><strong>${tableEscapeHtml(item.n)}</strong><span>${fmt(item.p)}</span></div>
+        <button type="button" class="cart-rec-add" onclick="addCart(${item.id})" aria-label="Добавить ${tableEscapeHtml(item.n)}">${svgIcon('plus','svg-icon')}</button>
       </div>`).join('')}
     </div>
   </section>`;
@@ -915,8 +915,8 @@ function renderCart(){
     html+=`<div class="ci ci-card">
       <div class="ci-img">${productImageHtml(item)}</div>
       <div class="ci-info">
-        <div class="ci-name">${item.n}</div>
-        <div class="ci-weight">${item.w}</div>
+        <div class="ci-name">${tableEscapeHtml(item.n)}</div>
+        <div class="ci-weight">${tableEscapeHtml(item.w)}</div>
         <div class="ci-bottom-row">
           <div class="ci-price">${fmt(item.p*qty)}<span>${qty>1?fmt(item.p)+' за шт.':'за позицию'}</span></div>
           <div class="qty-row" aria-label="Количество">
