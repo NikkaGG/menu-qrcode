@@ -1935,3 +1935,29 @@ test('admin order history has responsive workspace styles', () => {
   assert.match(opsCssSource, /\.order-item-row\{/);
   assert.match(opsCssSource, /@media\(max-width:520px\)/);
 });
+
+
+test('admin reports workspace exposes 30-day metrics and CSV export', () => {
+  assert.match(adminSource, /data-section="reports"/);
+  assert.match(adminSource, /id="pageReports"[^>]*data-page="reports"/);
+  assert.match(adminSource, /id="reportOrders30"/);
+  assert.match(adminSource, /id="reportRevenue30"/);
+  assert.match(adminSource, /id="reportDaily30"/);
+  assert.match(adminSource, /id="reportPayments30"/);
+  assert.match(adminSource, /id="reportTables30"/);
+  assert.match(adminSource, /function renderReports\(a\)/);
+  assert.match(adminSource, /function exportReportsCsv\(\)/);
+  assert.match(adminSource, /sushi-crazy-report-30-days\.csv/);
+});
+
+test('admin dashboard API returns 30-day reporting analytics', () => {
+  assert.match(adminApiSource, /orders30: orders\.length/);
+  assert.match(adminApiSource, /revenue30: sumTotal\(orders\)/);
+  assert.match(adminApiSource, /averageCheck30: averageCheck\(orders\)/);
+  assert.match(adminApiSource, /const daily30 = \[\]/);
+  assert.match(adminApiSource, /const payments30: Record<string, number> = \{\}/);
+  assert.match(adminApiSource, /daily30,/);
+  assert.match(adminApiSource, /payments30,/);
+  assert.match(opsCssSource, /\.reports-grid\{/);
+  assert.match(opsCssSource, /\.report-day-meter/);
+});
