@@ -21,6 +21,8 @@ const swSource = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const idempotencyMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002073000_order_idempotency.sql'), 'utf8');
 const dishSequenceMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002074000_dish_id_sequence.sql'), 'utf8');
 const atomicSessionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002075000_atomic_session_close.sql'), 'utf8');
+const visibleCategoryMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002076000_visible_category_guard.sql'), 'utf8');
+const serviceSessionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002077000_service_request_session_guard.sql'), 'utf8');
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -2178,4 +2180,34 @@ test('task 13 30-day analytics uses local calendar dates and counts old open ses
   assert.match(adminApiSource, /orderWindow\.filter\(\(order: any\) => dates30\.has\(restaurantDateKey\(order\.created_at\)\)\)/);
   assert.match(adminApiSource, /table_sessions\?select=id,table_id,status,opened_at,closed_at,updated_at&status=eq\.open/);
   assert.match(adminApiSource, /const openSessions = Array\.isArray\(openSessionsRaw\)/);
+});
+
+
+test('task 13 hidden categories are enforced by RLS, ordering API and product shares', () => {
+  assert.match(visibleCategoryMigration, /drop policy if exists "public can read available dishes"/);
+  assert.match(visibleCategoryMigration, /categories\.is_visible = true/);
+  assert.match(tableApiSource, /dishes\?select=id,category_id,name,price,is_available/);
+  assert.match(tableApiSource, /categories\?select=id&id=in/);
+  assert.match(tableApiSource, /visibleCategoryIds\.has\(String\(dish\.category_id\)\)/);
+  assert.match(productApiSource, /select=id,category_id,name,weight,description,price,image_url,detail_image_url/);
+  assert.match(productApiSource, /categories\?id=eq/);
+  assert.match(productApiSource, /is_visible=eq\.true/);
+});
+
+test('task 13 service requests cannot be inserted after a concurrent table close', () => {
+  assert.match(serviceSessionMigration, /service_requests_require_open_session/);
+  assert.match(serviceSessionMigration, /before insert on public\.service_requests/);
+  assert.match(serviceSessionMigration, /execute function public\.assert_order_session_open\(\)/);
+  assert.match(tableApiSource, /Table session is closed/);
+  assert.match(tableApiSource, /return response\(\{ error: "Table session is closed" \}, 409\)/);
+});
+
+test('task 13 paginates large analytics and chunks long relation lookups', () => {
+  assert.match(adminApiSource, /async function dbAll\(path: string, pageSize = 1000\)/);
+  assert.match(adminApiSource, /offset=\$\{offset\}/);
+  assert.match(adminApiSource, /async function dbInChunks<T>/);
+  assert.match(adminApiSource, /chunkSize = 80/);
+  assert.match(adminApiSource, /dbAll\(\`orders\?select=id,table_session_id,status,payment_method,total,created_at,updated_at/);
+  assert.match(adminApiSource, /dbInChunks\(sessionIds/);
+  assert.match(adminApiSource, /dbInChunks\(orderIds/);
 });
