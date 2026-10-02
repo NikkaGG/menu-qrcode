@@ -2,7 +2,7 @@
 create or replace function public.assert_order_session_open()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = public
 as $$
 begin
@@ -20,6 +20,9 @@ begin
 end;
 $$;
 
+revoke all on function public.assert_order_session_open() from public, anon, authenticated;
+grant execute on function public.assert_order_session_open() to service_role;
+
 drop trigger if exists orders_require_open_session on public.orders;
 create trigger orders_require_open_session
 before insert on public.orders
@@ -29,7 +32,7 @@ execute function public.assert_order_session_open();
 create or replace function public.close_table_session_if_idle(p_session_id uuid)
 returns text
 language plpgsql
-security definer
+security invoker
 set search_path = public
 as $$
 begin
