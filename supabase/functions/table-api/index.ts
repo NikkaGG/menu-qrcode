@@ -133,14 +133,21 @@ Deno.serve(async (req) => {
       }
 
       const rawItems = Array.isArray(body?.items) ? body.items : [];
-      const normalized = rawItems
-        .map((item: any) => ({ id: Number(item?.id), quantity: Number(item?.quantity) }))
-        .filter((item: any) => Number.isInteger(item.id) && item.id > 0 && Number.isInteger(item.quantity) && item.quantity > 0 && item.quantity <= 20);
-      if (!normalized.length || normalized.length !== rawItems.length) {
-        return response({ error: "Invalid order items" }, 400);
+      if (!rawItems.length) return response({ error: "Invalid order items" }, 400);
+      const quantities = new Map<number, number>();
+      for (const raw of rawItems) {
+        const id = Number(raw?.id);
+        const quantity = Number(raw?.quantity);
+        if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(quantity) || quantity <= 0 || quantity > 20) {
+          return response({ error: "Invalid order items" }, 400);
+        }
+        const totalQuantity = (quantities.get(id) || 0) + quantity;
+        if (totalQuantity > 20) return response({ error: "Invalid order items" }, 400);
+        quantities.set(id, totalQuantity);
       }
+      const normalized = [...quantities.entries()].map(([id, quantity]) => ({ id, quantity }));
 
-      const ids = [...new Set(normalized.map((item: any) => item.id))];
+      const ids = normalized.map((item: any) => item.id);
       const dishes = await db(
         `dishes?select=id,name,price,is_available&id=in.(${ids.join(",")})&is_available=eq.true`
       );
