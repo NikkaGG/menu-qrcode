@@ -572,6 +572,7 @@ function dialogHarness({
     pendingOrderPayload: null,
     document,
     history: { state: null, back() {}, replaceState() {} },
+    performance: { now() { return 1000; } },
     activeProductId: null,
     favoritesRefreshPending: false,
     clearProductUrlParam() {},
