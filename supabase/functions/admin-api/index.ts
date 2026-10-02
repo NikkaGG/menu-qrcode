@@ -64,6 +64,37 @@ function cleanLabel(value: unknown) {
   return String(value || "").trim().slice(0, 80);
 }
 
+function cleanText(value: unknown, max = 500) {
+  return String(value || "").trim().slice(0, max);
+}
+
+function cleanCategoryId(value: unknown) {
+  const s = String(value || "").trim().slice(0, 40);
+  return /^[a-z0-9_-]+$/i.test(s) ? s : "";
+}
+
+function cleanDishId(value: unknown) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : 0;
+}
+
+function cleanPrice(value: unknown) {
+  const price = Math.round(Number(value));
+  return Number.isFinite(price) && price >= 0 && price <= 1000000 ? price : -1;
+}
+
+function cleanSortOrder(value: unknown) {
+  const order = Math.round(Number(value));
+  return Number.isFinite(order) && order >= -100000 && order <= 100000 ? order : 0;
+}
+
+function cleanAssetUrl(value: unknown) {
+  const s = String(value || "").trim().slice(0, 1000);
+  if (!s) return null;
+  if (s.startsWith("/") || /^https?:\/\//i.test(s)) return s;
+  return "";
+}
+
 function isCancelled(order: any) {
   return order?.status === "cancelled";
 }
@@ -157,6 +188,56 @@ async function adminDashboard() {
   };
 }
 
+async function adminMenuState() {
+  const [categoriesRaw, dishesRaw] = await Promise.all([
+    db("categories?select=id,name,sort_order,is_visible,updated_at&order=sort_order.asc,id.asc"),
+    db("dishes?select=id,category_id,name,weight,description,price,image_url,detail_image_url,is_available,is_popular,sort_order,popular_order,updated_at&order=category_id.asc,sort_order.asc,id.asc"),
+  ]);
+  return {
+    generatedAt: new Date().toISOString(),
+    categories: Array.isArray(categoriesRaw) ? categoriesRaw : [],
+    dishes: Array.isArray(dishesRaw) ? dishesRaw : [],
+  };
+}
+
+async function categoryExists(categoryId: string) {
+  const rows = await db(`categories?select=id&id=eq.${encodeURIComponent(categoryId)}&limit=1`);
+  return Array.isArray(rows) && Boolean(rows[0]?.id);
+}
+
+async function nextDishId() {
+  const rows = await db("dishes?select=id&order=id.desc&limit=1");
+  const current = Array.isArray(rows) ? Number(rows[0]?.id || 0) : 0;
+  return current + 1;
+}
+
+function dishPayload(body: any) {
+  const categoryId = cleanCategoryId(body?.categoryId);
+  const name = cleanText(body?.name, 140);
+  const weight = cleanText(body?.weight, 120) || null;
+  const description = cleanText(body?.description, 2000) || null;
+  const price = cleanPrice(body?.price);
+  const imageUrl = cleanAssetUrl(body?.imageUrl);
+  const detailImageUrl = cleanAssetUrl(body?.detailImageUrl);
+  const sortOrder = cleanSortOrder(body?.sortOrder);
+  const isPopular = body?.isPopular === true;
+  if (!categoryId || !name || price < 0 || imageUrl === "" || detailImageUrl === "") {
+    return null;
+  }
+  return {
+    category_id: categoryId,
+    name,
+    weight,
+    description,
+    price,
+    image_url: imageUrl,
+    detail_image_url: detailImageUrl,
+    is_popular: isPopular,
+    sort_order: sortOrder,
+    updated_at: new Date().toISOString(),
+  };
+}
+
 async function tableHasOpenSession(tableId: string) {
   const rows = await db(
     `table_sessions?select=id&table_id=eq.${encodeURIComponent(tableId)}&status=eq.open&limit=1`
@@ -175,6 +256,64 @@ Deno.serve(async (req) => {
 
     const action = String(body?.action || "dashboard");
     if (action === "dashboard") return reply(await adminDashboard());
+    if (action === "menu") return reply(await adminMenuState());
+
+    if (action === "set-dish-available") {
+      const dishId = cleanDishId(body?.dishId);
+      const available = body?.available === true;
+      if (!dishId) return reply({ error: "Некорректное блюдо" }, 400);
+      await db(`dishes?id=eq.${dishId}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ is_available: available, updated_at: new Date().toISOString() }),
+      });
+      return reply({ ok: true, ...(await adminMenuState()) });
+    }
+
+    if (action === "set-category-visible") {
+      const categoryId = cleanCategoryId(body?.categoryId);
+      const visible = body?.visible === true;
+      if (!categoryId) return reply({ error: "Некорректная категория" }, 400);
+      await db(`categories?id=eq.${encodeURIComponent(categoryId)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ is_visible: visible, updated_at: new Date().toISOString() }),
+      });
+      return reply({ ok: true, ...(await adminMenuState()) });
+    }
+
+    if (action === "update-dish") {
+      const dishId = cleanDishId(body?.dishId);
+      const payload = dishPayload(body);
+      if (!dishId || !payload) return reply({ error: "Проверьте данные блюда" }, 400);
+      if (!(await categoryExists(payload.category_id))) return reply({ error: "Категория не найдена" }, 404);
+
+      await db(`dishes?id=eq.${dishId}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload),
+      });
+      return reply({ ok: true, ...(await adminMenuState()) });
+    }
+
+    if (action === "create-dish") {
+      const payload = dishPayload(body);
+      if (!payload) return reply({ error: "Проверьте данные блюда" }, 400);
+      if (!(await categoryExists(payload.category_id))) return reply({ error: "Категория не найдена" }, 404);
+
+      const id = await nextDishId();
+      await db("dishes", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify([{
+          id,
+          ...payload,
+          is_available: body?.isAvailable !== false,
+          popular_order: null,
+        }]),
+      });
+      return reply({ ok: true, createdDishId: id, ...(await adminMenuState()) }, 201);
+    }
 
     if (action === "create-table") {
       const tableNumber = cleanTableNumber(body?.tableNumber);
