@@ -251,7 +251,12 @@ Deno.serve(async (req) => {
           const raced = await db(
             `service_requests?select=id&table_session_id=eq.${encodeURIComponent(session.id)}&guest_token=eq.${encodeURIComponent(guestToken)}&kind=eq.${encodeURIComponent(kind)}&status=eq.open&limit=1`
           ).catch(() => []);
-          if (!Array.isArray(raced) || !raced[0]) throw error;
+          if (!Array.isArray(raced) || !raced[0]) {
+            if (/Table session is closed/i.test(String((error as Error)?.message || ""))) {
+              return response({ error: "Table session is closed" }, 409);
+            }
+            throw error;
+          }
         }
       }
       const state = await guestState(session.id, guestToken);
