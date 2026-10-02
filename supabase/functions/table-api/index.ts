@@ -149,9 +149,19 @@ Deno.serve(async (req) => {
 
       const ids = normalized.map((item: any) => item.id);
       const dishes = await db(
-        `dishes?select=id,name,price,is_available&id=in.(${ids.join(",")})&is_available=eq.true`
+        `dishes?select=id,category_id,name,price,is_available&id=in.(${ids.join(",")})&is_available=eq.true`
       );
-      const byId = new Map((Array.isArray(dishes) ? dishes : []).map((dish: any) => [Number(dish.id), dish]));
+      const dishRows = Array.isArray(dishes) ? dishes : [];
+      const categoryIds = [...new Set(dishRows.map((dish: any) => String(dish.category_id || "")).filter(Boolean))];
+      const visibleCategories = categoryIds.length
+        ? await db(`categories?select=id&id=in.(${categoryIds.map((id) => encodeURIComponent(id)).join(",")})&is_visible=eq.true`)
+        : [];
+      const visibleCategoryIds = new Set((Array.isArray(visibleCategories) ? visibleCategories : []).map((category: any) => String(category.id)));
+      const byId = new Map(
+        dishRows
+          .filter((dish: any) => visibleCategoryIds.has(String(dish.category_id)))
+          .map((dish: any) => [Number(dish.id), dish])
+      );
       if (ids.some((id: number) => !byId.has(id))) return response({ error: "One or more dishes are unavailable" }, 409);
 
       const items = normalized.map((item: any) => {
