@@ -475,34 +475,23 @@ async function loadMenuData(){
       fetchSupabaseRows('categories','select=id,name,sort_order,is_visible&is_visible=eq.true&order=sort_order.asc'),
       fetchSupabaseRows('dishes','select=id,category_id,name,weight,description,price,image_url,detail_image_url,is_available,is_popular,popular_order,sort_order&is_available=eq.true&order=sort_order.asc,id.asc')
     ]);
-    if(!Array.isArray(categories)||!categories.length||!Array.isArray(dishes))throw new Error('Supabase menu is empty');
+    if(!Array.isArray(categories)||!Array.isArray(dishes))throw new Error('Invalid Supabase menu response');
     const visibleCategoryIds=new Set(categories.map(x=>x.id));
     const visibleDishes=dishes.filter(x=>visibleCategoryIds.has(x.category_id));
     return {categories,dishes:visibleDishes};
   }catch(error){
-    console.warn('Supabase menu unavailable; using local fallback',error);
-    const response=await fetch('ref-products-dom.json');
-    if(!response.ok)throw new Error('Menu fallback '+response.status);
-    const data=await response.json();
-    if(!Array.isArray(data))throw new Error('Invalid fallback menu data');
-    const categories=['Фаст-фуд','Роллы','Сеты','Пицца','Соусы','Напитки'].map((name,sort_order)=>({
-      id:REF_CAT_IDS[name],name,sort_order
-    }));
-    const popularNames=['Торт из 7 порций','Бизнес-ланч','Чизбургер (говяжий)','Гиро на тарелке','Пепперони','Бешеный лосось'];
-    const dishes=data.map((x,i)=>({
-      id:i+1,
-      category_id:REF_CAT_IDS[x.cat]||'f',
-      name:x.name,
-      weight:x.weight,
-      description:x.desc||REF_DESC[x.name]||'',
-      price:x.price,
-      image_url:x.img,
-      detail_image_url:x.detailImg||'',
-      is_popular:popularNames.includes(x.name),
-      popular_order:popularNames.indexOf(x.name)+1||null,
-      sort_order:i
-    }));
-    return {categories,dishes};
+    console.warn('Supabase menu unavailable',error);
+    if(['localhost','127.0.0.1'].includes(location.hostname)){
+      const response=await fetch('ref-products-dom.json');
+      if(!response.ok)throw error;
+      const data=await response.json();
+      if(!Array.isArray(data))throw error;
+      const categories=['Фаст-фуд','Роллы','Сеты','Пицца','Соусы','Напитки'].map((name,sort_order)=>({id:REF_CAT_IDS[name],name,sort_order}));
+      const popularNames=['Торт из 7 порций','Бизнес-ланч','Чизбургер (говяжий)','Гиро на тарелке','Пепперони','Бешеный лосось'];
+      const dishes=data.map((x,i)=>({id:i+1,category_id:REF_CAT_IDS[x.cat]||'f',name:x.name,weight:x.weight,description:x.desc||REF_DESC[x.name]||'',price:x.price,image_url:x.img,detail_image_url:x.detailImg||'',is_popular:popularNames.includes(x.name),popular_order:popularNames.indexOf(x.name)+1||null,sort_order:i}));
+      return {categories,dishes};
+    }
+    throw error;
   }
 }
 
