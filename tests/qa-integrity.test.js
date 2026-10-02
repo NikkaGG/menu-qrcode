@@ -26,7 +26,7 @@ test('table order idempotency is enforced in code and database schema', () => {
   assert.match(tableApi, /client_request_id: clientRequestId/);
   assert.match(idempotencyMigration, /add column if not exists client_request_id uuid/);
   assert.match(idempotencyMigration, /create unique index if not exists orders_guest_request_unique/);
-  assert.match(idempotencyMigration, /guest_token, client_request_id/);
+  assert.match(idempotencyMigration, /table_session_id, guest_token, client_request_id/);
   assert.match(idempotencyMigration, /where client_request_id is not null/);
 });
 
