@@ -4,8 +4,8 @@ const NETWORK_TIMEOUT_MS=8000;
 const PRECACHE=[
   '/',
   OFFLINE_URL,
-  '/styles.css?v=20261002-checkout-v1',
-  '/app.js?v=20261002-menu-v1',
+  '/styles.css',
+  '/app.js',
   '/manifest.webmanifest',
   '/icons/app-192.png',
   '/icons/app-512.png'
@@ -23,7 +23,7 @@ self.addEventListener('activate',event=>{
   ]));
 });
 
-async function networkFirst(request,fallback){
+async function networkFirst(request,fallback,ignoreSearch=false){
   const cache=await caches.open(CACHE_NAME);
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),NETWORK_TIMEOUT_MS);
@@ -32,7 +32,7 @@ async function networkFirst(request,fallback){
     if(response&&response.ok)cache.put(request,response.clone());
     return response;
   }catch(error){
-    return (await cache.match(request))||(fallback?await cache.match(fallback):undefined)||Response.error();
+    return (await cache.match(request,{ignoreSearch}))||(fallback?await cache.match(fallback):undefined)||Response.error();
   }finally{
     clearTimeout(timeout);
   }
@@ -57,7 +57,7 @@ self.addEventListener('fetch',event=>{
     return;
   }
   if(['/styles.css','/app.js','/manifest.webmanifest'].includes(url.pathname)){
-    event.respondWith(networkFirst(request));
+    event.respondWith(networkFirst(request,null,true));
     return;
   }
   if(url.pathname.startsWith('/icons/')){
