@@ -15,7 +15,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icons/app-192.png" type="image/png">
 <link rel="apple-touch-icon" href="/icons/app-192.png">
-<link rel="stylesheet" href="/styles.css?v=20261001-layout-audit-v2">
+<link rel="stylesheet" href="/styles.css?v=20261002-guest-flow-v1">
 
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Restaurant","name":"Sushi Crazy","url":"https://menu-qrcode-lt1q.vercel.app/","image":"https://menu-qrcode-lt1q.vercel.app/api/branding?type=banner","telephone":"+7 776 680 78 60","servesCuisine":["Sushi","Pizza","Fast food"],"address":{"@type":"PostalAddress","streetAddress":"улица Трудовиков, 2г","addressLocality":"Грозный","addressRegion":"Чеченская Республика"}}
@@ -85,13 +85,14 @@
 <section class="table-order-panel" id="tableOrderPanel" hidden aria-live="polite">
   <div class="table-order-head">
     <div><span>Ваш стол</span><h2 id="tableOrderTitle">Определяем стол…</h2></div>
-    <button type="button" onclick="refreshTableStatus(true)">Обновить</button>
+    <button type="button" id="tableRefreshBtn" onclick="refreshTableStatus(true)">Обновить</button>
   </div>
+  <div class="table-flow-state" id="tableFlowState" role="status" aria-live="polite" hidden></div>
   <div class="table-order-list" id="tableOrderList"></div>
   <div class="table-order-actions">
-    <button type="button" onclick="openCart()">Заказать ещё</button>
-    <button type="button" data-table-service="waiter" onclick="requestTableService('waiter')">Позвать официанта</button>
-    <button type="button" data-table-service="bill" onclick="requestTableService('bill')">Попросить счёт</button>
+    <button type="button" onclick="orderMore()">Заказать ещё</button>
+    <button type="button" data-table-service="waiter" data-label="Позвать официанта" onclick="requestTableService('waiter')">Позвать официанта</button>
+    <button type="button" data-table-service="bill" data-label="Попросить счёт" onclick="requestTableService('bill')">Попросить счёт</button>
   </div>
   <div id="tableServiceState"></div>
 </section>
@@ -238,7 +239,7 @@
         <div class="cs-title" id="cartTitle">Корзина</div>
         <button class="cs-close" onclick="closeOv('cartOv')" aria-label="Закрыть корзину" data-dialog-initial-focus><span class="ui-icon svg-slot" data-icon="x"></span></button>
       </div>
-      <div class="cart-table-context" id="cartTableContext">Для заказа отсканируйте QR-код на столе</div>
+      <div class="cart-table-context" id="cartTableContext" role="status" aria-live="polite">Для заказа отсканируйте QR-код на столе</div>
 
       <div class="cs-body-scroll">
         <div id="cartItems"></div>
@@ -302,7 +303,7 @@
   </div>
 </div>
 
-<script src="/app.js?v=20261001-layout-audit-v2"></script>
+<script src="/app.js?v=20261002-guest-flow-v1"></script>
 
 </body>
 </html>
