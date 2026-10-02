@@ -1,6 +1,6 @@
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, x-admin-pin, apikey, authorization",
+  "Access-Control-Allow-Headers": "content-type, x-admin-pin, x-admin-role, apikey, authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json; charset=utf-8",
 };
@@ -44,9 +44,39 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function adminPinOk(pin: string) {
-  // Temporary owner-requested development PIN. Restore hashed DB verification before production handoff.
-  return pin === "1";
+type AdminRole = "owner" | "admin";
+type AdminActor = { id: number; name: string; role: AdminRole; temporary?: boolean };
+
+function cleanAdminRole(value: unknown): AdminRole | "" {
+  const role = String(value || "").trim().toLowerCase();
+  return role === "owner" || role === "admin" ? role : "";
+}
+
+async function authenticateAdmin(pin: string, requestedRole: unknown): Promise<AdminActor | null> {
+  const role = cleanAdminRole(requestedRole) || "owner";
+  if (!/^\d{1,12}$/.test(pin)) return null;
+
+  // Temporary owner-requested development compatibility. Replace PIN 1 before production handoff.
+  if (pin === "1") {
+    return {
+      id: 0,
+      name: role === "owner" ? "Владелец" : "Администратор",
+      role,
+      temporary: true,
+    };
+  }
+
+  const hash = await sha256(pin);
+  const rows = await db(
+    `staff_members?select=id,name,role,is_active&role=eq.${role}&pin_hash=eq.${hash}&is_active=eq.true&limit=1`
+  );
+  const member = Array.isArray(rows) ? rows[0] : null;
+  if (!member) return null;
+  return {
+    id: Number(member.id),
+    name: String(member.name || ""),
+    role: cleanAdminRole(member.role) || role,
+  };
 }
 
 function cleanUuid(value: unknown) {
@@ -340,6 +370,37 @@ async function tableHasOpenSession(tableId: string) {
   return Array.isArray(rows) && rows.length > 0;
 }
 
+function cleanStaffRole(value: unknown) {
+  const role = String(value || "").trim().toLowerCase();
+  return ["owner", "admin", "waiter", "kitchen"].includes(role) ? role : "";
+}
+
+function cleanStaffName(value: unknown) {
+  return String(value || "").trim().slice(0, 80);
+}
+
+function cleanStaffPin(value: unknown) {
+  const pin = String(value || "").trim();
+  return /^\d{1,12}$/.test(pin) ? pin : "";
+}
+
+async function adminAccessState() {
+  const rows = await db(
+    "staff_members?select=id,name,role,is_active,created_at,updated_at&order=role.asc,name.asc,id.asc"
+  );
+  return {
+    generatedAt: new Date().toISOString(),
+    members: Array.isArray(rows) ? rows : [],
+  };
+}
+
+async function canRemoveOwner(memberId: number) {
+  const rows = await db(
+    `staff_members?select=id&role=eq.owner&is_active=eq.true&id=neq.${memberId}&limit=1`
+  );
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("", { headers: cors });
   if (req.method !== "POST") return reply({ error: "Method not allowed" }, 405);
@@ -347,12 +408,89 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const pin = req.headers.get("x-admin-pin") || String(body?.pin || "");
-    if (!(await adminPinOk(pin))) return reply({ error: "Неверный PIN администратора" }, 401);
+    const requestedRole = req.headers.get("x-admin-role") || body?.role || "owner";
+    const actor = await authenticateAdmin(pin, requestedRole);
+    if (!actor) return reply({ error: "Неверный PIN для выбранной роли" }, 401);
 
     const action = String(body?.action || "dashboard");
-    if (action === "dashboard") return reply(await adminDashboard());
-    if (action === "orders") return reply(await adminOrdersState());
-    if (action === "menu") return reply(await adminMenuState());
+    if (action === "dashboard") return reply({ ...(await adminDashboard()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    if (action === "orders") return reply({ ...(await adminOrdersState()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    if (action === "menu") return reply({ ...(await adminMenuState()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    if (action === "access") {
+      if (actor.role !== "owner") return reply({ error: "Только владелец может управлять доступом" }, 403);
+      return reply({ ...(await adminAccessState()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    }
+
+    if (["create-staff", "update-staff", "set-staff-pin"].includes(action) && actor.role !== "owner") {
+      return reply({ error: "Только владелец может управлять доступом" }, 403);
+    }
+
+    if (action === "create-staff") {
+      const name = cleanStaffName(body?.name);
+      const role = cleanStaffRole(body?.staffRole);
+      const staffPin = cleanStaffPin(body?.staffPin);
+      if (!name || !role || !staffPin) return reply({ error: "Проверьте имя, роль и PIN" }, 400);
+      const pinHash = await sha256(staffPin);
+      try {
+        await db("staff_members", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify([{ name, role, pin_hash: pinHash, is_active: true }]),
+        });
+      } catch (error) {
+        if (String((error as Error)?.message || "").toLowerCase().includes("duplicate")) {
+          return reply({ error: "Такой PIN уже используется в этой роли" }, 409);
+        }
+        throw error;
+      }
+      return reply({ ok: true, ...(await adminAccessState()) }, 201);
+    }
+
+    if (action === "update-staff") {
+      const memberId = Number(body?.memberId);
+      const name = cleanStaffName(body?.name);
+      const role = cleanStaffRole(body?.staffRole);
+      const active = body?.active !== false;
+      if (!Number.isInteger(memberId) || memberId <= 0 || !name || !role) {
+        return reply({ error: "Некорректные данные сотрудника" }, 400);
+      }
+      const currentRows = await db(`staff_members?select=id,role,is_active&id=eq.${memberId}&limit=1`);
+      const current = Array.isArray(currentRows) ? currentRows[0] : null;
+      if (!current) return reply({ error: "Сотрудник не найден" }, 404);
+      if (current.role === "owner" && current.is_active && (!active || role !== "owner") && !(await canRemoveOwner(memberId))) {
+        return reply({ error: "Нельзя отключить последнего активного владельца" }, 409);
+      }
+      await db(`staff_members?id=eq.${memberId}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ name, role, is_active: active, updated_at: new Date().toISOString() }),
+      });
+      return reply({ ok: true, ...(await adminAccessState()) });
+    }
+
+    if (action === "set-staff-pin") {
+      const memberId = Number(body?.memberId);
+      const staffPin = cleanStaffPin(body?.staffPin);
+      if (!Number.isInteger(memberId) || memberId <= 0 || !staffPin) {
+        return reply({ error: "Некорректный PIN" }, 400);
+      }
+      const rows = await db(`staff_members?select=id,role&id=eq.${memberId}&limit=1`);
+      const member = Array.isArray(rows) ? rows[0] : null;
+      if (!member) return reply({ error: "Сотрудник не найден" }, 404);
+      try {
+        await db(`staff_members?id=eq.${memberId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ pin_hash: await sha256(staffPin), updated_at: new Date().toISOString() }),
+        });
+      } catch (error) {
+        if (String((error as Error)?.message || "").toLowerCase().includes("duplicate")) {
+          return reply({ error: "Такой PIN уже используется в этой роли" }, 409);
+        }
+        throw error;
+      }
+      return reply({ ok: true, ...(await adminAccessState()) });
+    }
 
     if (action === "set-dish-available") {
       const dishId = cleanDishId(body?.dishId);
