@@ -910,7 +910,7 @@ function confirmClearCart(){
     clearCartArmed=true;
     const btn=document.querySelector('#cartOv .cs-trash');
     if(btn){btn.classList.add('armed');btn.title='Нажмите ещё раз, чтобы очистить';btn.setAttribute('aria-label','Подтвердить очистку корзины');}
-    showToast('Нажмите значок корзины ещё раз, чтобы очистить');
+    showToast('Нажмите значок удаления ещё раз, чтобы очистить');
     clearCartTimer=setTimeout(resetClearCartConfirm,2600);
     return;
   }
