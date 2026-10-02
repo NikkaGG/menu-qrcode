@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261002-menu-v1">
+<link rel="stylesheet" href="/ops.css?v=20261002-orders-v1">
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -31,6 +31,9 @@
       <nav class="admin-nav" id="adminNav">
         <button type="button" data-section="overview" class="on">
           <img src="/apple-emoji/chart.png" alt=""><span>Обзор</span>
+        </button>
+        <button type="button" data-section="orders">
+          <img src="/apple-emoji/receipt.png" alt=""><span>Заказы</span><i id="navOrdersCount">0</i>
         </button>
         <button type="button" data-section="tables">
           <img src="/apple-emoji/place-setting.png" alt=""><span>Столы и QR</span><i id="navTablesCount">0</i>
@@ -112,6 +115,45 @@
             <button type="button" class="panel-link" data-jump="tables">Все столы</button>
           </div>
           <div id="tableRanking"></div>
+        </section>
+      </section>
+
+      <section class="admin-page" id="pageOrders" data-page="orders" hidden>
+        <div class="menu-admin-summary order-admin-summary">
+          <article><span>Заказов</span><strong id="ordersTotalCount">—</strong><small>Последние 200</small></article>
+          <article><span>В работе</span><strong id="ordersActiveCount">—</strong><small>До подачи гостю</small></article>
+          <article><span>Сумма заказов</span><strong id="ordersAmount">—</strong><small>Без отменённых</small></article>
+          <article><span>Средний чек</span><strong id="ordersAverage">—</strong><small>Без отменённых</small></article>
+        </div>
+
+        <div class="orders-toolbar">
+          <div class="table-search orders-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="orderSearch" type="search" autocomplete="off" placeholder="Заказ, стол или блюдо…" aria-label="Найти заказ">
+          </div>
+          <div class="segmented-control orders-filters" id="orderFilters" role="tablist" aria-label="Фильтр заказов">
+            <button type="button" data-filter="all" aria-selected="true">Все <span id="orderCountAll">0</span></button>
+            <button type="button" data-filter="active" aria-selected="false">В работе <span id="orderCountActive">0</span></button>
+            <button type="button" data-filter="served" aria-selected="false">Поданы <span id="orderCountServed">0</span></button>
+            <button type="button" data-filter="cancelled" aria-selected="false">Отменены <span id="orderCountCancelled">0</span></button>
+          </div>
+          <label class="orders-payment-filter">Оплата
+            <select id="orderPayment">
+              <option value="all">Все способы</option>
+              <option value="kaspi">Kaspi</option>
+              <option value="card">Карта</option>
+              <option value="cash">Наличные</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="orders-context">
+          <div><b id="ordersResultTitle">Все заказы</b><span id="ordersResultMeta">Загрузка…</span></div>
+          <p>История показывает последние 200 заказов. Отменённые сохраняются для контроля.</p>
+        </div>
+
+        <section class="admin-orders-list" id="ordersList">
+          <div class="admin-empty admin-empty-wide">Загружаем заказы…</div>
         </section>
       </section>
 
@@ -256,6 +298,7 @@ const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
 const API_TIMEOUT_MS=12000;
 let pin=sessionStorage.getItem('sushi-admin-pin')||'';
 let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
+let orderState=null,orderLoading=false,orderFilter='all',orderQuery='',orderPayment='all';
 let menuState=null,menuLoading=false,menuFilter='all',menuQuery='',menuCategory='all',editDishId=null;
 const busyTables=new Set(),busyDishes=new Set(),busyCategories=new Set();
 let pollTimer=null,toastTimer=null;
@@ -263,6 +306,8 @@ let pollTimer=null,toastTimer=null;
 const h=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>Number(n||0).toLocaleString('ru-RU')+' ₸';
 const payLabels={kaspi:'Kaspi',card:'Карта',cash:'Наличные',unknown:'Другое'};
+const orderStatusLabels={submitted:'Новый',accepted:'Принят',preparing:'Готовится',ready:'Готов',served:'Подан',cancelled:'Отменён'};
+const activeOrderStatuses=new Set(['submitted','accepted','preparing','ready']);
 
 async function api(action,payload={}){
   const controller=new AbortController();
@@ -382,6 +427,78 @@ function renderTables(){
   document.getElementById('tablesResultTitle').textContent=tableQuery?'Результаты поиска':({all:'Все столы',active:'QR включены',off:'QR выключены',open:'Открытые столы'}[tableFilter]||'Все столы');
   document.getElementById('tablesResultMeta').textContent='Показано '+visible.length+' из '+all.length;
   document.getElementById('tables').innerHTML=visible.length?visible.map(tableCard).join(''):'<div class="admin-empty admin-empty-wide">Ничего не найдено</div>';
+}
+
+function orderMatches(order){
+  const status=String(order.status||'');
+  if(orderFilter==='active'&&!activeOrderStatuses.has(status))return false;
+  if(orderFilter==='served'&&status!=='served')return false;
+  if(orderFilter==='cancelled'&&status!=='cancelled')return false;
+  if(orderPayment!=='all'&&order.payment_method!==orderPayment)return false;
+  if(orderQuery){
+    const items=(order.items||[]).map(item=>[item.name,item.item_comment].join(' ')).join(' ');
+    const table=order.table||{};
+    const hay=[order.id,table.table_number,table.label,order.comment,items,payLabels[order.payment_method],orderStatusLabels[status]].join(' ').toLowerCase();
+    if(!hay.includes(orderQuery.toLowerCase()))return false;
+  }
+  return true;
+}
+function orderStatusClass(status){
+  if(status==='cancelled')return 'cancelled';
+  if(status==='served')return 'served';
+  if(status==='ready')return 'ready';
+  return 'active';
+}
+function orderCard(order){
+  const table=order.table||{},items=order.items||[],status=String(order.status||'');
+  const label=table.label||('Стол '+(table.table_number||'—'));
+  const when=new Date(order.created_at||Date.now()).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const qty=items.reduce((sum,item)=>sum+Number(item.quantity||0),0);
+  const itemsHtml=items.length?items.map(item=>
+    '<div class="order-item-row"><div><b>'+h(item.name||'Позиция')+'</b>'+(item.item_comment?'<small>'+h(item.item_comment)+'</small>':'')+'</div><span>'+Number(item.quantity||0)+' × '+money(item.unit_price)+'</span><strong>'+money(item.line_total)+'</strong></div>'
+  ).join(''):'<div class="admin-empty">Состав заказа недоступен</div>';
+  return '<article class="admin-order-card '+(status==='cancelled'?'is-cancelled':'')+'">'+
+    '<div class="order-card-head"><div class="order-id"><span>Заказ</span><strong>#'+h(order.id)+'</strong></div>'+
+    '<div class="order-table"><span>Стол</span><b>'+h(label)+'</b></div>'+
+    '<div class="order-time"><span>Создан</span><b>'+h(when)+'</b></div>'+
+    '<span class="order-status '+orderStatusClass(status)+'">'+h(orderStatusLabels[status]||status||'—')+'</span></div>'+
+    '<div class="order-card-main"><div><span>Сумма</span><strong>'+money(order.total)+'</strong></div><div><span>Оплата</span><strong>'+h(payLabels[order.payment_method]||order.payment_method||'—')+'</strong></div><div><span>Позиций</span><strong>'+qty+'</strong></div></div>'+
+    (order.comment?'<p class="order-comment"><b>Комментарий:</b> '+h(order.comment)+'</p>':'')+
+    '<details class="order-details"><summary>Состав заказа · '+qty+' поз.</summary><div class="order-items">'+itemsHtml+'</div></details>'+
+  '</article>';
+}
+function renderOrders(){
+  if(!orderState)return;
+  const orders=orderState.orders||[],summary=orderState.summary||{};
+  const active=orders.filter(o=>activeOrderStatuses.has(String(o.status||''))).length;
+  const served=orders.filter(o=>o.status==='served').length;
+  const cancelled=orders.filter(o=>o.status==='cancelled').length;
+  document.getElementById('ordersTotalCount').textContent=orders.length;
+  document.getElementById('ordersActiveCount').textContent=active;
+  document.getElementById('ordersAmount').textContent=money(summary.amount||0);
+  document.getElementById('ordersAverage').textContent=money(summary.averageCheck||0);
+  document.getElementById('navOrdersCount').textContent=active;
+  document.getElementById('orderCountAll').textContent=orders.length;
+  document.getElementById('orderCountActive').textContent=active;
+  document.getElementById('orderCountServed').textContent=served;
+  document.getElementById('orderCountCancelled').textContent=cancelled;
+  const visible=orders.filter(orderMatches);
+  const titles={all:'Все заказы',active:'Заказы в работе',served:'Поданные заказы',cancelled:'Отменённые заказы'};
+  document.getElementById('ordersResultTitle').textContent=orderQuery?'Результаты поиска':titles[orderFilter]||'Все заказы';
+  document.getElementById('ordersResultMeta').textContent='Показано '+visible.length+' из '+orders.length;
+  document.getElementById('ordersList').innerHTML=visible.length?visible.map(orderCard).join(''):'<div class="admin-empty admin-empty-wide">Заказов по этому фильтру нет</div>';
+}
+async function loadOrders(silent=true,force=false){
+  if(orderLoading||(!force&&orderState))return;
+  orderLoading=true;
+  try{
+    orderState=await api('orders');renderOrders();setConnection(true);
+    if(!silent)notify('Заказы обновлены');
+  }catch(error){
+    if(error.status===401){sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true}
+    else{setConnection(false,error.message||'Не удалось загрузить заказы');if(!silent)notify(error.message||'Не удалось загрузить заказы')}
+    if(!orderState)document.getElementById('ordersList').innerHTML='<div class="admin-empty admin-empty-wide">Не удалось загрузить заказы</div>';
+  }finally{orderLoading=false}
 }
 
 function menuCategoryName(id){
@@ -541,12 +658,13 @@ function render(){
 }
 
 function switchSection(section,updateHash=true){
-  if(!['overview','tables','menu'].includes(section))section='overview';
+  if(!['overview','orders','tables','menu'].includes(section))section='overview';
   currentSection=section;
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
   const copies={
     overview:['Sushi Crazy','Обзор','Ключевые показатели и состояние ресторана.'],
+    orders:['Операции','Заказы','История, статусы, состав и способы оплаты.'],
     tables:['Управление','Столы и QR','QR-коды, статусы и активность столов.'],
     menu:['Управление','Меню','Блюда, категории и быстрый стоп-лист.']
   };
@@ -554,6 +672,7 @@ function switchSection(section,updateHash=true){
   document.getElementById('pageEyebrow').textContent=copy[0];
   document.getElementById('pageTitle').textContent=copy[1];
   document.getElementById('pageSubtitle').textContent=copy[2];
+  if(section==='orders')loadOrders(true);
   if(section==='menu')loadMenu(true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
@@ -566,6 +685,7 @@ async function refresh(silent=true){
   try{
     state=await api('dashboard');render();setConnection(true);
     document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
+    if(currentSection==='orders')loadOrders(true,true);
     if(currentSection==='menu')loadMenu(true,true);
     startPolling();
     if(!silent)notify('Данные обновлены');
@@ -716,14 +836,17 @@ function downloadQr(){
   }catch(error){notify(error.message||'Не удалось скачать QR')}
 }
 
-function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(!pin||document.hidden)return;if(currentSection==='menu')loadMenu(true,true);else refresh(true)},30000)}
+function startPolling(){if(!pollTimer)pollTimer=setInterval(()=>{if(!pin||document.hidden)return;if(currentSection==='orders')loadOrders(true,true);else if(currentSection==='menu')loadMenu(true,true);else refresh(true)},30000)}
 function stopPolling(){clearInterval(pollTimer);pollTimer=null}
 function logout(){stopPolling();sessionStorage.removeItem('sushi-admin-pin');location.reload()}
 
 document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-admin-pin',pin);document.getElementById('loginError').textContent='';refresh(false)});
 document.getElementById('adminNav').addEventListener('click',event=>{const btn=event.target.closest('[data-section]');if(btn)switchSection(btn.dataset.section)});
 document.querySelectorAll('[data-jump]').forEach(btn=>btn.addEventListener('click',()=>switchSection(btn.dataset.jump)));
-document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='menu'?loadMenu(false,true):refresh(false));
+document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='orders'?loadOrders(false,true):currentSection==='menu'?loadMenu(false,true):refresh(false));
+document.getElementById('orderSearch').addEventListener('input',event=>{orderQuery=event.target.value.trim();renderOrders()});
+document.getElementById('orderFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;orderFilter=btn.dataset.filter;document.querySelectorAll('#orderFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderOrders()});
+document.getElementById('orderPayment').addEventListener('change',event=>{orderPayment=event.target.value;renderOrders()});
 document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
 document.getElementById('closeCreateBtn').addEventListener('click',closeCreateTable);
 document.getElementById('cancelCreateBtn').addEventListener('click',closeCreateTable);
@@ -757,8 +880,8 @@ for(const id of ['createTableModal','qrModal','editTableModal','rotateModal','di
   document.getElementById(id).addEventListener('click',event=>{if(event.target!==event.currentTarget)return;if(id==='createTableModal')closeCreateTable();if(id==='qrModal')closeQr();if(id==='editTableModal')closeEdit();if(id==='rotateModal')closeRotate();if(id==='dishModal')closeDishEditor()});
 }
 document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCreateTable();closeQr();closeEdit();closeRotate();closeDishEditor()}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin){if(currentSection==='menu')loadMenu(true,true);else refresh(true)}});
-window.addEventListener('online',()=>{if(pin){if(currentSection==='menu')loadMenu(false,true);else refresh(false)}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin){if(currentSection==='orders')loadOrders(true,true);else if(currentSection==='menu')loadMenu(true,true);else refresh(true)}});
+window.addEventListener('online',()=>{if(pin){if(currentSection==='orders')loadOrders(false,true);else if(currentSection==='menu')loadMenu(false,true);else refresh(false)}});
 window.addEventListener('hashchange',()=>switchSection(location.hash.slice(1),false));
 
 switchSection(location.hash.slice(1)||'overview',false);
