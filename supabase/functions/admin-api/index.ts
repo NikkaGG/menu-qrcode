@@ -62,6 +62,27 @@ async function db(path: string, init: RequestInit = {}) {
   return data;
 }
 
+async function dbAll(path: string, pageSize = 1000) {
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const separator = path.includes("?") ? "&" : "?";
+    const page = await db(`${path}${separator}limit=${pageSize}&offset=${offset}`);
+    const list = Array.isArray(page) ? page : [];
+    rows.push(...list);
+    if (list.length < pageSize) return rows;
+  }
+}
+
+async function dbInChunks<T>(values: T[], pathBuilder: (chunk: T[]) => string, chunkSize = 80) {
+  if (!values.length) return [];
+  const result: any[] = [];
+  for (let index = 0; index < values.length; index += chunkSize) {
+    const rows = await dbAll(pathBuilder(values.slice(index, index + chunkSize)));
+    result.push(...rows);
+  }
+  return result;
+}
+
 async function sha256(value: string) {
   const data = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -171,7 +192,7 @@ async function adminDashboard() {
 
   const [tablesRaw, ordersWindowRaw, requestsRaw, openSessionsRaw] = await Promise.all([
     db("restaurant_tables?select=id,table_number,qr_token,label,is_active,created_at,updated_at&order=table_number.asc"),
-    db(`orders?select=id,table_session_id,status,payment_method,total,created_at,updated_at&created_at=gte.${encodeURIComponent(querySince)}&order=created_at.asc`),
+    dbAll(`orders?select=id,table_session_id,status,payment_method,total,created_at,updated_at&created_at=gte.${encodeURIComponent(querySince)}&order=created_at.asc`),
     db("service_requests?select=id,table_session_id,kind,status,created_at,resolved_at&status=eq.open&order=created_at.asc"),
     db("table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&status=eq.open&order=opened_at.asc"),
   ]);
@@ -184,28 +205,21 @@ async function adminDashboard() {
   const openSessions = Array.isArray(openSessionsRaw) ? openSessionsRaw : [];
   const orderIds = allOrders.map((order: any) => Number(order.id)).filter((id: number) => Number.isInteger(id) && id > 0);
   const sessionIds = [...new Set(allOrders.map((order: any) => cleanUuid(order.table_session_id)).filter(Boolean))];
-  const orderSessionsRaw = sessionIds.length
-    ? await db(`table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&id=in.(${sessionIds.join(",")})`)
-    : [];
+  const orderSessionsRaw = await dbInChunks(
+    sessionIds,
+    (ids) => `table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&id=in.(${ids.join(",")})`
+  );
   const sessionsById = new Map<string, any>();
   for (const session of [...(Array.isArray(orderSessionsRaw) ? orderSessionsRaw : []), ...openSessions]) {
     sessionsById.set(session.id, session);
   }
   const sessions = [...sessionsById.values()];
 
-  const loadByOrderIds = async (pathBuilder: (ids: number[]) => string) => {
-    if (!orderIds.length) return [];
-    const chunks: number[][] = [];
-    for (let index = 0; index < orderIds.length; index += 200) chunks.push(orderIds.slice(index, index + 200));
-    const rows = await Promise.all(chunks.map((ids) => db(pathBuilder(ids))));
-    return rows.flatMap((value) => Array.isArray(value) ? value : []);
-  };
-
   const [items, statusEvents] = await Promise.all([
-    loadByOrderIds((ids) =>
+    dbInChunks(orderIds, (ids) =>
       `order_items?select=order_id,dish_id,name,quantity,line_total&order_id=in.(${ids.join(",")})&order=order_id.asc,id.asc`
     ),
-    loadByOrderIds((ids) =>
+    dbInChunks(orderIds, (ids) =>
       `order_status_events?select=order_id,from_status,to_status,created_at&order_id=in.(${ids.join(",")})&order=order_id.asc,created_at.asc`
     ),
   ]);
@@ -355,12 +369,12 @@ async function adminOrdersState() {
 
   const [tablesRaw, sessionsRaw, itemsRaw] = await Promise.all([
     db("restaurant_tables?select=id,table_number,label&order=table_number.asc"),
-    sessionIds.length
-      ? db(`table_sessions?select=id,table_id,status,opened_at,closed_at&id=in.(${sessionIds.join(",")})`)
-      : Promise.resolve([]),
-    orderIds.length
-      ? db(`order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order_id=in.(${orderIds.join(",")})&order=order_id.desc,id.asc`)
-      : Promise.resolve([]),
+    dbInChunks(sessionIds, (ids) =>
+      `table_sessions?select=id,table_id,status,opened_at,closed_at&id=in.(${ids.join(",")})`
+    ),
+    dbInChunks(orderIds, (ids) =>
+      `order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order_id=in.(${ids.join(",")})&order=order_id.desc,id.asc`
+    ),
   ]);
 
   const tables = Array.isArray(tablesRaw) ? tablesRaw : [];
