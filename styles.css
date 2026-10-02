@@ -3359,3 +3359,36 @@ body.cookie-visible.cart-has-items .page{
     padding-bottom:136px;
   }
 }
+
+
+/* ── TASK 3: GUEST FLOW POLISH (visual contract preserved) ── */
+.table-flow-state{
+  margin:-2px 0 12px;
+  padding:10px 12px;
+  border-radius:13px;
+  font-size:12.5px;
+  font-weight:650;
+  line-height:1.4;
+}
+.table-flow-state[hidden]{display:none}
+.table-flow-state.success{background:#eef7ef;color:#286131}
+.table-flow-state.error{background:#fff3f1;color:#9b3131}
+.table-order-head button:disabled{opacity:.55;cursor:wait}
+.table-order-actions button.is-busy{cursor:wait}
+.cart-table-context button{
+  margin-left:5px;
+  padding:2px 0;
+  border:0;
+  background:transparent;
+  color:#111;
+  font:inherit;
+  font-weight:800;
+  text-decoration:underline;
+  text-underline-offset:2px;
+  cursor:pointer;
+}
+#cartOv .order-btn:disabled{opacity:.42!important;cursor:not-allowed!important}
+@media(max-width:560px){
+  .table-flow-state{margin-bottom:10px}
+  .cart-table-context button{display:inline}
+}
