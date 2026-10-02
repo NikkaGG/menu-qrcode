@@ -150,13 +150,33 @@ async function adminDashboard() {
 
   const tables = Array.isArray(tablesRaw) ? tablesRaw : [];
   const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
-  const orders = (Array.isArray(ordersRaw) ? ordersRaw : []).filter((order: any) => !isCancelled(order));
+  const allOrders = Array.isArray(ordersRaw) ? ordersRaw : [];
+  const orders = allOrders.filter((order: any) => !isCancelled(order));
   const requests = Array.isArray(requestsRaw) ? requestsRaw : [];
+  const orderIds = allOrders.map((order: any) => Number(order.id)).filter((id: number) => Number.isInteger(id) && id > 0);
 
-  const sessionsById = new Map(sessions.map((s: any) => [s.id, s]));
-  const last24 = orders.filter((o: any) => new Date(o.created_at).getTime() >= since24);
-  const last7 = orders.filter((o: any) => new Date(o.created_at).getTime() >= since7);
-  const openSessions = sessions.filter((s: any) => s.status === "open");
+  const loadByOrderIds = async (pathBuilder: (ids: number[]) => string) => {
+    if (!orderIds.length) return [];
+    const chunks: number[][] = [];
+    for (let index = 0; index < orderIds.length; index += 200) chunks.push(orderIds.slice(index, index + 200));
+    const rows = await Promise.all(chunks.map((ids) => db(pathBuilder(ids))));
+    return rows.flatMap((value) => Array.isArray(value) ? value : []);
+  };
+
+  const [items, statusEvents] = await Promise.all([
+    loadByOrderIds((ids) =>
+      `order_items?select=order_id,dish_id,name,quantity,line_total&order_id=in.(${ids.join(",")})&order=order_id.asc,id.asc`
+    ),
+    loadByOrderIds((ids) =>
+      `order_status_events?select=order_id,from_status,to_status,created_at&order_id=in.(${ids.join(",")})&order=order_id.asc,created_at.asc`
+    ),
+  ]);
+
+  const sessionsById = new Map(sessions.map((session: any) => [session.id, session]));
+  const validOrderIds = new Set(orders.map((order: any) => Number(order.id)));
+  const last24 = orders.filter((order: any) => new Date(order.created_at).getTime() >= since24);
+  const last7 = orders.filter((order: any) => new Date(order.created_at).getTime() >= since7);
+  const openSessions = sessions.filter((session: any) => session.status === "open");
 
   const tableStats = new Map<string, { orders: number; revenue: number }>();
   for (const order of orders) {
@@ -175,49 +195,92 @@ async function adminDashboard() {
     revenue30: tableStats.get(table.id)?.revenue || 0,
   }));
 
-  const daily = [];
-  for (let offset = 6; offset >= 0; offset--) {
-    const start = new Date(now - offset * 86400000);
-    start.setUTCHours(0, 0, 0, 0);
-    const end = new Date(start.getTime() + 86400000);
-    const dayOrders = orders.filter((o: any) => {
-      const ts = new Date(o.created_at).getTime();
-      return ts >= start.getTime() && ts < end.getTime();
-    });
-    daily.push({
-      date: start.toISOString().slice(0, 10),
-      orders: dayOrders.length,
-      revenue: sumTotal(dayOrders),
-    });
-  }
+  const dailyFor = (days: number) => {
+    const result = [];
+    for (let offset = days - 1; offset >= 0; offset--) {
+      const start = new Date(now - offset * 86400000);
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(start.getTime() + 86400000);
+      const dayOrders = orders.filter((order: any) => {
+        const ts = new Date(order.created_at).getTime();
+        return ts >= start.getTime() && ts < end.getTime();
+      });
+      result.push({
+        date: start.toISOString().slice(0, 10),
+        orders: dayOrders.length,
+        revenue: sumTotal(dayOrders),
+      });
+    }
+    return result;
+  };
 
-  const payments: Record<string, number> = {};
-  for (const order of last7) {
-    const method = String(order.payment_method || "unknown");
-    payments[method] = (payments[method] || 0) + 1;
-  }
+  const paymentsFor = (source: any[]) => {
+    const result: Record<string, number> = {};
+    for (const order of source) {
+      const method = String(order.payment_method || "unknown");
+      result[method] = (result[method] || 0) + 1;
+    }
+    return result;
+  };
 
-  const daily30 = [];
-  for (let offset = 29; offset >= 0; offset--) {
-    const start = new Date(now - offset * 86400000);
-    start.setUTCHours(0, 0, 0, 0);
-    const end = new Date(start.getTime() + 86400000);
-    const dayOrders = orders.filter((o: any) => {
-      const ts = new Date(o.created_at).getTime();
-      return ts >= start.getTime() && ts < end.getTime();
-    });
-    daily30.push({
-      date: start.toISOString().slice(0, 10),
-      orders: dayOrders.length,
-      revenue: sumTotal(dayOrders),
-    });
-  }
-
-  const payments30: Record<string, number> = {};
+  const hourly30 = Array.from({ length: 24 }, (_, hour) => ({ hour, orders: 0, revenue: 0 }));
   for (const order of orders) {
-    const method = String(order.payment_method || "unknown");
-    payments30[method] = (payments30[method] || 0) + 1;
+    // Current restaurant timezone is UTC+5. Task 14 will move this into restaurant settings.
+    const localHour = (new Date(order.created_at).getUTCHours() + 5) % 24;
+    hourly30[localHour].orders += 1;
+    hourly30[localHour].revenue += Number(order.total || 0);
   }
+
+  const dishes = new Map<string, { dishId: number | null; name: string; quantity: number; revenue: number }>();
+  let items30 = 0;
+  for (const item of items) {
+    if (!validOrderIds.has(Number(item.order_id))) continue;
+    const dishId = Number(item.dish_id);
+    const name = String(item.name || "Без названия");
+    const key = Number.isInteger(dishId) && dishId > 0 ? `id:${dishId}` : `name:${name}`;
+    const current = dishes.get(key) || {
+      dishId: Number.isInteger(dishId) && dishId > 0 ? dishId : null,
+      name,
+      quantity: 0,
+      revenue: 0,
+    };
+    const quantity = Math.max(0, Number(item.quantity || 0));
+    current.quantity += quantity;
+    current.revenue += Number(item.line_total || 0);
+    items30 += quantity;
+    dishes.set(key, current);
+  }
+  const popularDishes30 = [...dishes.values()]
+    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue || a.name.localeCompare(b.name, "ru"))
+    .slice(0, 10);
+
+  const eventsByOrder = new Map<number, any[]>();
+  for (const event of statusEvents) {
+    const orderId = Number(event.order_id);
+    if (!eventsByOrder.has(orderId)) eventsByOrder.set(orderId, []);
+    eventsByOrder.get(orderId)!.push(event);
+  }
+  const prepSamples: number[] = [];
+  for (const order of orders) {
+    const events = eventsByOrder.get(Number(order.id)) || [];
+    const preparing = events.find((event: any) => event.to_status === "preparing");
+    if (!preparing) continue;
+    const preparingAt = new Date(preparing.created_at).getTime();
+    const ready = events.find((event: any) => event.to_status === "ready" && new Date(event.created_at).getTime() >= preparingAt);
+    if (!ready) continue;
+    const minutes = (new Date(ready.created_at).getTime() - preparingAt) / 60000;
+    if (Number.isFinite(minutes) && minutes >= 0 && minutes <= 1440) prepSamples.push(minutes);
+  }
+  prepSamples.sort((a, b) => a - b);
+  const averagePrepMinutes = prepSamples.length
+    ? Math.round(prepSamples.reduce((sum, value) => sum + value, 0) / prepSamples.length)
+    : null;
+  const medianPrepMinutes = prepSamples.length
+    ? Math.round(prepSamples[Math.floor((prepSamples.length - 1) / 2)])
+    : null;
+
+  const cancelled30 = allOrders.filter((order: any) => isCancelled(order)).length;
+  const cancellationRate30 = allOrders.length ? Math.round(cancelled30 * 1000 / allOrders.length) / 10 : 0;
 
   return {
     generatedAt: new Date(now).toISOString(),
@@ -230,19 +293,27 @@ async function adminDashboard() {
       orders30: orders.length,
       revenue30: sumTotal(orders),
       averageCheck30: averageCheck(orders),
+      cancelled30,
+      cancellationRate30,
+      served30: orders.filter((order: any) => order.status === "served").length,
+      items30,
+      averagePrepMinutes,
+      medianPrepMinutes,
+      prepSampleCount: prepSamples.length,
       openTables: openSessions.length,
       openRequests: requests.length,
       totalTables: tables.length,
       activeTables: tables.filter((table: any) => table.is_active).length,
-      daily,
-      payments,
-      daily30,
-      payments30,
+      daily: dailyFor(7),
+      payments: paymentsFor(last7),
+      daily30: dailyFor(30),
+      payments30: paymentsFor(orders),
+      hourly30,
+      popularDishes30,
     },
     tables: enrichedTables,
   };
 }
-
 
 async function adminOrdersState() {
   const ordersRaw = await db("orders?select=id,table_session_id,status,payment_method,comment,total,created_at,updated_at&order=created_at.desc&limit=200");
