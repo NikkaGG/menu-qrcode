@@ -101,6 +101,18 @@ Deno.serve(async (req) => {
     }
 
     if (action === "place-order") {
+      const clientRequestId = cleanUuid(body?.clientRequestId);
+      if (!clientRequestId) return response({ error: "Invalid order request id" }, 400);
+
+      const existingRows = await db(
+        `orders?select=id,status&table_session_id=eq.${encodeURIComponent(session.id)}&guest_token=eq.${encodeURIComponent(guestToken)}&client_request_id=eq.${encodeURIComponent(clientRequestId)}&limit=1`
+      );
+      const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+      if (existing) {
+        const state = await guestState(session.id, guestToken);
+        return response({ ok: true, duplicate: true, orderId: existing.id, table, session, ...state });
+      }
+
       const paymentMethod = String(body?.paymentMethod || "");
       if (!["card", "cash", "kaspi"].includes(paymentMethod)) {
         return response({ error: "Choose a payment method" }, 400);
@@ -136,19 +148,34 @@ Deno.serve(async (req) => {
       const total = items.reduce((sum: number, item: any) => sum + item.line_total, 0);
       const comment = String(body?.comment || "").trim().slice(0, 1000) || null;
 
-      const inserted = await db("orders?select=id,status,payment_method,comment,total,created_at", {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify([{
-          table_session_id: session.id,
-          guest_token: guestToken,
-          status: "submitted",
-          payment_method: paymentMethod,
-          comment,
-          total,
-        }]),
-      });
-      const order = Array.isArray(inserted) ? inserted[0] : null;
+      let order: any = null;
+      try {
+        const inserted = await db("orders?select=id,status,payment_method,comment,total,created_at", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify([{
+            table_session_id: session.id,
+            guest_token: guestToken,
+            client_request_id: clientRequestId,
+            status: "submitted",
+            payment_method: paymentMethod,
+            comment,
+            total,
+          }]),
+        });
+        order = Array.isArray(inserted) ? inserted[0] : null;
+      } catch (error) {
+        // A concurrent retry may have won the unique client_request_id race.
+        const racedRows = await db(
+          `orders?select=id,status&table_session_id=eq.${encodeURIComponent(session.id)}&guest_token=eq.${encodeURIComponent(guestToken)}&client_request_id=eq.${encodeURIComponent(clientRequestId)}&limit=1`
+        ).catch(() => []);
+        const raced = Array.isArray(racedRows) ? racedRows[0] : null;
+        if (raced) {
+          const state = await guestState(session.id, guestToken);
+          return response({ ok: true, duplicate: true, orderId: raced.id, table, session, ...state });
+        }
+        throw error;
+      }
       if (!order) throw new Error("Order was not created");
 
       try {
@@ -158,10 +185,11 @@ Deno.serve(async (req) => {
           body: JSON.stringify(items.map((item: any) => ({ ...item, order_id: order.id }))),
         });
       } catch (error) {
+        // An order without its item snapshot is not a valid business record.
+        // Remove it so the same idempotency key can be retried safely.
         await db(`orders?id=eq.${order.id}`, {
-          method: "PATCH",
+          method: "DELETE",
           headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({ status: "cancelled", updated_at: new Date().toISOString() }),
         }).catch(() => {});
         throw error;
       }
@@ -178,11 +206,19 @@ Deno.serve(async (req) => {
         `service_requests?select=id,kind,status,created_at&table_session_id=eq.${encodeURIComponent(session.id)}&guest_token=eq.${encodeURIComponent(guestToken)}&kind=eq.${encodeURIComponent(kind)}&status=eq.open&order=created_at.desc&limit=1`
       );
       if (!Array.isArray(recent) || !recent[0]) {
-        await db("service_requests", {
-          method: "POST",
-          headers: { Prefer: "return=minimal" },
-          body: JSON.stringify([{ table_session_id: session.id, guest_token: guestToken, kind, status: "open" }]),
-        });
+        try {
+          await db("service_requests", {
+            method: "POST",
+            headers: { Prefer: "return=minimal" },
+            body: JSON.stringify([{ table_session_id: session.id, guest_token: guestToken, kind, status: "open" }]),
+          });
+        } catch (error) {
+          // The unique partial index turns simultaneous taps/tabs into one open request.
+          const raced = await db(
+            `service_requests?select=id&table_session_id=eq.${encodeURIComponent(session.id)}&guest_token=eq.${encodeURIComponent(guestToken)}&kind=eq.${encodeURIComponent(kind)}&status=eq.open&limit=1`
+          ).catch(() => []);
+          if (!Array.isArray(raced) || !raced[0]) throw error;
+        }
       }
       const state = await guestState(session.id, guestToken);
       return response({ ok: true, table, session, ...state }, 201);
