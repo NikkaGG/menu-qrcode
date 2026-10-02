@@ -5,6 +5,9 @@ on:
     branches:
       - task-11-12-access-analytics
       - task-13-qa-current
+  pull_request:
+    branches:
+      - task-11-12-access-analytics
   workflow_dispatch:
 
 jobs:
