@@ -420,12 +420,6 @@ async function categoryExists(categoryId: string) {
   return Array.isArray(rows) && Boolean(rows[0]?.id);
 }
 
-async function nextDishId() {
-  const rows = await db("dishes?select=id&order=id.desc&limit=1");
-  const current = Array.isArray(rows) ? Number(rows[0]?.id || 0) : 0;
-  return current + 1;
-}
-
 function dishPayload(body: any) {
   const categoryId = cleanCategoryId(body?.categoryId);
   const name = cleanText(body?.name, 140);
@@ -626,17 +620,17 @@ Deno.serve(async (req) => {
       if (!payload) return reply({ error: "Проверьте данные блюда" }, 400);
       if (!(await categoryExists(payload.category_id))) return reply({ error: "Категория не найдена" }, 404);
 
-      const id = await nextDishId();
-      await db("dishes", {
+      const created = await db("dishes?select=id", {
         method: "POST",
-        headers: { Prefer: "return=minimal" },
+        headers: { Prefer: "return=representation" },
         body: JSON.stringify([{
-          id,
           ...payload,
           popular_order: null,
         }]),
       });
-      return reply({ ok: true, createdDishId: id, ...(await adminMenuState()) }, 201);
+      const createdDishId = Number(Array.isArray(created) ? created[0]?.id : 0);
+      if (!createdDishId) throw new Error("Dish was not created");
+      return reply({ ok: true, createdDishId, ...(await adminMenuState()) }, 201);
     }
 
     if (action === "create-table") {
