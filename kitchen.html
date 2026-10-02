@@ -243,7 +243,7 @@ function applyState(next){
 }
 
 async function refresh(silent=true){
-  if(refreshBusy)return;
+  if(refreshBusy||(silent&&busyOrders.size))return;
   refreshBusy=true;
   try{
     const next=await api('dashboard');
@@ -256,8 +256,13 @@ async function refresh(silent=true){
       login.hidden=false;app.hidden=true;stopTimers();
       if(!silent)loginErr.textContent='Неверный PIN';
     }else{
-      setConnection(false,e.message||'Не удалось обновить заказы');
-      if(!silent)showToast(e.message||'Не удалось обновить заказы');
+      if(!state){
+        login.hidden=false;app.hidden=true;
+        loginErr.textContent=e.message||'Не удалось подключиться к кухне';
+      }else{
+        setConnection(false,e.message||'Не удалось обновить заказы');
+        if(!silent)showToast(e.message||'Не удалось обновить заказы');
+      }
     }
   }finally{refreshBusy=false}
 }
@@ -268,7 +273,7 @@ async function move(orderId,status){
   busyOrders.add(id);render();
   try{
     const next=await api('update-order',{orderId:id,status});
-    state=next;render();setConnection(true);
+    applyState(next);
   }catch(e){
     showToast(e.message||'Не удалось изменить заказ');
     await refresh(true);
@@ -289,6 +294,7 @@ async function confirmCancel(){
 }
 
 function setKitchenView(view){
+  if(!['all','submitted','working','ready'].includes(view))view='all';
   document.getElementById('kitchenBoard').dataset.view=view;
   document.querySelectorAll('#kitchenView button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.view===view)));
   try{sessionStorage.setItem('sushi-kitchen-view',view)}catch(_){}
@@ -313,14 +319,17 @@ function syncSoundButton(){
   if(label)label.textContent=soundEnabled?'Звук вкл':'Звук выкл';
 }
 function ensureAudio(){
-  if(!audioContext)audioContext=new (window.AudioContext||window.webkitAudioContext)();
+  const AudioCtor=window.AudioContext||window.webkitAudioContext;
+  if(!AudioCtor)return null;
+  if(!audioContext)audioContext=new AudioCtor();
   if(audioContext.state==='suspended')audioContext.resume().catch(()=>{});
   return audioContext;
 }
 function beep(delay=0){
   if(!soundEnabled)return;
   try{
-    const ctx=ensureAudio(),osc=ctx.createOscillator(),gain=ctx.createGain(),start=ctx.currentTime+delay;
+    const ctx=ensureAudio();if(!ctx)return;
+    const osc=ctx.createOscillator(),gain=ctx.createGain(),start=ctx.currentTime+delay;
     osc.type='sine';osc.frequency.value=880;gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(.12,start+.01);gain.gain.exponentialRampToValueAtTime(.0001,start+.16);
     osc.connect(gain);gain.connect(ctx.destination);osc.start(start);osc.stop(start+.18);
   }catch(_){}
