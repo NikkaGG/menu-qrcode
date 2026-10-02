@@ -10,6 +10,11 @@ const menuSource = fs.readFileSync(path.join(root, 'menu.html'), 'utf8');
 const adminSource = fs.readFileSync(path.join(root, 'admin.html'), 'utf8');
 const adminApiSource = fs.readFileSync(path.join(root, 'supabase/functions/admin-api/index.ts'), 'utf8');
 const opsCssSource = fs.readFileSync(path.join(root, 'ops.css'), 'utf8');
+const staffOrdersSource = fs.readFileSync(path.join(root, 'supabase/functions/staff-orders/index.ts'), 'utf8');
+const kitchenSource = fs.readFileSync(path.join(root, 'kitchen.html'), 'utf8');
+const staffSource = fs.readFileSync(path.join(root, 'staff.html'), 'utf8');
+const roleAccessMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002071000_role_access.sql'), 'utf8');
+const statusEventsMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261002072000_order_status_events.sql'), 'utf8');
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -1910,10 +1915,11 @@ test('admin order history workspace exposes search, status and payment filters',
   assert.match(adminSource, /source:'open-sessions'/);
 });
 
-test('admin order history API is PIN protected and returns a bounded enriched history', () => {
-  assert.match(adminApiSource, /if \(!\(await adminPinOk\(pin\)\)\) return reply\(\{ error: "Неверный PIN администратора" \}, 401\);/);
-  assert.match(adminApiSource, /return pin === "1";/);
-  assert.match(adminApiSource, /if \(action === "orders"\) return reply\(await adminOrdersState\(\)\);/);
+test('admin order history API is role protected and returns a bounded enriched history', () => {
+  assert.match(adminApiSource, /authenticateAdmin\(pin, requestedRole\)/);
+  assert.match(adminApiSource, /x-admin-role/);
+  assert.match(adminApiSource, /pin === "1"/);
+  assert.match(adminApiSource, /if \(action === "orders"\)/);
   assert.match(adminApiSource, /order=created_at\.desc&limit=200/);
   assert.match(adminApiSource, /order_items\?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment/);
   assert.match(adminApiSource, /table: table \? \{ id: table\.id, table_number: table\.table_number, label: table\.label \} : null/);
@@ -1950,14 +1956,81 @@ test('admin reports workspace exposes 30-day metrics and CSV export', () => {
   assert.match(adminSource, /sushi-crazy-report-30-days\.csv/);
 });
 
-test('admin dashboard API returns 30-day reporting analytics', () => {
+test('admin dashboard API returns full 30-day reporting analytics', () => {
   assert.match(adminApiSource, /orders30: orders\.length/);
   assert.match(adminApiSource, /revenue30: sumTotal\(orders\)/);
   assert.match(adminApiSource, /averageCheck30: averageCheck\(orders\)/);
-  assert.match(adminApiSource, /const daily30 = \[\]/);
-  assert.match(adminApiSource, /const payments30: Record<string, number> = \{\}/);
-  assert.match(adminApiSource, /daily30,/);
-  assert.match(adminApiSource, /payments30,/);
+  assert.match(adminApiSource, /cancelled30,/);
+  assert.match(adminApiSource, /cancellationRate30,/);
+  assert.match(adminApiSource, /averagePrepMinutes,/);
+  assert.match(adminApiSource, /medianPrepMinutes,/);
+  assert.match(adminApiSource, /hourly30,/);
+  assert.match(adminApiSource, /popularDishes30,/);
+  assert.match(adminApiSource, /items30,/);
+  assert.match(adminApiSource, /daily30: dailyFor\(30\)/);
+  assert.match(adminApiSource, /payments30: paymentsFor\(orders\)/);
   assert.match(opsCssSource, /\.reports-grid\{/);
   assert.match(opsCssSource, /\.report-day-meter/);
+  assert.match(opsCssSource, /\.report-hourly\{/);
+  assert.match(opsCssSource, /\.report-dish-row\{/);
+});
+
+
+
+test('task 11 stores staff roles behind RLS and never exposes PIN hashes to browser UI', () => {
+  assert.match(roleAccessMigration, /create table if not exists public\.staff_members/);
+  assert.match(roleAccessMigration, /role in \('owner','admin','waiter','kitchen'\)/);
+  assert.match(roleAccessMigration, /alter table public\.staff_members enable row level security/);
+  assert.match(roleAccessMigration, /pin_hash text not null/);
+  assert.doesNotMatch(adminSource, /pin_hash/);
+});
+
+test('task 11 enforces kitchen and waiter permissions on the server', () => {
+  assert.match(staffOrdersSource, /type StaffRole = "owner" \| "admin" \| "waiter" \| "kitchen"/);
+  assert.match(staffOrdersSource, /"resolve-request": \["owner", "admin", "waiter"\]/);
+  assert.match(staffOrdersSource, /"close-session": \["owner", "admin", "waiter"\]/);
+  assert.match(staffOrdersSource, /role === "kitchen"/);
+  assert.match(staffOrdersSource, /next === "preparing"/);
+  assert.match(staffOrdersSource, /next === "ready"/);
+  assert.match(staffOrdersSource, /role === "waiter"\) return current === "ready" && next === "served"/);
+  assert.match(staffOrdersSource, /Недостаточно прав/);
+});
+
+test('task 11 workspaces identify their role explicitly instead of sharing one browser session', () => {
+  assert.match(kitchenSource, /'x-staff-role':'kitchen'/);
+  assert.match(kitchenSource, /sushi-kitchen-pin/);
+  assert.doesNotMatch(kitchenSource, /sessionStorage\.getItem\('sushi-staff-pin'\)/);
+  assert.match(staffSource, /'x-staff-role':'waiter'/);
+  assert.match(staffSource, /sushi-waiter-pin/);
+  assert.doesNotMatch(staffSource, /sessionStorage\.getItem\('sushi-staff-pin'\)/);
+});
+
+test('task 11 owner can manage access while admin cannot', () => {
+  assert.match(adminSource, /id="accessNavBtn"/);
+  assert.match(adminSource, /id="pageAccess"[^>]*data-page="access"/);
+  assert.match(adminSource, /id="staffForm"/);
+  assert.match(adminSource, /function loadAccess\(silent=true,force=false\)/);
+  assert.match(adminApiSource, /actor\.role !== "owner"/);
+  assert.match(adminApiSource, /Только владелец может управлять доступом/);
+  assert.match(adminApiSource, /Нельзя отключить последнего активного владельца/);
+});
+
+test('task 12 captures status history for real preparation-time analytics', () => {
+  assert.match(statusEventsMigration, /create table if not exists public\.order_status_events/);
+  assert.match(statusEventsMigration, /create trigger orders_capture_status_change/);
+  assert.match(statusEventsMigration, /after update of status on public\.orders/);
+  assert.match(statusEventsMigration, /old\.status is distinct from new\.status/);
+});
+
+test('task 12 reports expose cancellations, preparation time, hourly load and popular dishes', () => {
+  for (const id of ['reportCancelled30','reportPrep30','reportHourly30','reportDishes30','reportItems30']) {
+    assert.match(adminSource, new RegExp('id="'+id+'"'));
+  }
+  assert.match(adminSource, /a\.cancellationRate30/);
+  assert.match(adminSource, /a\.averagePrepMinutes/);
+  assert.match(adminSource, /a\.hourly30/);
+  assert.match(adminSource, /a\.popularDishes30/);
+  assert.match(adminSource, /Среднее приготовление/);
+  assert.match(adminSource, /Загрузка ресторана/);
+  assert.match(adminSource, /Популярные блюда/);
 });
