@@ -1594,6 +1594,14 @@ test('task 13 prevents menu data from injecting HTML into guest cards', () => {
   assert.match(appSource, /ci-name">\$\{tableEscapeHtml\(item\.n\)\}/);
 });
 
+test('task 13 PWA shell ignores asset cache-busting queries offline', () => {
+  assert.match(swSource, /'\/styles\.css'/);
+  assert.match(swSource, /'\/app\.js'/);
+  assert.doesNotMatch(swSource, /app\.js\?v=/);
+  assert.match(swSource, /cache\.match\(request,\{ignoreSearch\}\)/);
+  assert.match(swSource, /networkFirst\(request,null,true\)/);
+});
+
 test('task 13 bounds menu and PWA network waits and prevents overlapping table status polls', () => {
   assert.match(appSource, /MENU_API_TIMEOUT_MS=12000/);
   assert.match(appSource, /tableOrdering\.loading\|\|tableOrdering\.statusLoading/);
