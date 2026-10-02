@@ -93,9 +93,23 @@ Deno.serve(async (req) => {
 
     const table = await resolveTable(tableToken);
     if (!table) return response({ error: "Table not found or QR disabled" }, 404);
-    const session = await getOrCreateSession(table.id);
 
-    if (action === "bootstrap" || action === "status") {
+    let session: any = null;
+    if (action === "bootstrap") {
+      session = await getOrCreateSession(table.id);
+      const state = await guestState(session.id, guestToken);
+      return response({ table, session, ...state });
+    }
+
+    const sessionId = cleanUuid(body?.sessionId);
+    if (!sessionId) return response({ error: "Table session is closed" }, 409);
+    const sessionRows = await db(
+      `table_sessions?select=id,table_id,status,opened_at&id=eq.${encodeURIComponent(sessionId)}&table_id=eq.${encodeURIComponent(table.id)}&status=eq.open&limit=1`
+    );
+    session = Array.isArray(sessionRows) ? sessionRows[0] || null : null;
+    if (!session) return response({ error: "Table session is closed" }, 409);
+
+    if (action === "status") {
       const state = await guestState(session.id, guestToken);
       return response({ table, session, ...state });
     }
