@@ -7,6 +7,9 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const menuSource = fs.readFileSync(path.join(root, 'menu.html'), 'utf8');
+const adminSource = fs.readFileSync(path.join(root, 'admin.html'), 'utf8');
+const adminApiSource = fs.readFileSync(path.join(root, 'supabase/functions/admin-api/index.ts'), 'utf8');
+const opsCssSource = fs.readFileSync(path.join(root, 'ops.css'), 'utf8');
 
 function extractFunction(source, name) {
   const start = source.indexOf(`function ${name}(`);
@@ -1887,4 +1890,44 @@ test('pickup dialog participates in nested focus, suppression, and restoration l
   dialog.context.closeOv('pickupTimeOv');
   assert.equal(dialog.overlays.cartOv.inert, false);
   assert.equal(dialog.context.document.activeElement, dialog.shareButtons.cartOv);
+});
+
+
+test('admin order history workspace exposes search, status and payment filters', () => {
+  assert.match(adminSource, /data-section="orders"/);
+  assert.match(adminSource, /id="pageOrders"[^>]*data-page="orders"/);
+  assert.match(adminSource, /id="orderSearch"/);
+  assert.match(adminSource, /id="orderFilters"/);
+  assert.match(adminSource, /data-filter="active"/);
+  assert.match(adminSource, /data-filter="served"/);
+  assert.match(adminSource, /data-filter="cancelled"/);
+  assert.match(adminSource, /id="orderPayment"/);
+  assert.match(adminSource, /id="ordersList"/);
+  assert.match(adminSource, /function renderOrders\(\)/);
+  assert.match(adminSource, /function loadOrders\(silent=true,force=false\)/);
+});
+
+test('admin order history API is PIN protected and returns a bounded enriched history', () => {
+  assert.match(adminApiSource, /if \(!\(await adminPinOk\(pin\)\)\) return reply\(\{ error: "Неверный PIN администратора" \}, 401\);/);
+  assert.match(adminApiSource, /if \(action === "orders"\) return reply\(await adminOrdersState\(\)\);/);
+  assert.match(adminApiSource, /order=created_at\.desc&limit=200/);
+  assert.match(adminApiSource, /order_items\?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment/);
+  assert.match(adminApiSource, /table: table \? \{ id: table\.id, table_number: table\.table_number, label: table\.label \} : null/);
+  assert.doesNotMatch(adminApiSource, /orders\?select=[^"\n]*guest_token/);
+});
+
+test('admin order history keeps cancelled orders visible but excludes them from amount and average', () => {
+  assert.match(adminApiSource, /const nonCancelled = enriched\.filter\(\(order: any\) => !isCancelled\(order\)\);/);
+  assert.match(adminApiSource, /cancelled: enriched\.filter\(\(order: any\) => isCancelled\(order\)\)\.length/);
+  assert.match(adminApiSource, /amount: sumTotal\(nonCancelled\)/);
+  assert.match(adminApiSource, /averageCheck: averageCheck\(nonCancelled\)/);
+  assert.match(adminSource, /Отменённые сохраняются для контроля/);
+});
+
+test('admin order history has responsive workspace styles', () => {
+  assert.match(opsCssSource, /TASK 10: ADMIN ORDER HISTORY/);
+  assert.match(opsCssSource, /\.orders-toolbar\{/);
+  assert.match(opsCssSource, /\.admin-order-card\{/);
+  assert.match(opsCssSource, /\.order-item-row\{/);
+  assert.match(opsCssSource, /@media\(max-width:520px\)/);
 });
