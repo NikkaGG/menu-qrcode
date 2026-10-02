@@ -323,7 +323,7 @@ function restoreCart(){
     const next={};
     Object.entries(saved||{}).forEach(([id,qty])=>{
       const item=getItem(id);
-      const count=Math.max(0,Math.floor(Number(qty)||0));
+      const count=Math.min(MAX_ITEM_QUANTITY,Math.max(0,Math.floor(Number(qty)||0)));
       if(item&&count>0)next[id]=count;
     });
     cart=next;
@@ -343,7 +343,9 @@ const SUPABASE_PUBLISHABLE_KEY='sb_publishable_w24dlBQIlqYyQwY-6bJPmw_KNa-FCRK';
 
 const TABLE_API_URL=SUPABASE_URL+'/functions/v1/table-api';
 const TABLE_PAYMENT_LABELS=Object.freeze({kaspi:'Kaspi',card:'Картой',cash:'Наличными'});
-const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map()};
+const MAX_ITEM_QUANTITY=20;
+const TABLE_API_TIMEOUT_MS=12000;
+const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),serviceBusy:new Set(),lastError:'',lastPlacedOrderId:null};
 function tableEscapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function createGuestUuid(){
   if(crypto.randomUUID)return crypto.randomUUID();
@@ -358,9 +360,33 @@ function guestTokenForTable(tableToken){
   if(!/^[0-9a-f-]{36}$/i.test(token)){token=createGuestUuid();try{localStorage.setItem(key,token);}catch(_){}}
   return token;
 }
+function guestApiErrorMessage(error){
+  const raw=String(error?.message||error||'').trim();
+  const translations={
+    'Table not found or QR disabled':'QR-код стола недействителен или отключён',
+    'Invalid table or guest token':'Не удалось распознать QR-код стола',
+    'Choose a payment method':'Выберите способ расчёта',
+    'Invalid order items':'Проверьте количество блюд в корзине',
+    'One or more dishes are unavailable':'Некоторые блюда временно недоступны. Обновите меню и попробуйте снова'
+  };
+  if(translations[raw])return translations[raw];
+  if(error?.name==='AbortError')return 'Ресторан отвечает слишком долго. Попробуйте ещё раз';
+  if(/failed to fetch|networkerror|load failed|network request failed/i.test(raw))return 'Нет связи с рестораном. Проверьте интернет и попробуйте ещё раз';
+  return raw||'Не удалось связаться с рестораном';
+}
 async function tableApiCall(action,payload={}){
-  const response=await fetch(TABLE_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,tableToken:tableOrdering.tableToken,guestToken:tableOrdering.guestToken,...payload})});
-  const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.error||'Не удалось связаться с рестораном');return data;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),TABLE_API_TIMEOUT_MS);
+  try{
+    const response=await fetch(TABLE_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,tableToken:tableOrdering.tableToken,guestToken:tableOrdering.guestToken,...payload}),signal:controller.signal});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){const error=new Error(data.error||'Не удалось связаться с рестораном');error.status=response.status;throw error;}
+    return data;
+  }catch(error){
+    const wrapped=new Error(guestApiErrorMessage(error));
+    wrapped.status=error?.status;
+    throw wrapped;
+  }finally{clearTimeout(timeout);}
 }
 function tableStatusStep(status){return ['submitted','accepted','preparing','ready','served'].indexOf(status);}
 function tableOrderStatusMarkup(order){
@@ -374,40 +400,92 @@ function tableOrderItemsMarkup(order){
 }
 function openServiceKinds(){return new Set((tableOrdering.requests||[]).filter(r=>r.status==='open').map(r=>r.kind));}
 function renderTableOrderPanel(){
-  const panel=document.getElementById('tableOrderPanel'),title=document.getElementById('tableOrderTitle'),list=document.getElementById('tableOrderList'),service=document.getElementById('tableServiceState'),cartContext=document.getElementById('cartTableContext');
+  const panel=document.getElementById('tableOrderPanel'),title=document.getElementById('tableOrderTitle'),list=document.getElementById('tableOrderList'),service=document.getElementById('tableServiceState'),cartContext=document.getElementById('cartTableContext'),flow=document.getElementById('tableFlowState'),refreshBtn=document.getElementById('tableRefreshBtn');
   if(cartContext){
     if(tableOrdering.loading)cartContext.textContent='Проверяем QR-код стола…';
     else if(tableOrdering.ready)cartContext.textContent=(tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number))+' · заказ принесёт официант';
-    else cartContext.textContent=tableOrdering.tableToken?'QR-код стола недействителен':'Для заказа отсканируйте QR-код на столе';
+    else if(tableOrdering.tableToken)cartContext.innerHTML=tableEscapeHtml(tableOrdering.lastError||'Не удалось подтвердить QR-код')+' <button type="button" onclick="refreshTableStatus(true)">Повторить</button>';
+    else cartContext.textContent='Для заказа отсканируйте QR-код на столе';
   }
+  if(refreshBtn){refreshBtn.disabled=tableOrdering.loading;refreshBtn.textContent=tableOrdering.loading?'Проверяем…':'Обновить';}
   if(!panel)return;if(!tableOrdering.tableToken){panel.hidden=true;return;}panel.hidden=false;
-  if(!tableOrdering.ready){if(title)title.textContent=tableOrdering.loading?'Определяем ваш стол…':'Не удалось определить стол';if(list)list.innerHTML='<div class="table-order-empty">'+(tableOrdering.loading?'Проверяем QR-код.':'Откройте меню повторно через QR-код на столе.')+'</div>';if(service)service.innerHTML='';return;}
+  if(!tableOrdering.ready){
+    if(title)title.textContent=tableOrdering.loading?'Определяем ваш стол…':'Не удалось определить стол';
+    if(flow){flow.hidden=tableOrdering.loading;flow.className='table-flow-state error';flow.textContent=tableOrdering.lastError||'Не удалось проверить QR-код. Нажмите «Обновить», чтобы попробовать ещё раз.';}
+    if(list)list.innerHTML='<div class="table-order-empty">'+(tableOrdering.loading?'Проверяем QR-код.':'Заказ пока недоступен. Повторите проверку QR-кода.')+'</div>';
+    if(service)service.innerHTML='';
+    document.querySelectorAll('.table-order-actions button').forEach(btn=>{btn.disabled=true;});
+    return;
+  }
   const tableLabel=tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number);if(title)title.textContent=tableLabel;
+  if(flow){
+    if(tableOrdering.lastPlacedOrderId){flow.hidden=false;flow.className='table-flow-state success';flow.textContent='Заказ #'+tableOrdering.lastPlacedOrderId+' отправлен. Статус будет обновляться здесь автоматически.';}
+    else{flow.hidden=true;flow.textContent='';}
+  }
   const orders=[...(tableOrdering.orders||[])].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   if(list)list.innerHTML=orders.length?orders.slice(0,4).map(order=>{
     const when=new Date(order.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
     return '<article class="table-order-card"><div class="table-order-card-head"><div><b>Заказ #'+order.id+'</b><span>'+when+'</span></div><strong>'+fmt(Number(order.total||0))+'</strong></div>'+tableOrderStatusMarkup(order)+'<div class="table-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="table-order-meta">Расчёт: '+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||order.payment_method||'—')+(order.comment?' · '+tableEscapeHtml(order.comment):'')+'</div></article>';
   }).join(''):'<div class="table-order-empty"><b>Вы за столом.</b><span>Соберите корзину — заказ уйдёт прямо на кухню.</span></div>';
   const open=openServiceKinds();if(service){const labels=[];if(open.has('waiter'))labels.push('Официант уже вызван');if(open.has('bill'))labels.push('Счёт уже запрошен');if(open.has('cutlery'))labels.push('Запрос на приборы отправлен');service.innerHTML=labels.length?'<div class="table-service-open">'+labels.map(x=>'<span>'+x+'</span>').join('')+'</div>':'';}
-  document.querySelectorAll('[data-table-service]').forEach(btn=>{btn.disabled=open.has(btn.dataset.tableService);});
+  document.querySelectorAll('.table-order-actions button').forEach(btn=>{btn.disabled=false;});
+  document.querySelectorAll('[data-table-service]').forEach(btn=>{
+    const kind=btn.dataset.tableService,busy=tableOrdering.serviceBusy.has(kind),alreadyOpen=open.has(kind),base=btn.dataset.label||btn.textContent;
+    btn.disabled=busy||alreadyOpen;
+    btn.classList.toggle('is-busy',busy);
+    btn.textContent=busy?'Отправляем…':alreadyOpen?(kind==='waiter'?'Официант вызван':kind==='bill'?'Счёт запрошен':base):base;
+  });
 }
 function applyTableOrderState(data){
   tableOrdering.table=data.table||tableOrdering.table;tableOrdering.session=data.session||tableOrdering.session;tableOrdering.orders=Array.isArray(data.orders)?data.orders:[];tableOrdering.requests=Array.isArray(data.requests)?data.requests:[];tableOrdering.ready=!!tableOrdering.table&&!!tableOrdering.session;
   for(const order of tableOrdering.orders){const previous=tableOrdering.seenStatuses.get(String(order.id));if(previous&&previous!==order.status&&order.status==='ready')showToast('Заказ #'+order.id+' готов');tableOrdering.seenStatuses.set(String(order.id),order.status);}
   renderTableOrderPanel();updateOrderState();
 }
-async function refreshTableStatus(manual=false){if(!tableOrdering.ready||tableOrdering.loading)return;try{applyTableOrderState(await tableApiCall('status'));if(manual)showToast('Статус обновлён');}catch(error){if(manual)showToast(error.message||'Не удалось обновить статус');}}
+function stopTablePolling(){if(tableOrdering.pollTimer){clearInterval(tableOrdering.pollTimer);tableOrdering.pollTimer=null;}}
+function startTablePolling(){stopTablePolling();if(!tableOrdering.ready||document.hidden)return;tableOrdering.pollTimer=setInterval(()=>refreshTableStatus(false),4000);}
+async function bootstrapTableOrdering(manual=false){
+  if(!tableOrdering.tableToken||tableOrdering.loading)return;
+  tableOrdering.loading=true;tableOrdering.lastError='';renderTableOrderPanel();updateOrderState();
+  try{
+    const data=await tableApiCall('bootstrap');
+    tableOrdering.loading=false;applyTableOrderState(data);startTablePolling();
+    if(manual)showToast('Стол подтверждён');
+  }catch(error){
+    tableOrdering.loading=false;tableOrdering.ready=false;tableOrdering.lastError=guestApiErrorMessage(error);stopTablePolling();renderTableOrderPanel();updateOrderState();
+    if(manual)showToast(tableOrdering.lastError);
+    console.warn('Table bootstrap failed',error);
+  }
+}
+async function refreshTableStatus(manual=false){
+  if(tableOrdering.loading)return;
+  if(!tableOrdering.ready){if(manual)await bootstrapTableOrdering(true);return;}
+  try{applyTableOrderState(await tableApiCall('status'));tableOrdering.lastError='';if(manual)showToast('Статус обновлён');}
+  catch(error){if(manual)showToast(guestApiErrorMessage(error));}
+}
 async function requestTableService(kind){
-  if(!tableOrdering.ready){showToast('Откройте меню через QR-код на столе');return;}
+  if(!tableOrdering.ready){showToast('Сначала подтвердите QR-код стола');return;}
+  if(tableOrdering.serviceBusy.has(kind)||openServiceKinds().has(kind))return;
   const messages={waiter:'Официант вызван',bill:'Запрос на счёт отправлен',cutlery:'Запрос на приборы отправлен'};
-  try{applyTableOrderState(await tableApiCall('service',{kind}));showToast(messages[kind]||'Запрос отправлен');}catch(error){showToast(error.message||'Не удалось отправить запрос');}
+  tableOrdering.serviceBusy.add(kind);renderTableOrderPanel();
+  try{applyTableOrderState(await tableApiCall('service',{kind}));showToast(messages[kind]||'Запрос отправлен');}
+  catch(error){showToast(guestApiErrorMessage(error));}
+  finally{tableOrdering.serviceBusy.delete(kind);renderTableOrderPanel();}
+}
+function orderMore(){
+  if(Object.keys(cart).some(k=>cart[k]>0)){openCart();return;}
+  const target=document.querySelector('.sticky-bar')||document.getElementById('menuArea');
+  target?.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'start'});
 }
 async function initTableOrdering(){
   tableOrdering.tableToken=tableTokenFromUrl();renderTableOrderPanel();if(!tableOrdering.tableToken){updateOrderState();return;}
-  tableOrdering.guestToken=guestTokenForTable(tableOrdering.tableToken);tableOrdering.loading=true;renderTableOrderPanel();updateOrderState();
-  try{const data=await tableApiCall('bootstrap');tableOrdering.loading=false;applyTableOrderState(data);if(!tableOrdering.pollTimer)tableOrdering.pollTimer=setInterval(()=>refreshTableStatus(false),4000);}
-  catch(error){tableOrdering.loading=false;tableOrdering.ready=false;renderTableOrderPanel();updateOrderState();console.warn('Table bootstrap failed',error);}
+  tableOrdering.guestToken=guestTokenForTable(tableOrdering.tableToken);
+  await bootstrapTableOrdering(false);
 }
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){stopTablePolling();return;}
+  if(tableOrdering.ready){refreshTableStatus(false);startTablePolling();}
+});
+window.addEventListener('online',()=>{if(!tableOrdering.tableToken)return;if(tableOrdering.ready)refreshTableStatus(false);else bootstrapTableOrdering(false);});
 
 
 async function fetchSupabaseRows(table,query){
@@ -808,12 +886,16 @@ function openProd(id,opener,skipHistory=false){
   updateProductFavoriteButton();
   openOv('prodOv',opener);
 }
-function addCart(id){
-  cart[id]=(cart[id]||0)+1;
-  updatePill();
-  syncCardState(id,true);
+function changeCartQuantity(id,delta,animate=true){
+  const key=String(id),current=Number(cart[key]||0);
+  if(delta>0&&current>=MAX_ITEM_QUANTITY){showToast('Максимум '+MAX_ITEM_QUANTITY+' шт. одной позиции');return false;}
+  const next=Math.max(0,Math.min(MAX_ITEM_QUANTITY,current+delta));
+  if(next>0)cart[key]=next;else delete cart[key];
+  updatePill();syncCardState(id,animate);
   if(document.getElementById('cartOv')?.classList.contains('on'))renderCart();
+  return true;
 }
+function addCart(id){changeCartQuantity(id,1,true);}
 function updatePill(){
   const keys=Object.keys(cart).filter(k=>cart[k]>0);
   const total=keys.reduce((s,id)=>{
@@ -918,13 +1000,7 @@ function pluralItems(n){
   if(mod10>=2&&mod10<=4&&(mod100<12||mod100>14))return 'товара';
   return 'товаров';
 }
-function chQ(id,d){
-  cart[id]=(cart[id]||0)+d;
-  if(cart[id]<=0)delete cart[id];
-  updatePill();
-  syncCardState(id,true);
-  if(document.getElementById('cartOv')?.classList.contains('on'))renderCart();
-}
+function chQ(id,d){changeCartQuantity(id,d,true);}
 function clearCart(){cart={};updatePill();syncCardState(null,true);renderCart();}
 function confirmClearCart(){
   if(!Object.keys(cart).some(k=>cart[k]>0))return;
@@ -1203,15 +1279,16 @@ function prepareServiceSheet(mode){
   }
 }
 async function placeOrder(){
-  const payload=buildOrderPayload();if(!payload.items.length){showToast('Корзина пуста');return;}if(!tableOrdering.tableToken){showToast('Откройте меню через QR-код на столе');return;}if(!tableOrdering.ready){showToast('Не удалось определить стол');return;}
+  if(tableOrdering.submitting)return;
+  const payload=buildOrderPayload();if(!payload.items.length){showToast('Корзина пуста');return;}if(!tableOrdering.tableToken){showToast('Откройте меню через QR-код на столе');return;}if(!tableOrdering.ready){showToast('Сначала подтвердите QR-код стола');return;}
   if(!PAYMENT_METHOD_LABELS[payload.paymentMethod]){const err=document.getElementById('paymentMethodErr');if(err)err.hidden=false;updateOrderState();return;}
   tableOrdering.submitting=true;updateOrderState();
   try{
-    const data=await tableApiCall('place-order',payload);applyTableOrderState(data);const orderId=data.orderId;clearCart();
+    const data=await tableApiCall('place-order',payload);const orderId=data.orderId;tableOrdering.lastPlacedOrderId=orderId;applyTableOrderState(data);clearCart();
     const input=document.getElementById('paymentMethodInp');if(input)input.value='';document.querySelectorAll('#cartOv .payment-opt').forEach(el=>{el.classList.remove('on');el.setAttribute('aria-pressed','false');});
     const comment=document.getElementById('commentTa');if(comment)comment.value='';closeOv('cartOv');showToast('Заказ #'+orderId+' отправлен на кухню');
     setTimeout(()=>document.getElementById('tableOrderPanel')?.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'center'}),120);
-  }catch(error){showToast(error.message||'Не удалось отправить заказ');}finally{tableOrdering.submitting=false;updateOrderState();}
+  }catch(error){showToast(guestApiErrorMessage(error));}finally{tableOrdering.submitting=false;updateOrderState();}
 }
 function openShare(mode='contact'){
   prepareServiceSheet(mode);
@@ -1488,10 +1565,11 @@ window.addEventListener('popstate',()=>{
   if(state.menuOverlay==='cartOv'&&!cartOv?.classList.contains('on'))openCart(true);
 });
 function showToast(msg){
-  const el=document.getElementById('toastEl');
+  const el=document.getElementById('toastEl');if(!el)return;
+  clearTimeout(showToast.timer);
   el.textContent=msg;
   restartMotionClass(el,'on');
-  setTimeout(()=>el.classList.remove('on'),2600);
+  showToast.timer=setTimeout(()=>el.classList.remove('on'),2600);
 }
 
 /* ── USER REQUEST JS: animated popular dots + smart sticky detection ── */
@@ -1698,19 +1776,8 @@ initTableOrdering();
     else{pill?.classList.remove('on');shell?.classList.remove('on');if(badge)badge.textContent='0';if(totalEl)totalEl.textContent='0 ₸';}
   };
 
-  window.addCart=function(id){
-    cart[id]=(cart[id]||0)+1;
-    updatePill();
-    syncCardState(id,false);
-    if(document.getElementById('cartOv')?.classList.contains('on'))renderCart();
-  };
-  window.chQ=function(id,d){
-    cart[id]=(cart[id]||0)+d;
-    if(cart[id]<=0)delete cart[id];
-    updatePill();
-    syncCardState(id,false);
-    if(document.getElementById('cartOv')?.classList.contains('on'))renderCart();
-  };
+  window.addCart=function(id){changeCartQuantity(id,1,false);};
+  window.chQ=function(id,d){changeCartQuantity(id,d,false);};
   window.clearCart=function(){
     cart={};
     updatePill();
