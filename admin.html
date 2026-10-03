@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261002-orders-v1">
+<link rel="stylesheet" href="/ops.css?v=20261003-admin-live-v1">
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -77,29 +77,89 @@
       <section class="admin-page on" id="pageOverview" data-page="overview">
         <section class="admin-kpis" id="stats"></section>
 
-        <section class="admin-ops-strip">
-          <article class="admin-ops-card">
-            <div class="admin-ops-icon"><img src="/apple-emoji/bell.png" alt=""></div>
-            <div><span>Запросы гостей</span><strong id="opsRequests">0</strong><small>Открытые запросы сейчас</small></div>
-            <a href="/staff" target="_blank">Открыть зал</a>
+        <section class="admin-now-banner">
+          <div class="admin-now-copy">
+            <span class="admin-now-kicker"><i class="live-dot"></i> Ресторан сейчас</span>
+            <strong id="nowHeadline">Загружаем текущие заказы…</strong>
+            <small id="nowSubline">Собираем состояние кухни, зала и столов.</small>
+          </div>
+          <div class="admin-now-actions">
+            <button type="button" data-jump="orders">Все заказы</button>
+            <a href="/kitchen" target="_blank">Кухня</a>
+            <a href="/staff" target="_blank">Официанты</a>
+          </div>
+        </section>
+
+        <section class="admin-live-grid">
+          <article class="admin-panel admin-live-orders-panel">
+            <div class="admin-panel-head admin-live-head">
+              <div>
+                <span class="panel-eyebrow">Операции</span>
+                <h2>Заказы сейчас</h2>
+                <p>Только активные заказы — от поступления до выдачи официанту.</p>
+              </div>
+              <button type="button" class="panel-link" data-jump="orders">Открыть историю</button>
+            </div>
+
+            <div class="admin-order-board">
+              <section class="admin-live-lane lane-new">
+                <header><div><i></i><b>Новые</b></div><span id="liveNewCount">0</span></header>
+                <p>Ждут принятия</p>
+                <div class="admin-live-cards" id="liveNewOrders"><div class="admin-live-empty">Загружаем…</div></div>
+              </section>
+
+              <section class="admin-live-lane lane-kitchen">
+                <header><div><i></i><b>На кухне</b></div><span id="liveKitchenCount">0</span></header>
+                <p>Приняты и готовятся</p>
+                <div class="admin-live-cards" id="liveKitchenOrders"><div class="admin-live-empty">Загружаем…</div></div>
+              </section>
+
+              <section class="admin-live-lane lane-ready">
+                <header><div><i></i><b>Готовы</b></div><span id="liveReadyCount">0</span></header>
+                <p>Нужно забрать и подать</p>
+                <div class="admin-live-cards" id="liveReadyOrders"><div class="admin-live-empty">Загружаем…</div></div>
+              </section>
+            </div>
           </article>
-          <article class="admin-ops-card">
-            <div class="admin-ops-icon"><img src="/apple-emoji/place-setting.png" alt=""></div>
-            <div><span>QR выключены</span><strong id="opsDisabled">0</strong><small>Столы без активного QR</small></div>
-            <button type="button" data-jump="tables">Проверить столы</button>
-          </article>
-          <article class="admin-ops-card">
-            <div class="admin-ops-icon"><img src="/apple-emoji/frying-pan.png" alt=""></div>
-            <div><span>Рабочие экраны</span><strong>2</strong><small>Кухня и зал</small></div>
-            <a href="/kitchen" target="_blank">Открыть кухню</a>
-          </article>
+
+          <aside class="admin-panel admin-attention-panel">
+            <div class="admin-panel-head">
+              <div>
+                <span class="panel-eyebrow">Контроль</span>
+                <h2>Требует внимания</h2>
+                <p>То, что администратору стоит проверить сейчас.</p>
+              </div>
+              <span class="admin-attention-count" id="attentionCount">0</span>
+            </div>
+            <div class="admin-attention-list" id="attentionList">
+              <div class="admin-live-empty">Проверяем ресторан…</div>
+            </div>
+          </aside>
+        </section>
+
+        <article class="admin-panel admin-live-tables-panel">
+          <div class="admin-panel-head">
+            <div>
+              <span class="panel-eyebrow">Зал</span>
+              <h2>Открытые столы</h2>
+              <p>Кто сейчас сидит в ресторане и на каком этапе их заказ.</p>
+            </div>
+            <button type="button" class="panel-link" data-jump="tables">Все столы</button>
+          </div>
+          <div class="admin-open-tables" id="liveTables">
+            <div class="admin-live-empty admin-live-empty-wide">Загружаем столы…</div>
+          </div>
+        </article>
+
+        <section class="admin-section-divider">
+          <div><span class="panel-eyebrow">Сводка</span><h2>Показатели и продажи</h2></div>
+          <small id="updatedAt">—</small>
         </section>
 
         <section class="admin-dashboard-grid">
           <article class="admin-panel admin-chart-panel">
             <div class="admin-panel-head">
               <div><span class="panel-eyebrow">7 дней</span><h2>Сумма заказов</h2><p>Динамика оформленных заказов. Это не подтверждённая выручка.</p></div>
-              <small id="updatedAt">—</small>
             </div>
             <div class="chart admin-chart" id="chart"></div>
           </article>
@@ -508,11 +568,95 @@ function exportReportsCsv(){
   notify('CSV отчёт скачан');
 }
 
+function elapsedMinutes(order){
+  const value=order?.accepted_at||order?.created_at;
+  const time=new Date(value||Date.now()).getTime();
+  return Math.max(0,Math.floor((Date.now()-time)/60000));
+}
+function liveTableLabel(order){
+  const table=order?.table||{};
+  return table.label||('Стол '+(table.table_number||'—'));
+}
+function liveOrderCard(order){
+  const status=String(order.status||''),items=order.items||[],minutes=elapsedMinutes(order);
+  const preview=items.slice(0,3).map(item=>'<span><b>'+Number(item.quantity||0)+'×</b> '+h(item.name||'Позиция')+'</span>').join('');
+  const extra=items.length>3?'<span class="admin-live-more">+'+(items.length-3)+' ещё</span>':'';
+  const warning=minutes>=20?' is-critical':minutes>=12?' is-warning':'';
+  return '<article class="admin-live-order'+warning+'">'+
+    '<div class="admin-live-order-top"><div><strong>'+h(liveTableLabel(order))+'</strong><small>Заказ #'+h(order.id)+'</small></div><time>'+minutes+' мин</time></div>'+
+    '<div class="admin-live-items">'+(preview||'<span>Состав недоступен</span>')+extra+'</div>'+
+    (order.comment?'<p>'+h(order.comment)+'</p>':'')+
+    '<div class="admin-live-order-foot"><span>'+h(orderStatusLabels[status]||status)+'</span><b>'+h(money(order.total))+'</b></div>'+
+  '</article>';
+}
+function renderLiveLane(hostId,countId,orders,emptyText){
+  const host=document.getElementById(hostId),count=document.getElementById(countId);
+  if(!host||!count)return;
+  count.textContent=orders.length;
+  host.innerHTML=orders.length?orders.slice(0,6).map(liveOrderCard).join(''):'<div class="admin-live-empty">'+h(emptyText)+'</div>';
+}
+function liveTableStatus(orders){
+  if(orders.some(order=>order.status==='ready'))return ['Готово','ready'];
+  if(orders.some(order=>order.status==='preparing'))return ['Готовится','cooking'];
+  if(orders.some(order=>order.status==='accepted'))return ['Принят','accepted'];
+  if(orders.some(order=>order.status==='submitted'))return ['Новый заказ','new'];
+  return ['Ожидает заказ','idle'];
+}
+function renderLiveOperations(){
+  if(!state)return;
+  const a=state.analytics||{},orders=orderState?.orders||[];
+  const active=orders.filter(order=>activeOrderStatuses.has(String(order.status||'')));
+  const submitted=active.filter(order=>order.status==='submitted').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  const kitchen=active.filter(order=>order.status==='accepted'||order.status==='preparing').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  const ready=active.filter(order=>order.status==='ready').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  const openTables=(state.tables||[]).filter(table=>table.openSession);
+  const disabled=(state.tables||[]).filter(table=>!table.is_active);
+  const overdue=active.filter(order=>elapsedMinutes(order)>=20);
+  const requests=Number(a.openRequests||0);
+
+  const headline=document.getElementById('nowHeadline'),subline=document.getElementById('nowSubline');
+  if(headline)headline.textContent=orderState?(active.length+' '+(active.length===1?'заказ':'заказов')+' в работе · '+ready.length+' готово к выдаче'):'Загружаем текущие заказы…';
+  if(subline)subline.textContent=openTables.length+' открытых столов · '+requests+' запросов гостей';
+
+  renderLiveLane('liveNewOrders','liveNewCount',submitted,'Новых заказов нет');
+  renderLiveLane('liveKitchenOrders','liveKitchenCount',kitchen,'Кухня свободна');
+  renderLiveLane('liveReadyOrders','liveReadyCount',ready,'На выдаче пусто');
+
+  const issues=[];
+  if(requests>0)issues.push({tone:'warning',icon:'🔔',title:'Запросы гостей',copy:requests+' открытых запросов в зале',href:'/staff',action:'Открыть зал'});
+  if(overdue.length)issues.push({tone:'danger',icon:'⏱',title:'Долгое ожидание',copy:overdue.length+' заказов ждут 20 минут или дольше',jump:'orders',action:'Проверить'});
+  if(disabled.length)issues.push({tone:'muted',icon:'QR',title:'QR выключены',copy:disabled.length+' столов сейчас без активного QR',jump:'tables',action:'Столы'});
+  if(submitted.length>=3)issues.push({tone:'warning',icon:'!',title:'Очередь новых заказов',copy:submitted.length+' заказов ещё не приняты',jump:'orders',action:'Заказы'});
+  const attention=document.getElementById('attentionList'),attentionCount=document.getElementById('attentionCount');
+  if(attentionCount)attentionCount.textContent=issues.length;
+  if(attention){
+    attention.innerHTML=issues.length?issues.map(issue=>
+      '<article class="admin-attention-item '+issue.tone+'"><span class="admin-attention-icon">'+h(issue.icon)+'</span><div><b>'+h(issue.title)+'</b><small>'+h(issue.copy)+'</small></div>'+
+      (issue.href?'<a href="'+h(issue.href)+'" target="_blank">'+h(issue.action)+'</a>':'<button type="button" data-live-jump="'+h(issue.jump)+'">'+h(issue.action)+'</button>')+'</article>'
+    ).join(''):'<div class="admin-all-clear"><span>✓</span><div><b>Всё спокойно</b><small>Срочных проблем сейчас нет.</small></div></div>';
+  }
+
+  const tableOrders=new Map();
+  for(const order of active){
+    const tableId=order.table?.id;
+    if(!tableId)continue;
+    if(!tableOrders.has(tableId))tableOrders.set(tableId,[]);
+    tableOrders.get(tableId).push(order);
+  }
+  const liveTables=document.getElementById('liveTables');
+  if(liveTables){
+    liveTables.innerHTML=openTables.length?openTables.map(table=>{
+      const related=tableOrders.get(table.id)||[],status=liveTableStatus(related);
+      const total=related.reduce((sum,order)=>sum+Number(order.total||0),0);
+      const label=table.label||('Стол '+table.table_number);
+      return '<article class="admin-open-table '+status[1]+'"><div class="admin-open-table-head"><div><span>№ '+h(table.table_number)+'</span><strong>'+h(label)+'</strong></div><i>'+h(status[0])+'</i></div>'+
+        '<div class="admin-open-table-meta"><span>'+related.length+' активных заказов</span><b>'+h(money(total))+'</b></div></article>';
+    }).join(''):'<div class="admin-live-empty admin-live-empty-wide">Сейчас нет открытых столов</div>';
+  }
+}
+
 function renderOperational(a){
-  const tables=state.tables||[];
-  const disabled=tables.filter(t=>!t.is_active).length;
-  document.getElementById('opsRequests').textContent=Number(a.openRequests||0);
-  document.getElementById('opsDisabled').textContent=disabled;
+  renderLiveOperations();
 }
 
 function renderRanking(){
@@ -629,6 +773,7 @@ function renderOrders(){
   document.getElementById('ordersResultTitle').textContent=orderQuery?'Результаты поиска':titles[orderFilter]||'Все заказы';
   document.getElementById('ordersResultMeta').textContent='Показано '+visible.length+' из '+orders.length;
   document.getElementById('ordersList').innerHTML=visible.length?visible.map(orderCard).join(''):'<div class="admin-empty admin-empty-wide">Заказов по этому фильтру нет</div>';
+  renderLiveOperations();
 }
 async function loadOrders(silent=true,force=false){
   if(orderLoading||(!force&&orderState))return;
@@ -805,7 +950,7 @@ function switchSection(section,updateHash=true){
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
   const copies={
-    overview:['Sushi Crazy','Обзор','Ключевые показатели и состояние ресторана.'],
+    overview:['Sushi Crazy','Обзор','Заказы, столы и проблемы ресторана — всё на одном экране.'],
     orders:['Операции','Заказы','История, статусы, состав и способы оплаты.'],
     reports:['Аналитика','Отчёты','30-дневная динамика, оплата и эффективность столов.'],
     tables:['Управление','Столы и QR','QR-коды, статусы и активность столов.'],
@@ -815,7 +960,7 @@ function switchSection(section,updateHash=true){
   document.getElementById('pageEyebrow').textContent=copy[0];
   document.getElementById('pageTitle').textContent=copy[1];
   document.getElementById('pageSubtitle').textContent=copy[2];
-  if(section==='orders')loadOrders(true);
+  if(section==='orders'||section==='overview')loadOrders(true);
   if(section==='menu')loadMenu(true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
@@ -828,7 +973,7 @@ async function refresh(silent=true){
   try{
     state=await api('dashboard');render();setConnection(true);
     document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
-    if(currentSection==='orders')loadOrders(true,true);
+    if(currentSection==='orders'||currentSection==='overview')loadOrders(true,true);
     if(currentSection==='menu')loadMenu(true,true);
     startPolling();
     if(!silent)notify('Данные обновлены');
@@ -991,6 +1136,7 @@ document.getElementById('orderSearch').addEventListener('input',event=>{orderQue
 document.getElementById('orderFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;orderFilter=btn.dataset.filter;document.querySelectorAll('#orderFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderOrders()});
 document.getElementById('orderPayment').addEventListener('change',event=>{orderPayment=event.target.value;renderOrders()});
 document.getElementById('exportReportsCsv').addEventListener('click',exportReportsCsv);
+document.getElementById('attentionList').addEventListener('click',event=>{const btn=event.target.closest('[data-live-jump]');if(btn)switchSection(btn.dataset.liveJump)});
 document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
 document.getElementById('closeCreateBtn').addEventListener('click',closeCreateTable);
 document.getElementById('cancelCreateBtn').addEventListener('click',closeCreateTable);
