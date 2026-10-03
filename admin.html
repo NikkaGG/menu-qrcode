@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261003-admin-v2">
+<link rel="stylesheet" href="/ops.css?v=20261003-admin-mobile-v1">
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -82,6 +82,18 @@
           <button type="button" class="admin-refresh" id="refreshBtn" aria-label="Обновить данные">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8A7 7 0 0 1 18 6l2 1M17.9 16A7 7 0 0 1 6 18l-2-1"/></svg>
           </button>
+          <details class="admin-mobile-more">
+            <summary aria-label="Дополнительные действия">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+            </summary>
+            <div class="admin-mobile-menu">
+              <div class="admin-mobile-menu-head"><b>Sushi Crazy</b><span>Рабочие экраны</span></div>
+              <a href="/kitchen" target="_blank"><span>Кухня</span><small>↗</small></a>
+              <a href="/staff" target="_blank"><span>Официанты</span><small>↗</small></a>
+              <a href="/" target="_blank"><span>Меню гостя</span><small>↗</small></a>
+              <button type="button" id="mobileLogoutBtn">Выйти</button>
+            </div>
+          </details>
         </div>
       </header>
 
@@ -204,7 +216,10 @@
             <div class="menu-side-title"><b>Категории</b><span>Фильтр и видимость</span></div>
             <div class="menu-category-filter" id="menuCategoryFilter"></div>
             <div class="menu-side-divider"></div>
-            <div class="menu-categories" id="menuCategories"></div>
+            <details class="menu-category-settings">
+              <summary><span>Видимость категорий</span><b>Настроить</b></summary>
+              <div class="menu-categories" id="menuCategories"></div>
+            </details>
           </aside>
           <div class="menu-list-pane">
             <div class="admin-list-heading"><div><b id="menuResultTitle">Все блюда</b><span id="menuResultMeta">Загрузка…</span></div></div>
@@ -1035,6 +1050,7 @@ document.getElementById('dishForm').addEventListener('submit',saveDish);
 document.getElementById('dishForm').addEventListener('input',syncDishPreview);
 document.getElementById('dishForm').addEventListener('change',syncDishPreview);
 document.getElementById('logoutBtn').addEventListener('click',logout);
+document.getElementById('mobileLogoutBtn').addEventListener('click',logout);
 document.getElementById('closeQrBtn').addEventListener('click',closeQr);
 document.getElementById('closeEditBtn').addEventListener('click',closeEdit);
 document.getElementById('cancelEditBtn').addEventListener('click',closeEdit);
