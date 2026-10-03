@@ -904,7 +904,7 @@ body.ops{
   height:42px;
   flex-basis:42px;
   padding:7px;
-  border-radius:15px;
+  border-radius:13px;
 }
 .sidebar-brand b{display:block;font-size:14px}
 .sidebar-brand span{display:block;color:var(--ops-muted);font-size:10px;margin-top:1px}
@@ -1305,15 +1305,15 @@ body.kitchen-workspace{
 
 .ticket-actions{display:flex;align-items:stretch;gap:7px;margin-top:11px}
 .kitchen-primary{
-  flex:1;min-height:50px;border:0;border-radius:15px;background:#1c1c1e;color:#fff;font-size:14px;font-weight:760;
+  flex:1;min-height:50px;border:0;border-radius:13px;background:#1c1c1e;color:#fff;font-size:14px;font-weight:760;
 }
 .kitchen-primary:active{transform:scale(.99)}
 .kitchen-primary:disabled,.kitchen-more:disabled{opacity:.45}
 .kitchen-more{
-  min-width:86px;min-height:50px;border:0;border-radius:15px;padding:8px 10px;background:#f2f2f7;color:#6e6e73;font-size:11px;font-weight:700;
+  min-width:86px;min-height:50px;border:0;border-radius:13px;padding:8px 10px;background:#f2f2f7;color:#6e6e73;font-size:11px;font-weight:700;
 }
 .ready-message{
-  flex:1;min-height:54px;display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:15px;background:#ebf7ed;color:#1f6f2d;
+  flex:1;min-height:54px;display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:13px;background:#ebf7ed;color:#1f6f2d;
 }
 .ready-message>span{width:28px;height:28px;display:grid;place-items:center;flex:0 0 28px;border-radius:50%;background:#34c759;color:#fff;font-weight:800}
 .ready-message b,.ready-message small{display:block}.ready-message b{font-size:12px}.ready-message small{margin-top:1px;color:#4d8055;font-size:9.5px}
@@ -1432,7 +1432,7 @@ body.floor-workspace{
 .attention-card.is-warning::before{background:#ff9f0a}.attention-card.is-critical::before{background:#ff3b30}
 .attention-card.just-arrived{border-color:rgba(0,122,255,.38);box-shadow:0 0 0 2px rgba(0,122,255,.10),0 8px 26px rgba(0,0,0,.05)}
 .attention-main{display:flex;align-items:center;gap:10px;min-width:0}
-.attention-icon{width:44px;height:44px;flex:0 0 44px;object-fit:contain;padding:5px;border-radius:15px;background:#f2f2f7}
+.attention-icon{width:44px;height:44px;flex:0 0 44px;object-fit:contain;padding:5px;border-radius:13px;background:#f2f2f7}
 .attention-copy{min-width:0}
 .attention-table{display:block;color:var(--ops-muted);font-size:10px;font-weight:750}
 .attention-copy h3{margin:1px 0 0;font-size:16px;line-height:1.15;letter-spacing:-.015em}
@@ -1537,7 +1537,7 @@ body.admin-workspace{background:#f2f2f7}
   box-shadow:0 18px 50px rgba(0,0,0,.06)
 }
 .admin-brand{display:flex;align-items:center;gap:10px;padding:2px 4px 14px}
-.admin-brand .ops-emoji-badge{width:43px;height:43px;flex-basis:43px;padding:7px;border-radius:15px}
+.admin-brand .ops-emoji-badge{width:43px;height:43px;flex-basis:43px;padding:7px;border-radius:13px}
 .admin-brand b{display:block;font-size:14px}.admin-brand span{display:block;margin-top:1px;color:var(--ops-muted);font-size:10px}
 .admin-nav{display:grid;gap:4px}
 .admin-nav button,.admin-nav a,.admin-logout{
@@ -1632,7 +1632,7 @@ body.admin-workspace{background:#f2f2f7}
 }
 .table-search{position:relative}.table-search>span{position:absolute;left:12px;top:50%;transform:translateY(-52%);color:#8e8e93;font-size:18px}
 .table-search input{
-  width:100%;min-height:44px;border:1px solid rgba(60,60,67,.12);border-radius:15px;padding:9px 12px 9px 34px;outline:0;background:#fff;color:var(--ops-text)
+  width:100%;min-height:44px;border:1px solid rgba(60,60,67,.12);border-radius:13px;padding:9px 12px 9px 34px;outline:0;background:#fff;color:var(--ops-text)
 }
 .table-search input:focus{box-shadow:var(--ops-focus);border-color:#aaa}
 .admin-table-filters{width:100%;margin:0}
@@ -1640,7 +1640,7 @@ body.admin-workspace{background:#f2f2f7}
 .admin-table-filters button span{
   min-width:19px;padding:2px 5px;border-radius:999px;background:rgba(118,118,128,.11);font-size:9px;font-weight:750;font-variant-numeric:tabular-nums
 }
-.create-table-btn{min-height:44px;border:0;border-radius:15px;padding:9px 14px;background:#1c1c1e;color:#fff;font-weight:750;white-space:nowrap}
+.create-table-btn{min-height:44px;border:0;border-radius:13px;padding:9px 14px;background:#1c1c1e;color:#fff;font-weight:750;white-space:nowrap}
 .tables-context{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;padding:0 2px}
 .tables-context b,.tables-context span{display:block}.tables-context b{font-size:13px}.tables-context span{margin-top:1px;color:var(--ops-muted);font-size:9px}
 .tables-context p{max-width:430px;margin:0;color:var(--ops-muted);font-size:9px;text-align:right}
@@ -1766,7 +1766,7 @@ body.admin-workspace{background:#f2f2f7}
 /* ── TASK 8: LOCAL QR RELIABILITY ── */
 .qr-health{
   display:flex;align-items:center;gap:10px;margin:16px 0 10px;padding:10px 11px;
-  border:1px solid rgba(52,199,89,.18);border-radius:15px;background:#f0f9f1;color:#1f6f2d
+  border:1px solid rgba(52,199,89,.18);border-radius:13px;background:#f0f9f1;color:#1f6f2d
 }
 .qr-health-dot{width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#34c759;box-shadow:0 0 0 3px rgba(52,199,89,.12)}
 .qr-health b,.qr-health small{display:block}.qr-health b{font-size:11px}.qr-health small{margin-top:1px;color:#54815b;font-size:9.5px}
@@ -1794,7 +1794,7 @@ body.admin-workspace{background:#f2f2f7}
 .menu-categories-panel{padding:14px;border:1px solid rgba(60,60,67,.10);border-radius:19px;background:#fff;margin-bottom:10px}
 .menu-panel-head h2{margin:1px 0 0;font-size:16px;letter-spacing:-.02em}.menu-panel-head p{margin:3px 0 10px;color:var(--ops-muted);font-size:10px}
 .menu-categories{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
-.menu-category-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:15px;background:#f7f7f8}
+.menu-category-card{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:13px;background:#f7f7f8}
 .menu-category-card.is-hidden{opacity:.62}.menu-category-card b,.menu-category-card span{display:block}.menu-category-card b{font-size:11px}.menu-category-card>div>span{margin-top:1px;color:var(--ops-muted);font-size:9px}
 .menu-category-card .switch-control{border:0;background:transparent;min-height:32px;padding:2px;font-size:9px}
 
@@ -1827,7 +1827,7 @@ body.admin-workspace{background:#f2f2f7}
 .dish-form-switches{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .dish-form-switches label{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:12px;background:#f7f7f8}
 .dish-form-switches input{width:18px;height:18px;accent-color:#1c1c1e}.dish-form-switches b,.dish-form-switches small{display:block}.dish-form-switches b{font-size:10px}.dish-form-switches small{margin-top:1px;color:var(--ops-muted);font-size:8.5px}
-.dish-preview{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid rgba(60,60,67,.09);border-radius:15px;background:#fafafa}
+.dish-preview{display:flex;align-items:center;gap:10px;padding:9px;border:1px solid rgba(60,60,67,.09);border-radius:13px;background:#fafafa}
 .dish-preview img{width:54px;height:54px;border-radius:10px;object-fit:cover;background:#f2f2f7}.dish-preview b,.dish-preview span{display:block}.dish-preview b{font-size:11px}.dish-preview span{margin-top:2px;color:var(--ops-muted);font-size:9px}
 
 @media(max-width:1000px){.menu-categories{grid-template-columns:repeat(2,minmax(0,1fr))}.menu-admin-toolbar{grid-template-columns:1fr 1fr}.menu-admin-filters{grid-column:1/-1;grid-row:2}.menu-admin-toolbar>.create-table-btn{grid-column:2;grid-row:1}}
@@ -1842,7 +1842,7 @@ body.admin-workspace{background:#f2f2f7}
 .orders-filters button{display:flex;align-items:center;justify-content:center;gap:5px;min-width:0}
 .orders-filters button span{min-width:19px;padding:2px 5px;border-radius:999px;background:rgba(118,118,128,.11);font-size:9px;font-weight:750;font-variant-numeric:tabular-nums}
 .orders-payment-filter{display:grid;gap:4px;color:var(--ops-muted);font-size:9px;font-weight:750}
-.orders-payment-filter select{width:100%;min-height:44px;border:1px solid rgba(60,60,67,.12);border-radius:15px;padding:9px 11px;background:#fff;color:var(--ops-text);font-weight:650;outline:0}
+.orders-payment-filter select{width:100%;min-height:44px;border:1px solid rgba(60,60,67,.12);border-radius:13px;padding:9px 11px;background:#fff;color:var(--ops-text);font-weight:650;outline:0}
 .orders-payment-filter select:focus{box-shadow:var(--ops-focus);border-color:#aaa}
 .orders-context{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;padding:0 2px}
 .orders-context b,.orders-context span{display:block}.orders-context b{font-size:13px}.orders-context span{margin-top:1px;color:var(--ops-muted);font-size:9px}
@@ -1949,7 +1949,7 @@ body.admin-workspace{background:#f2f2f7}
 .admin-live-cards{display:grid;gap:6px}
 
 .admin-live-order{
-  position:relative;min-width:0;padding:10px;border:1px solid rgba(60,60,67,.09);border-radius:15px;background:#fff;
+  position:relative;min-width:0;padding:10px;border:1px solid rgba(60,60,67,.09);border-radius:13px;background:#fff;
   box-shadow:0 3px 12px rgba(0,0,0,.025);overflow:hidden
 }
 .admin-live-order::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:transparent}
@@ -1985,7 +1985,7 @@ body.admin-workspace{background:#f2f2f7}
 .admin-attention-list{display:grid;gap:7px}
 .admin-attention-item{
   min-width:0;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:8px;padding:9px;
-  border:1px solid rgba(60,60,67,.08);border-radius:15px;background:#f8f8fa
+  border:1px solid rgba(60,60,67,.08);border-radius:13px;background:#f8f8fa
 }
 .admin-attention-item.warning{background:#fffaf0;border-color:rgba(255,159,10,.16)}
 .admin-attention-item.danger{background:#fff4f4;border-color:rgba(255,59,48,.15)}
@@ -2094,7 +2094,7 @@ body.admin-workspace{
 .admin-nav-divider{display:none}
 .admin-nav button,.admin-nav a,.admin-logout{
   width:100%;min-height:40px;display:flex;align-items:center;gap:10px;padding:8px 10px;
-  border:0;border-radius:10px;background:transparent;color:#454548;text-decoration:none;text-align:left;
+  border:0;border-radius:8px;background:transparent;color:#454548;text-decoration:none;text-align:left;
   font-size:14px;font-weight:560;box-shadow:none
 }
 .admin-nav button:hover,.admin-nav a:hover,.admin-logout:hover{background:var(--admin-hover)}
@@ -2111,7 +2111,7 @@ body.admin-workspace{
 .admin-sidebar-bottom{margin-top:auto;padding-top:16px}
 .admin-workspaces{position:relative;margin-bottom:12px}
 .admin-workspaces summary{
-  min-height:40px;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;
+  min-height:40px;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;
   color:#555558;font-size:13px;font-weight:560;cursor:pointer;list-style:none
 }
 .admin-workspaces summary::-webkit-details-marker{display:none}
@@ -2120,11 +2120,11 @@ body.admin-workspace{
 .admin-workspaces summary b{color:#8e8e93;font-size:14px;letter-spacing:1px}
 .admin-workspaces-menu{
   position:absolute;left:4px;right:4px;bottom:44px;z-index:80;padding:6px;border:1px solid var(--admin-border);
-  border-radius:12px;background:#fff;box-shadow:0 12px 34px rgba(0,0,0,.12)
+  border-radius:10px;background:#fff;box-shadow:0 12px 34px rgba(0,0,0,.12)
 }
 .admin-workspaces-menu a{
   min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 9px;
-  border-radius:9px;color:#333336;text-decoration:none;font-size:13px;font-weight:550
+  border-radius:7px;color:#333336;text-decoration:none;font-size:13px;font-weight:550
 }
 .admin-workspaces-menu a:hover{background:var(--admin-soft)}
 .admin-workspaces-menu small{color:#8e8e93;font-size:12px}
@@ -2145,7 +2145,7 @@ body.admin-workspace{
 .admin-header-updated{color:#8e8e93;font-size:12px;white-space:nowrap}
 .admin-top-actions .admin-refresh{
   width:36px;height:36px;min-height:36px;display:grid;place-items:center;padding:0;border:1px solid var(--admin-border);
-  border-radius:10px;background:#fff;color:#555558
+  border-radius:8px;background:#fff;color:#555558
 }
 .admin-refresh svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .admin-top-actions .admin-refresh:hover{background:var(--admin-soft)}
@@ -2159,7 +2159,7 @@ body.admin-workspace{
 .admin-page{animation:none}
 .admin-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 28px}
 .admin-kpi{
-  min-width:0;padding:16px 16px 15px;border:1px solid var(--admin-border);border-radius:14px;background:#fff;box-shadow:none
+  min-width:0;padding:16px 16px 15px;border:1px solid var(--admin-border);border-radius:10px;background:#fff;box-shadow:none
 }
 .admin-kpi-icon{display:none}
 .admin-kpi>span{display:block;padding:0;color:var(--admin-muted);font-size:12px;font-weight:560}
@@ -2167,7 +2167,7 @@ body.admin-workspace{
 .admin-kpi>small{display:block;margin-top:7px;color:#8e8e93;font-size:12px}
 
 .admin-panel{
-  min-width:0;padding:18px;border:1px solid var(--admin-border);border-radius:14px;background:#fff;box-shadow:none
+  min-width:0;padding:18px;border:1px solid var(--admin-border);border-radius:11px;background:#fff;box-shadow:none
 }
 .admin-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
 .admin-panel-head h2{margin:0;font-size:17px;line-height:1.2;letter-spacing:-.015em;font-weight:660}
@@ -2175,7 +2175,7 @@ body.admin-workspace{
 .admin-panel-head>small{color:var(--admin-muted);font-size:12px}
 .panel-eyebrow{display:none}
 .panel-link,.admin-secondary-btn{
-  min-height:34px;border:1px solid var(--admin-border);border-radius:9px;padding:7px 10px;background:#fff;color:#444446;
+  min-height:34px;border:1px solid var(--admin-border);border-radius:7px;padding:7px 10px;background:#fff;color:#444446;
   font-size:12px;font-weight:600
 }
 .panel-link:hover,.admin-secondary-btn:hover{background:var(--admin-soft)}
@@ -2198,7 +2198,7 @@ body.admin-workspace{
 .admin-attention-item b{display:block;font-size:13px;font-weight:620}
 .admin-attention-item small{display:block;margin-top:3px;color:var(--admin-muted);font-size:12px;line-height:1.35}
 .admin-attention-item button,.admin-attention-item a{
-  min-height:32px;border:0;border-radius:9px;padding:6px 8px;background:var(--admin-soft);color:#444446;text-decoration:none;font-size:12px;font-weight:600
+  min-height:32px;border:0;border-radius:7px;padding:6px 8px;background:var(--admin-soft);color:#444446;text-decoration:none;font-size:12px;font-weight:600
 }
 .admin-attention-item button:hover,.admin-attention-item a:hover{background:#e9e9eb}
 .admin-all-clear{min-height:110px;display:flex;align-items:center;justify-content:center;gap:10px;text-align:left}
@@ -2235,15 +2235,15 @@ body.admin-workspace{
 }
 .table-search>span{left:12px;color:#8e8e93;font-size:17px}
 .table-search input{
-  min-height:40px;border:1px solid var(--admin-border-strong);border-radius:10px;padding:8px 11px 8px 34px;background:#fff;font-size:13px
+  min-height:40px;border:1px solid var(--admin-border-strong);border-radius:8px;padding:8px 11px 8px 34px;background:#fff;font-size:13px
 }
 .table-search input:focus{border-color:#999;box-shadow:0 0 0 3px rgba(0,0,0,.05)}
 .segmented-control{
   display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2px;width:100%;margin:0;padding:2px;
-  border:1px solid var(--admin-border);border-radius:10px;background:#f1f1f3;box-shadow:none
+  border:1px solid var(--admin-border);border-radius:8px;background:#f1f1f3;box-shadow:none
 }
 .segmented-control button{
-  min-height:34px;border:0;border-radius:8px;padding:6px 9px;background:transparent;color:#68686b;font-size:12px;font-weight:580
+  min-height:34px;border:0;border-radius:6px;padding:6px 9px;background:transparent;color:#68686b;font-size:12px;font-weight:580
 }
 .segmented-control button[aria-selected="true"]{background:#fff;color:#1d1d1f;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .orders-filters,.admin-table-filters,.menu-admin-filters{grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:unset}
@@ -2251,10 +2251,10 @@ body.admin-workspace{
 .orders-payment-filter{display:grid;gap:5px;color:var(--admin-muted);font-size:11px;font-weight:600}
 .orders-payment-filter>span{display:block}
 .orders-payment-filter select{
-  min-width:120px;min-height:40px;border:1px solid var(--admin-border-strong);border-radius:10px;padding:7px 9px;background:#fff;color:var(--admin-text);font-size:13px
+  min-width:120px;min-height:40px;border:1px solid var(--admin-border-strong);border-radius:8px;padding:7px 9px;background:#fff;color:var(--admin-text);font-size:13px
 }
 .admin-primary-btn,.create-table-btn{
-  min-height:40px;border:0;border-radius:10px;padding:8px 13px;background:#1d1d1f;color:#fff;font-size:13px;font-weight:630;white-space:nowrap
+  min-height:40px;border:0;border-radius:8px;padding:8px 13px;background:#1d1d1f;color:#fff;font-size:13px;font-weight:630;white-space:nowrap
 }
 .admin-primary-btn:hover,.create-table-btn:hover{background:#333336}
 .admin-list-heading{
@@ -2264,7 +2264,7 @@ body.admin-workspace{
 .admin-list-heading span{display:block;margin-top:3px;color:var(--admin-muted);font-size:12px}
 .admin-list-heading p{margin:0;color:#8e8e93;font-size:12px;text-align:right}
 
-.admin-data-table{overflow:hidden;border:1px solid var(--admin-border);border-radius:14px;background:#fff}
+.admin-data-table{overflow:hidden;border:1px solid var(--admin-border);border-radius:10px;background:#fff}
 .admin-data-head,.admin-data-row{
   display:grid;grid-template-columns:90px 130px minmax(120px,1fr) 110px 90px 110px 22px;align-items:center;gap:14px
 }
@@ -2311,7 +2311,7 @@ body.admin-workspace{
 .drawer-order-status{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .drawer-order-status small{color:var(--admin-muted);font-size:12px}
 .drawer-order-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:18px}
-.drawer-order-facts div{padding:11px;border-radius:10px;background:var(--admin-soft)}
+.drawer-order-facts div{padding:11px;border-radius:8px;background:var(--admin-soft)}
 .drawer-order-facts span{display:block;color:var(--admin-muted);font-size:11px}.drawer-order-facts b{display:block;margin-top:4px;font-size:13px}
 .drawer-comment{margin-top:18px;padding:12px;border-left:3px solid #e7b64b;background:#fffaf0}
 .drawer-comment span{color:#8a6200;font-size:11px;font-weight:650}.drawer-comment p{margin:5px 0 0;font-size:13px;line-height:1.45}
@@ -2323,7 +2323,7 @@ body.admin-workspace{
 .tables-toolbar{grid-template-columns:minmax(220px,.85fr) minmax(390px,1.3fr) auto;margin-bottom:20px}
 .admin-tables-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .admin-table-card{
-  position:relative;min-width:0;padding:15px;border:1px solid var(--admin-border);border-radius:14px;background:#fff;box-shadow:none;overflow:visible
+  position:relative;min-width:0;padding:15px;border:1px solid var(--admin-border);border-radius:10px;background:#fff;box-shadow:none;overflow:visible
 }
 .admin-table-card::before{display:none}
 .admin-table-card.is-disabled{background:#fafafa}
@@ -2338,20 +2338,20 @@ body.admin-workspace{
 .admin-table-meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;color:var(--admin-muted);font-size:12px}
 .admin-table-meta span+span::before{content:"·";margin-right:12px;color:#c0c0c3}
 .admin-table-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:15px;padding-top:12px;border-top:1px solid var(--admin-border)}
-.admin-table-qr{min-height:34px;border:1px solid var(--admin-border);border-radius:9px;padding:7px 9px;background:#fff;color:#333336;font-size:12px;font-weight:600}
+.admin-table-qr{min-height:34px;border:1px solid var(--admin-border);border-radius:7px;padding:7px 9px;background:#fff;color:#333336;font-size:12px;font-weight:600}
 .admin-table-qr:hover{background:var(--admin-soft)}
 .admin-table-menu{position:relative}
 .admin-table-menu summary{
-  width:36px;height:34px;display:grid;place-items:center;border-radius:9px;background:var(--admin-soft);color:#555558;
+  width:36px;height:34px;display:grid;place-items:center;border-radius:7px;background:var(--admin-soft);color:#555558;
   cursor:pointer;list-style:none;font-size:14px;font-weight:700;letter-spacing:1px
 }
 .admin-table-menu summary::-webkit-details-marker{display:none}
 .admin-table-menu>div{
   position:absolute;right:0;bottom:40px;z-index:50;width:190px;padding:5px;border:1px solid var(--admin-border);
-  border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.12)
+  border-radius:9px;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.12)
 }
 .admin-table-menu button{
-  width:100%;min-height:36px;border:0;border-radius:8px;padding:7px 8px;background:transparent;color:#333336;text-align:left;font-size:12px;font-weight:560
+  width:100%;min-height:36px;border:0;border-radius:6px;padding:7px 8px;background:transparent;color:#333336;text-align:left;font-size:12px;font-weight:560
 }
 .admin-table-menu button:hover{background:var(--admin-soft)}
 .admin-table-menu button.danger{color:#b4232c}
@@ -2368,13 +2368,13 @@ body.admin-workspace{
 .admin-inline-stats small{display:none}
 .menu-admin-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}
 .menu-category-sidebar{
-  position:sticky;top:112px;padding:14px;border:1px solid var(--admin-border);border-radius:14px;background:#fff
+  position:sticky;top:112px;padding:14px;border:1px solid var(--admin-border);border-radius:10px;background:#fff
 }
 .menu-side-title b,.menu-side-title span{display:block}.menu-side-title b{font-size:13px}.menu-side-title span{margin-top:3px;color:var(--admin-muted);font-size:11px}
 .menu-side-divider{height:1px;margin:13px 0;background:var(--admin-border)}
 .menu-category-filter{display:grid;gap:2px;margin-top:11px;overflow:visible}
 .menu-category-filter button{
-  min-height:34px;width:100%;border:0;border-radius:9px;padding:7px 9px;background:transparent;color:#555558;text-align:left;font-size:12px;font-weight:560
+  min-height:34px;width:100%;border:0;border-radius:7px;padding:7px 9px;background:transparent;color:#555558;text-align:left;font-size:12px;font-weight:560
 }
 .menu-category-filter button:hover{background:var(--admin-soft)}.menu-category-filter button.on{background:#e9e9eb;color:#1d1d1f;font-weight:630}
 .menu-categories{display:grid;grid-template-columns:1fr;gap:4px}
@@ -2387,14 +2387,14 @@ body.admin-workspace{
 .menu-category-card .switch-control>span:last-child{display:none}
 .switch-track{width:32px;height:18px;flex-basis:32px}.switch-track i{width:14px;height:14px}.switch-control.on .switch-track i{transform:translateX(14px)}
 .menu-list-pane{min-width:0}
-.menu-dishes-grid{display:grid;grid-template-columns:1fr;gap:0;border:1px solid var(--admin-border);border-radius:14px;background:#fff;overflow:hidden}
+.menu-dishes-grid{display:grid;grid-template-columns:1fr;gap:0;border:1px solid var(--admin-border);border-radius:10px;background:#fff;overflow:hidden}
 .menu-dish-card{
   min-width:0;display:grid;grid-template-columns:48px minmax(180px,1fr) 100px 110px 145px;grid-template-rows:auto;
   align-items:center;gap:12px;padding:10px 12px;border:0;border-bottom:1px solid var(--admin-border);border-radius:0;background:#fff;box-shadow:none
 }
 .menu-dish-card:last-child{border-bottom:0}
 .menu-dish-card.is-stop{background:#fafafa;opacity:.68}.menu-dish-card.is-category-hidden{border-style:solid}
-.menu-dish-image{width:44px;height:44px;grid-row:auto;border-radius:10px}
+.menu-dish-image{width:44px;height:44px;grid-row:auto;border-radius:8px}
 .menu-dish-image.missing::after{font-size:9px}
 .menu-dish-body h3{margin:0;font-size:13px;font-weight:620}.menu-dish-body p{display:block;margin:4px 0 0;color:var(--admin-muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .menu-dish-price{margin:0;font-size:13px;font-weight:650;text-align:right}
@@ -2413,7 +2413,7 @@ body.admin-workspace{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px
 }
 .menu-admin-summary:not(.admin-inline-stats) article{
-  padding:15px;border:1px solid var(--admin-border);border-radius:14px;background:#fff;box-shadow:none
+  padding:15px;border:1px solid var(--admin-border);border-radius:10px;background:#fff;box-shadow:none
 }
 .menu-admin-summary:not(.admin-inline-stats) span{font-size:11px}.menu-admin-summary:not(.admin-inline-stats) strong{font-size:22px}
 .menu-admin-summary:not(.admin-inline-stats) small{font-size:11px}
@@ -2432,12 +2432,12 @@ body.admin-workspace{
 
 .admin-workspace .modal{background:rgba(0,0,0,.28);backdrop-filter:none;-webkit-backdrop-filter:none}
 .admin-workspace .modal-card{
-  border:1px solid var(--admin-border);border-radius:16px;box-shadow:0 20px 70px rgba(0,0,0,.16)
+  border:1px solid var(--admin-border);border-radius:12px;box-shadow:0 20px 70px rgba(0,0,0,.16)
 }
-.admin-workspace .x{border-radius:10px;background:var(--admin-soft)}
+.admin-workspace .x{border-radius:8px;background:var(--admin-soft)}
 .admin-workspace .sheet-form label,.admin-workspace .dish-field{font-size:12px}
-.admin-workspace .sheet-form input,.admin-workspace .dish-field input,.admin-workspace .dish-field select,.admin-workspace .dish-field textarea{border-radius:10px}
-.admin-workspace .sheet-actions button{border-radius:10px}
+.admin-workspace .sheet-form input,.admin-workspace .dish-field input,.admin-workspace .dish-field select,.admin-workspace .dish-field textarea{border-radius:8px}
+.admin-workspace .sheet-actions button{border-radius:8px}
 
 .admin-workspace.login,.admin-workspace .login{backdrop-filter:none;-webkit-backdrop-filter:none}
 body.admin-workspace>.login{
@@ -2599,7 +2599,7 @@ body.admin-workspace>.login{
   .admin-mobile-menu-head b{font-size:13px}.admin-mobile-menu-head span{margin-top:2px;color:var(--admin-muted);font-size:11px}
   .admin-mobile-menu a,.admin-mobile-menu button{
     width:100%;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:10px;
-    padding:10px 9px;border:0;border-radius:10px;background:transparent;color:#333336;text-decoration:none;
+    padding:10px 9px;border:0;border-radius:8px;background:transparent;color:#333336;text-decoration:none;
     font-size:13px;font-weight:580;text-align:left
   }
   .admin-mobile-menu a:hover,.admin-mobile-menu button:hover{background:var(--admin-soft)}
@@ -2686,7 +2686,7 @@ body.admin-workspace>.login{
     min-height:0!important;display:grid!important;
     grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto auto!important;
     gap:7px 10px!important;padding:12px 13px!important;border:1px solid var(--admin-border)!important;
-    border-radius:12px;background:#fff!important
+    border-radius:10px;background:#fff!important
   }
   .admin-data-row:last-child{border-bottom:1px solid var(--admin-border)!important}
   .admin-data-row>strong{grid-column:1;grid-row:1;font-size:14px}
@@ -2793,7 +2793,7 @@ body.admin-workspace>.login{
   .order-drawer-panel{
     top:auto!important;bottom:0;left:0;right:0;width:100%!important;height:auto!important;max-height:86dvh;
     padding:18px 16px calc(18px + env(safe-area-inset-bottom))!important;
-    border:0!important;border-top:1px solid var(--admin-border)!important;border-radius:22px 22px 0 0;
+    border:0!important;border-top:1px solid var(--admin-border)!important;border-radius:18px 18px 0 0;
     box-shadow:0 -16px 46px rgba(0,0,0,.13)
   }
   .order-drawer-head{position:sticky;top:-18px;z-index:2;padding:0 0 14px;background:#fff}
@@ -2806,7 +2806,7 @@ body.admin-workspace>.login{
   .admin-workspace .action-sheet .modal-card{
     width:100%!important;max-width:none!important;max-height:88dvh;overflow:auto;
     margin:0!important;padding-bottom:calc(18px + env(safe-area-inset-bottom))!important;
-    border-width:1px 0 0!important;border-radius:22px 22px 0 0!important
+    border-width:1px 0 0!important;border-radius:18px 18px 0 0!important
   }
   .admin-workspace .sheet-actions{position:sticky;bottom:0;padding-top:10px;background:#fff}
   .admin-workspace .sheet-actions button{min-height:44px}
@@ -2815,7 +2815,7 @@ body.admin-workspace>.login{
 
   /* Login */
   body.admin-workspace>.login{
-    width:calc(100% - 28px)!important;max-width:390px;margin:10vh auto 0!important;padding:22px!important;border-radius:15px
+    width:calc(100% - 28px)!important;max-width:390px;margin:10vh auto 0!important;padding:22px!important;border-radius:13px
   }
   body.admin-workspace>.login input,body.admin-workspace>.login button{min-height:46px}
 }
@@ -2911,4 +2911,78 @@ body.admin-workspace>.login{
     position:sticky;bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;
     box-shadow:0 8px 24px rgba(0,0,0,.12)
   }
+}
+
+
+/* ── ADMIN SOFTER CORNERS ── */
+/* Slightly softer geometry, scoped to Admin only. Status pills remain unchanged. */
+.admin-workspace .admin-brand-mark{border-radius:10px}
+.admin-workspace .admin-nav button,
+.admin-workspace .admin-nav a,
+.admin-workspace .admin-logout,
+.admin-workspace .admin-workspaces summary{border-radius:10px}
+.admin-workspace .admin-workspaces-menu{border-radius:12px}
+.admin-workspace .admin-workspaces-menu a{border-radius:9px}
+
+.admin-workspace .admin-refresh,
+.admin-workspace .panel-link,
+.admin-workspace .admin-secondary-btn,
+.admin-workspace .admin-primary-btn,
+.admin-workspace .create-table-btn{border-radius:10px}
+
+.admin-workspace .admin-kpi,
+.admin-workspace .admin-panel,
+.admin-workspace .admin-data-table,
+.admin-workspace .admin-table-card,
+.admin-workspace .menu-category-sidebar,
+.admin-workspace .menu-dishes-grid,
+.admin-workspace .menu-admin-summary:not(.admin-inline-stats) article{border-radius:14px}
+
+.admin-workspace .table-search input,
+.admin-workspace .orders-payment-filter select,
+.admin-workspace .segmented-control{border-radius:10px}
+.admin-workspace .segmented-control button{border-radius:8px}
+
+.admin-workspace .admin-attention-item button,
+.admin-workspace .admin-attention-item a,
+.admin-workspace .admin-table-qr,
+.admin-workspace .admin-table-menu summary,
+.admin-workspace .menu-category-filter button,
+.admin-workspace .menu-dish-actions button{border-radius:9px}
+.admin-workspace .admin-table-menu>div{border-radius:12px}
+.admin-workspace .admin-table-menu button{border-radius:8px}
+
+.admin-workspace .order-drawer-panel{border-radius:16px 0 0 16px}
+.admin-workspace .order-drawer-head .x,
+.admin-workspace .x{border-radius:10px}
+.admin-workspace .modal-card{border-radius:16px}
+.admin-workspace .sheet-form input,
+.admin-workspace .dish-field input,
+.admin-workspace .dish-field select,
+.admin-workspace .dish-field textarea,
+.admin-workspace .sheet-actions button{border-radius:10px}
+
+@media(max-width:760px){
+  .admin-workspace .admin-nav button{border-radius:11px!important}
+  .admin-workspace .admin-top-actions .admin-refresh,
+  .admin-workspace .admin-mobile-more>summary{border-radius:11px}
+  .admin-workspace .admin-mobile-menu{border-radius:14px}
+  .admin-workspace .admin-mobile-menu a{border-radius:10px}
+  .admin-workspace .admin-kpi,
+  .admin-workspace .admin-panel,
+  .admin-workspace .admin-table-card,
+  .admin-workspace .admin-data-row,
+  .admin-workspace .menu-dishes-grid,
+  .admin-workspace .admin-inline-stats article{border-radius:12px!important}
+  .admin-workspace .table-search input,
+  .admin-workspace .segmented-control button,
+  .admin-workspace .menu-category-filter button,
+  .admin-workspace .menu-category-settings>summary,
+  .admin-workspace .admin-primary-btn,
+  .admin-workspace .admin-table-qr{border-radius:11px!important}
+  .admin-workspace .admin-table-menu summary,
+  .admin-workspace .menu-dish-actions button{border-radius:10px!important}
+  .admin-workspace .order-drawer-panel,
+  .admin-workspace .action-sheet .modal-card{border-radius:22px 22px 0 0!important}
+  body.admin-workspace>.login{border-radius:16px}
 }
