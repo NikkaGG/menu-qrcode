@@ -551,20 +551,22 @@ function tableMatches(table){
 function tableCard(table){
   const label=table.label||('Стол '+table.table_number),active=!!table.is_active,open=!!table.openSession,busy=busyTables.has(table.id);
   const lock=busy||open;
+  const related=(orderState?.orders||[]).filter(order=>String(order.table?.id||'')===String(table.id)&&activeOrderStatuses.has(String(order.status||'')));
+  const ready=related.filter(order=>order.status==='ready').length;
+  const status=open?(ready?'Есть готовый заказ':'Открыт'):'Свободен';
   return '<article class="admin-table-card '+(open?'is-open ':'')+(!active?'is-disabled':'')+'">'+
-    '<div class="admin-table-top"><div><span class="admin-table-number">№ '+h(table.table_number)+'</span><h3>'+h(label)+'</h3></div>'+
-    '<div class="admin-table-badges">'+(open?'<span class="admin-badge open">Стол открыт</span>':'')+'<span class="admin-badge '+(active?'active':'off')+'">'+(active?'QR активен':'QR выключен')+'</span></div></div>'+
-    '<div class="admin-table-stats"><div><span>Заказы · 30 дней</span><b>'+Number(table.orders30||0)+'</b></div><div><span>Сумма · 30 дней</span><b>'+money(table.revenue30)+'</b></div></div>'+
-    '<div class="admin-table-actions">'+
-      '<button class="primary" type="button" data-action="qr" data-id="'+h(table.id)+'">Показать QR</button>'+
-      '<button type="button" data-action="rename" data-id="'+h(table.id)+'">Изменить</button>'+
-      '<button class="switch-control '+(active?'on':'')+'" type="button" data-action="toggle" data-id="'+h(table.id)+'" data-active="'+(!active)+'" aria-pressed="'+active+'" '+(lock?'disabled':'')+'><span class="switch-track" aria-hidden="true"><i></i></span><span>'+(active?'QR вкл':'QR выкл')+'</span></button>'+
-      '<button class="danger" type="button" data-action="rotate" data-id="'+h(table.id)+'" '+(lock?'disabled':'')+'>Новый QR</button>'+
-    '</div>'+
-    (open?'<p class="admin-table-note">Чтобы отключить или перевыпустить QR, сначала закройте стол в панели зала.</p>':'')+
+    '<div class="admin-table-top"><div><span class="admin-table-number">Стол '+h(table.table_number)+'</span><h3>'+h(label)+'</h3></div>'+
+    '<span class="admin-table-state '+(ready?'ready':open?'open':'')+'">'+h(status)+'</span></div>'+
+    '<div class="admin-table-meta"><span>'+related.length+' активных заказов</span><span>'+(active?'QR активен':'QR выключен')+'</span></div>'+
+    '<div class="admin-table-footer"><button class="admin-table-qr" type="button" data-action="qr" data-id="'+h(table.id)+'">QR-код</button>'+
+    '<details class="admin-table-menu"><summary aria-label="Действия со столом">•••</summary><div>'+
+      '<button type="button" data-action="rename" data-id="'+h(table.id)+'">Изменить стол</button>'+
+      '<button type="button" data-action="toggle" data-id="'+h(table.id)+'" data-active="'+(!active)+'" '+(lock?'disabled':'')+'>'+(active?'Выключить QR':'Включить QR')+'</button>'+
+      '<button class="danger" type="button" data-action="rotate" data-id="'+h(table.id)+'" '+(lock?'disabled':'')+'>Перевыпустить QR</button>'+
+    '</div></details></div>'+
+    (open&&lock?'<p class="admin-table-note">QR нельзя менять, пока стол открыт.</p>':'')+
   '</article>';
 }
-
 function renderTables(){
   const all=state.tables||[];
   const visible=all.filter(tableMatches);
