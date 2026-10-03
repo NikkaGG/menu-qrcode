@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261003-admin-soft-v1">
+<link rel="stylesheet" href="/ops.css?v=20261003-admin-audit-v1">
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -188,7 +188,7 @@
             <button type="button" data-filter="active" aria-selected="false">QR вкл <span id="countActive">0</span></button>
             <button type="button" data-filter="off" aria-selected="false">QR выкл <span id="countOff">0</span></button>
           </div>
-          <button type="button" class="admin-primary-btn" id="openCreateTableBtn">Создать стол</button>
+          <button type="button" class="admin-primary-btn" id="openCreateTableBtn">+ Создать стол</button>
         </div>
         <div class="admin-list-heading"><div><b id="tablesResultTitle">Все столы</b><span id="tablesResultMeta">—</span></div><p>Настройки QR спрятаны в меню конкретного стола.</p></div>
         <section class="admin-tables-grid" id="tables"></section>
@@ -201,7 +201,7 @@
             <button type="button" data-filter="all" aria-selected="true">Все</button><button type="button" data-filter="available" aria-selected="false">В меню</button>
             <button type="button" data-filter="stop" aria-selected="false">Стоп <span id="filterStopCount">0</span></button><button type="button" data-filter="popular" aria-selected="false">Популярные</button>
           </div>
-          <button type="button" class="admin-primary-btn" id="openCreateDishBtn">Добавить блюдо</button>
+          <button type="button" class="admin-primary-btn" id="openCreateDishBtn">+ Добавить блюдо</button>
         </div>
 
         <div class="menu-admin-summary admin-inline-stats">
@@ -423,8 +423,8 @@ function setConnection(ok,message=''){
 
 function renderStats(a){
   const cards=[
-    ['Заказы сегодня',a.orders24,'оформлено за 24 часа'],
-    ['Сумма заказов',money(a.revenue24),'за последние 24 часа'],
+    ['Заказы за 24 часа',a.orders24,'оформлено за последние сутки'],
+    ['Сумма за 24 часа',money(a.revenue24),'по оформленным заказам'],
     ['Средний чек',money(a.averageCheck7),'за последние 7 дней'],
     ['Открытые столы',a.openTables+' / '+a.activeTables,'открыто / QR активно']
   ];
@@ -671,6 +671,7 @@ function renderOrders(){
   document.getElementById('ordersResultTitle').textContent=orderQuery?'Результаты поиска':titles[orderFilter]||'Все заказы';
   document.getElementById('ordersResultMeta').textContent='Показано '+visible.length+' из '+orders.length;
   document.getElementById('ordersList').innerHTML=visible.length?visible.map(orderCard).join(''):'<div class="admin-empty admin-empty-wide">Заказов по этому фильтру нет</div>';
+  if(currentSection==='tables')renderTables();
   renderLiveOperations();
 }
 async function loadOrders(silent=true,force=false){
@@ -851,7 +852,7 @@ function switchSection(section,updateHash=true){
   document.getElementById('pageTitle').textContent=copy[1];
   document.getElementById('pageSubtitle').textContent=copy[2];
   if(section==='orders'||section==='overview'||section==='tables')loadOrders(true);
-  if(section==='menu')loadMenu(true);
+  if(section==='menu'||section==='overview')loadMenu(true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
   document.querySelector('.admin-content')?.scrollTo({top:0,behavior:'auto'});
@@ -865,7 +866,7 @@ async function refresh(silent=true){
     state=await api('dashboard');render();setConnection(true);
     document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
     if(currentSection==='orders'||currentSection==='overview'||currentSection==='tables')loadOrders(true,true);
-    if(currentSection==='menu')loadMenu(true,true);
+    if(currentSection==='menu'||currentSection==='overview')loadMenu(true,true);
     startPolling();
     if(!silent)notify('Данные обновлены');
   }catch(error){
