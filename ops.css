@@ -2861,7 +2861,8 @@ body.admin-workspace>.login{
   }
   .admin-workspace .action-sheet .sheet-form,
   .admin-workspace .action-sheet .dish-form{
-    min-height:0;display:flex;flex-direction:column;overflow:hidden
+    min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
+    -webkit-overflow-scrolling:touch
   }
   .admin-workspace .action-sheet .dish-form-grid,
   .admin-workspace .action-sheet .dish-form-switches,
@@ -2877,7 +2878,8 @@ body.admin-workspace>.login{
     padding-bottom:0
   }
   .admin-workspace .action-sheet .sheet-actions{
-    z-index:6;flex:0 0 auto;margin-top:12px;padding:10px 0 0;
+    position:sticky!important;bottom:0;z-index:6;flex:0 0 auto;margin-top:12px;
+    padding:10px 0 max(2px,env(safe-area-inset-bottom));
     border-top:1px solid var(--admin-border);background:#fff
   }
 
