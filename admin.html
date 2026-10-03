@@ -732,7 +732,7 @@ async function loadMenu(silent=true,force=false){
   if(menuLoading||(!force&&menuState))return;
   menuLoading=true;
   try{
-    menuState=await api('menu');renderMenu();
+    menuState=await api('menu');renderMenu();renderLiveOperations();
     if(!silent)notify('Меню обновлено');
   }catch(error){
     if(!silent)notify(error.message||'Не удалось загрузить меню');
@@ -825,17 +825,17 @@ function switchSection(section,updateHash=true){
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
   const copies={
-    overview:['Sushi Crazy','Обзор','Заказы, столы и проблемы ресторана — всё на одном экране.'],
-    orders:['Операции','Заказы','История, статусы, состав и способы оплаты.'],
-    reports:['Аналитика','Отчёты','30-дневная динамика, оплата и эффективность столов.'],
-    tables:['Управление','Столы и QR','QR-коды, статусы и активность столов.'],
-    menu:['Управление','Меню','Блюда, категории и быстрый стоп-лист.']
+    overview:['Sushi Crazy','Главное','Короткая сводка по ресторану.'],
+    orders:['Операции','Заказы','Все заказы и их текущие статусы.'],
+    reports:['Аналитика','Статистика','Продажи и показатели за последние 30 дней.'],
+    tables:['Управление','Столы','Статусы столов и настройки QR-кодов.'],
+    menu:['Управление','Меню','Блюда, категории и стоп-лист.']
   };
   const copy=copies[section];
   document.getElementById('pageEyebrow').textContent=copy[0];
   document.getElementById('pageTitle').textContent=copy[1];
   document.getElementById('pageSubtitle').textContent=copy[2];
-  if(section==='orders'||section==='overview')loadOrders(true);
+  if(section==='orders'||section==='overview'||section==='tables')loadOrders(true);
   if(section==='menu')loadMenu(true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
@@ -848,7 +848,7 @@ async function refresh(silent=true){
   try{
     state=await api('dashboard');render();setConnection(true);
     document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
-    if(currentSection==='orders'||currentSection==='overview')loadOrders(true,true);
+    if(currentSection==='orders'||currentSection==='overview'||currentSection==='tables')loadOrders(true,true);
     if(currentSection==='menu')loadMenu(true,true);
     startPolling();
     if(!silent)notify('Данные обновлены');
@@ -1010,6 +1010,10 @@ document.getElementById('refreshBtn').addEventListener('click',()=>currentSectio
 document.getElementById('orderSearch').addEventListener('input',event=>{orderQuery=event.target.value.trim();renderOrders()});
 document.getElementById('orderFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;orderFilter=btn.dataset.filter;document.querySelectorAll('#orderFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderOrders()});
 document.getElementById('orderPayment').addEventListener('change',event=>{orderPayment=event.target.value;renderOrders()});
+document.getElementById('ordersList').addEventListener('click',event=>{const row=event.target.closest('[data-order-id]');if(row)openOrderDrawer(row.dataset.orderId)});
+document.getElementById('recentOrders').addEventListener('click',event=>{const row=event.target.closest('[data-order-id]');if(row)openOrderDrawer(row.dataset.orderId)});
+document.getElementById('closeOrderDrawerBtn').addEventListener('click',closeOrderDrawer);
+document.getElementById('closeOrderDrawerBackdrop').addEventListener('click',closeOrderDrawer);
 document.getElementById('exportReportsCsv').addEventListener('click',exportReportsCsv);
 document.getElementById('attentionList').addEventListener('click',event=>{const btn=event.target.closest('[data-live-jump]');if(btn)switchSection(btn.dataset.liveJump)});
 document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
@@ -1044,7 +1048,7 @@ document.getElementById('downloadQrBtn').addEventListener('click',downloadQr);
 for(const id of ['createTableModal','qrModal','editTableModal','rotateModal','dishModal']){
   document.getElementById(id).addEventListener('click',event=>{if(event.target!==event.currentTarget)return;if(id==='createTableModal')closeCreateTable();if(id==='qrModal')closeQr();if(id==='editTableModal')closeEdit();if(id==='rotateModal')closeRotate();if(id==='dishModal')closeDishEditor()});
 }
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCreateTable();closeQr();closeEdit();closeRotate();closeDishEditor()}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeCreateTable();closeQr();closeEdit();closeRotate();closeDishEditor();closeOrderDrawer()}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&pin){if(currentSection==='orders')loadOrders(true,true);else if(currentSection==='menu')loadMenu(true,true);else refresh(true)}});
 window.addEventListener('online',()=>{if(pin){if(currentSection==='orders')loadOrders(false,true);else if(currentSection==='menu')loadMenu(false,true);else refresh(false)}});
 window.addEventListener('hashchange',()=>switchSection(location.hash.slice(1),false));
