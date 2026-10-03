@@ -408,16 +408,15 @@ function setConnection(ok,message=''){
 
 function renderStats(a){
   const cards=[
-    ['Заказы · 24 часа',a.orders24,'Заказов оформлено','/apple-emoji/receipt.png'],
-    ['Сумма заказов · 24 часа',money(a.revenue24),'Без подтверждения оплаты','/apple-emoji/chart.png'],
-    ['Средний чек · 7 дней',money(a.averageCheck7),'По оформленным заказам','/apple-emoji/chart.png'],
-    ['Открытые столы',a.openTables+' / '+a.activeTables,'Открыто / QR активно','/apple-emoji/place-setting.png']
+    ['Заказы сегодня',a.orders24,'оформлено за 24 часа'],
+    ['Сумма заказов',money(a.revenue24),'за последние 24 часа'],
+    ['Средний чек',money(a.averageCheck7),'за последние 7 дней'],
+    ['Открытые столы',a.openTables+' / '+a.activeTables,'открыто / QR активно']
   ];
   document.getElementById('stats').innerHTML=cards.map(x=>
-    '<article class="admin-kpi"><div class="admin-kpi-icon"><img src="'+x[3]+'" alt=""></div><span>'+h(x[0])+'</span><strong>'+h(x[1])+'</strong><small>'+h(x[2])+'</small></article>'
+    '<article class="admin-kpi"><span>'+h(x[0])+'</span><strong>'+h(x[1])+'</strong><small>'+h(x[2])+'</small></article>'
   ).join('');
 }
-
 function renderChart(a){
   const values=(a.daily||[]).map(x=>Number(x.revenue||0)),max=Math.max(1,...values);
   document.getElementById('chart').innerHTML=(a.daily||[]).map(day=>{
@@ -486,92 +485,47 @@ function elapsedMinutes(order){
   const time=new Date(value||Date.now()).getTime();
   return Math.max(0,Math.floor((Date.now()-time)/60000));
 }
-function liveTableLabel(order){
-  const table=order?.table||{};
-  return table.label||('Стол '+(table.table_number||'—'));
-}
-function liveOrderCard(order){
-  const status=String(order.status||''),items=order.items||[],minutes=elapsedMinutes(order);
-  const preview=items.slice(0,3).map(item=>'<span><b>'+Number(item.quantity||0)+'×</b> '+h(item.name||'Позиция')+'</span>').join('');
-  const extra=items.length>3?'<span class="admin-live-more">+'+(items.length-3)+' ещё</span>':'';
-  const warning=minutes>=20?' is-critical':minutes>=12?' is-warning':'';
-  return '<article class="admin-live-order'+warning+'">'+
-    '<div class="admin-live-order-top"><div><strong>'+h(liveTableLabel(order))+'</strong><small>Заказ #'+h(order.id)+'</small></div><time>'+minutes+' мин</time></div>'+
-    '<div class="admin-live-items">'+(preview||'<span>Состав недоступен</span>')+extra+'</div>'+
-    (order.comment?'<p>'+h(order.comment)+'</p>':'')+
-    '<div class="admin-live-order-foot"><span>'+h(orderStatusLabels[status]||status)+'</span><b>'+h(money(order.total))+'</b></div>'+
-  '</article>';
-}
-function renderLiveLane(hostId,countId,orders,emptyText){
-  const host=document.getElementById(hostId),count=document.getElementById(countId);
-  if(!host||!count)return;
-  count.textContent=orders.length;
-  host.innerHTML=orders.length?orders.slice(0,6).map(liveOrderCard).join(''):'<div class="admin-live-empty">'+h(emptyText)+'</div>';
-}
-function liveTableStatus(orders){
-  if(orders.some(order=>order.status==='ready'))return ['Готово','ready'];
-  if(orders.some(order=>order.status==='preparing'))return ['Готовится','cooking'];
-  if(orders.some(order=>order.status==='accepted'))return ['Принят','accepted'];
-  if(orders.some(order=>order.status==='submitted'))return ['Новый заказ','new'];
-  return ['Ожидает заказ','idle'];
+function overviewOrderRow(order){
+  const table=order.table||{},status=String(order.status||'');
+  const label=table.label||('Стол '+(table.table_number||'—'));
+  const when=new Date(order.created_at||Date.now()).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  return '<button type="button" class="admin-mini-row" data-order-id="'+h(order.id)+'">'+
+    '<span class="mini-order-id">#'+h(order.id)+'</span><span>'+h(when)+'</span><strong>'+h(label)+'</strong>'+
+    '<span class="order-status '+orderStatusClass(status)+'">'+h(orderStatusLabels[status]||status||'—')+'</span>'+
+    '<b>'+h(money(order.total))+'</b></button>';
 }
 function renderLiveOperations(){
   if(!state)return;
   const a=state.analytics||{},orders=orderState?.orders||[];
   const active=orders.filter(order=>activeOrderStatuses.has(String(order.status||'')));
-  const submitted=active.filter(order=>order.status==='submitted').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  const kitchen=active.filter(order=>order.status==='accepted'||order.status==='preparing').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  const ready=active.filter(order=>order.status==='ready').sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  const openTables=(state.tables||[]).filter(table=>table.openSession);
   const disabled=(state.tables||[]).filter(table=>!table.is_active);
   const overdue=active.filter(order=>elapsedMinutes(order)>=20);
   const requests=Number(a.openRequests||0);
-
-  const headline=document.getElementById('nowHeadline'),subline=document.getElementById('nowSubline');
-  if(headline)headline.textContent=orderState?(active.length+' '+(active.length===1?'заказ':'заказов')+' в работе · '+ready.length+' готово к выдаче'):'Загружаем текущие заказы…';
-  if(subline)subline.textContent=openTables.length+' открытых столов · '+requests+' запросов гостей';
-
-  renderLiveLane('liveNewOrders','liveNewCount',submitted,'Новых заказов нет');
-  renderLiveLane('liveKitchenOrders','liveKitchenCount',kitchen,'Кухня свободна');
-  renderLiveLane('liveReadyOrders','liveReadyCount',ready,'На выдаче пусто');
+  const stop=menuState?.dishes?.filter(dish=>!dish.is_available).length||0;
 
   const issues=[];
-  if(requests>0)issues.push({tone:'warning',icon:'🔔',title:'Запросы гостей',copy:requests+' открытых запросов в зале',href:'/staff',action:'Открыть зал'});
-  if(overdue.length)issues.push({tone:'danger',icon:'⏱',title:'Долгое ожидание',copy:overdue.length+' заказов ждут 20 минут или дольше',jump:'orders',action:'Проверить'});
-  if(disabled.length)issues.push({tone:'muted',icon:'QR',title:'QR выключены',copy:disabled.length+' столов сейчас без активного QR',jump:'tables',action:'Столы'});
-  if(submitted.length>=3)issues.push({tone:'warning',icon:'!',title:'Очередь новых заказов',copy:submitted.length+' заказов ещё не приняты',jump:'orders',action:'Заказы'});
+  if(requests>0)issues.push({tone:'warning',icon:'/apple-emoji/bell.png',title:'Гости ждут внимания',copy:requests+' открытых запросов',href:'/staff',action:'Открыть зал'});
+  if(overdue.length)issues.push({tone:'danger',icon:'/apple-emoji/receipt.png',title:'Долгое ожидание',copy:overdue.length+' заказов ждут 20 минут или дольше',jump:'orders',action:'Заказы'});
+  if(disabled.length)issues.push({tone:'muted',icon:'/apple-emoji/place-setting.png',title:'QR выключены',copy:disabled.length+' столов без активного QR',jump:'tables',action:'Столы'});
+  if(stop>0)issues.push({tone:'muted',icon:'/apple-emoji/receipt.png',title:'Стоп-лист',copy:stop+' позиций сейчас недоступно',jump:'menu',action:'Меню'});
+
   const attention=document.getElementById('attentionList'),attentionCount=document.getElementById('attentionCount');
   if(attentionCount)attentionCount.textContent=issues.length;
   if(attention){
     attention.innerHTML=issues.length?issues.map(issue=>
-      '<article class="admin-attention-item '+issue.tone+'"><span class="admin-attention-icon">'+h(issue.icon)+'</span><div><b>'+h(issue.title)+'</b><small>'+h(issue.copy)+'</small></div>'+
+      '<article class="admin-attention-item '+issue.tone+'"><img src="'+h(issue.icon)+'" alt=""><div><b>'+h(issue.title)+'</b><small>'+h(issue.copy)+'</small></div>'+
       (issue.href?'<a href="'+h(issue.href)+'" target="_blank">'+h(issue.action)+'</a>':'<button type="button" data-live-jump="'+h(issue.jump)+'">'+h(issue.action)+'</button>')+'</article>'
-    ).join(''):'<div class="admin-all-clear"><span>✓</span><div><b>Всё спокойно</b><small>Срочных проблем сейчас нет.</small></div></div>';
+    ).join(''):'<div class="admin-all-clear"><span>✓</span><div><b>Всё спокойно</b><small>Срочных действий сейчас нет.</small></div></div>';
   }
 
-  const tableOrders=new Map();
-  for(const order of active){
-    const tableId=order.table?.id;
-    if(!tableId)continue;
-    if(!tableOrders.has(tableId))tableOrders.set(tableId,[]);
-    tableOrders.get(tableId).push(order);
-  }
-  const liveTables=document.getElementById('liveTables');
-  if(liveTables){
-    liveTables.innerHTML=openTables.length?openTables.map(table=>{
-      const related=tableOrders.get(table.id)||[],status=liveTableStatus(related);
-      const total=related.reduce((sum,order)=>sum+Number(order.total||0),0);
-      const label=table.label||('Стол '+table.table_number);
-      return '<article class="admin-open-table '+status[1]+'"><div class="admin-open-table-head"><div><span>№ '+h(table.table_number)+'</span><strong>'+h(label)+'</strong></div><i>'+h(status[0])+'</i></div>'+
-        '<div class="admin-open-table-meta"><span>'+related.length+' активных заказов</span><b>'+h(money(total))+'</b></div></article>';
-    }).join(''):'<div class="admin-live-empty admin-live-empty-wide">Сейчас нет открытых столов</div>';
+  const recent=document.getElementById('recentOrders');
+  if(recent){
+    recent.innerHTML=orders.length?orders.slice(0,6).map(overviewOrderRow).join(''):'<div class="admin-empty">Заказов пока нет</div>';
   }
 }
-
-function renderOperational(a){
+function renderOperational(){
   renderLiveOperations();
 }
-
 function renderRanking(){
   const host=document.getElementById('tableRanking');
   const rows=[...(state.tables||[])].sort((a,b)=>Number(b.orders30||0)-Number(a.orders30||0)).slice(0,5);
