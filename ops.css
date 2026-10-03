@@ -2558,10 +2558,10 @@ body.admin-workspace>.login{
   .admin-nav button svg{display:block!important;width:20px!important;height:20px!important;flex:0 0 20px!important;stroke-width:1.8}
   .admin-nav button span{flex:0 0 auto!important;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .admin-nav button>i{display:none!important}
-  .admin-nav button.on{color:#1d1d1f!important;background:transparent!important;font-weight:680!important}
-  .admin-nav button.on::after{
-    content:"";position:absolute;left:50%;bottom:2px;width:4px;height:4px;border-radius:50%;background:#1d1d1f;transform:translateX(-50%)
+  .admin-nav button.on{
+    color:#1d1d1f!important;background:#ededee!important;font-weight:680!important
   }
+  .admin-nav button.on::after{display:none}
 
   /* Mobile page header */
   .admin-content{
@@ -2720,7 +2720,7 @@ body.admin-workspace>.login{
     min-width:0;display:grid!important;gap:3px!important;padding:9px 7px!important;border:1px solid var(--admin-border)!important;
     border-radius:8px!important;text-align:center
   }
-  .admin-inline-stats span{font-size:9.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .admin-inline-stats span{font-size:10.5px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .admin-inline-stats strong{font-size:13px!important}
   .menu-admin-layout{grid-template-columns:1fr!important;gap:12px!important}
   .menu-category-sidebar{
@@ -2765,7 +2765,7 @@ body.admin-workspace>.login{
   .menu-dish-body h3{font-size:13px}.menu-dish-body p{font-size:10.5px}
   .menu-dish-price{grid-column:3;grid-row:1!important;font-size:13px;text-align:right}
   .menu-dish-state{grid-column:2/4!important;grid-row:2!important;text-align:left}
-  .menu-dish-badge{min-height:22px;font-size:9.5px}
+  .menu-dish-badge{min-height:22px;font-size:10px}
   .menu-dish-actions{
     grid-column:1/4!important;grid-row:3!important;display:grid!important;grid-template-columns:1fr 1fr;gap:7px!important;
     padding-top:3px
@@ -2905,11 +2905,15 @@ body.admin-workspace>.login{
     min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(14px + env(safe-area-inset-bottom))
   }
 
-  /* Floating create button stays easy to reach on long Menu/Tables lists */
+  /* Persistent primary action above bottom navigation */
+  #pageMenu,
+  #pageTables{padding-bottom:66px}
   #pageMenu .admin-primary-btn,
   #pageTables .admin-primary-btn{
-    position:sticky;bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;
-    box-shadow:0 8px 24px rgba(0,0,0,.12)
+    position:fixed!important;
+    left:14px;right:14px;bottom:calc(74px + env(safe-area-inset-bottom));
+    z-index:115;width:auto!important;min-height:46px!important;margin:0!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.16)
   }
 }
 
@@ -2985,4 +2989,17 @@ body.admin-workspace>.login{
   .admin-workspace .order-drawer-panel,
   .admin-workspace .action-sheet .modal-card{border-radius:22px 22px 0 0!important}
   body.admin-workspace>.login{border-radius:16px}
+}
+
+
+/* ── ADMIN FINAL AUDIT TWEAKS ── */
+@media(max-width:760px){
+  /* Make the primary actions feel like part of the app chrome, not lost toolbar buttons. */
+  #pageMenu .admin-primary-btn,
+  #pageTables .admin-primary-btn{
+    border:1px solid rgba(0,0,0,.04);
+    border-radius:14px!important;
+  }
+  .admin-nav button.on svg{stroke-width:2}
+  .admin-nav button.on span{font-weight:700}
 }
