@@ -2638,9 +2638,9 @@ body.admin-workspace>.login{
   .admin-mini-row>span:nth-child(4){grid-column:2;grid-row:2;justify-self:start}
   .admin-mini-row>b{grid-column:3;grid-row:1;font-size:12px}
   .admin-dashboard-grid{grid-template-columns:1fr!important;gap:10px!important;margin-bottom:10px!important}
-  .admin-chart{height:180px;min-width:420px}
+  .admin-chart{height:180px;min-width:0}
   .admin-chart-panel{overflow:hidden}
-  .admin-chart-panel .admin-chart{overflow-x:auto}
+  .admin-chart-panel .admin-chart{overflow:visible}
   .admin-table-ranking{margin-bottom:0}
   .ranking-row{grid-template-columns:26px minmax(0,1fr)!important;gap:9px!important;padding:10px 0}
   .ranking-meter{display:none}
