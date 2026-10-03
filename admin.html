@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f2f2f7">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261003-admin-live-v1">
+<link rel="stylesheet" href="/ops.css?v=20261003-admin-v2">
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -22,37 +22,51 @@
 <main class="admin-shell" id="app" hidden>
   <div class="admin-layout-v2">
     <aside class="admin-sidebar" aria-label="Навигация администратора">
-      <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="admin-brand">
-        <span class="ops-emoji-badge"><img class="ops-emoji" src="/apple-emoji/gear.png" alt=""></span>
-        <div><b>Sushi Crazy</b><span>Панель управления</span></div>
+        <div class="admin-brand-mark" aria-hidden="true">SC</div>
+        <div><b>Sushi Crazy</b><span>Администрирование</span></div>
       </div>
 
       <nav class="admin-nav" id="adminNav">
         <button type="button" data-section="overview" class="on">
-          <img src="/apple-emoji/chart.png" alt=""><span>Обзор</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M9 20v-6h6v6"/></svg>
+          <span>Главное</span>
         </button>
         <button type="button" data-section="orders">
-          <img src="/apple-emoji/receipt.png" alt=""><span>Заказы</span><i id="navOrdersCount">0</i>
-        </button>
-        <button type="button" data-section="reports">
-          <img src="/apple-emoji/chart.png" alt=""><span>Отчёты</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+          <span>Заказы</span><i id="navOrdersCount">0</i>
         </button>
         <button type="button" data-section="tables">
-          <img src="/apple-emoji/place-setting.png" alt=""><span>Столы и QR</span><i id="navTablesCount">0</i>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10h14M7 10v8M17 10v8M4 6h16v4H4z"/></svg>
+          <span>Столы</span><i id="navTablesCount">0</i>
         </button>
         <button type="button" data-section="menu">
-          <img src="/apple-emoji/receipt.png" alt=""><span>Меню</span><i id="navStopCount">0</i>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+          <span>Меню</span><i id="navStopCount">0</i>
         </button>
-        <div class="admin-nav-divider"></div>
-        <a href="/kitchen" target="_blank"><img src="/apple-emoji/frying-pan.png" alt=""><span>Кухня</span></a>
-        <a href="/staff" target="_blank"><img src="/apple-emoji/bellhop.png" alt=""><span>Зал</span></a>
-        <a href="/" target="_blank"><img src="/apple-emoji/receipt.png" alt=""><span>Меню гостя</span></a>
+        <button type="button" data-section="reports">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V9M12 19V5M19 19v-7"/></svg>
+          <span>Статистика</span>
+        </button>
       </nav>
 
       <div class="admin-sidebar-bottom">
+        <details class="admin-workspaces">
+          <summary>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg>
+            <span>Рабочие экраны</span><b>···</b>
+          </summary>
+          <div class="admin-workspaces-menu">
+            <a href="/kitchen" target="_blank"><span>Кухня</span><small>↗</small></a>
+            <a href="/staff" target="_blank"><span>Официанты</span><small>↗</small></a>
+            <a href="/" target="_blank"><span>Меню гостя</span><small>↗</small></a>
+          </div>
+        </details>
         <div class="admin-sync" id="adminSync"><i class="live-dot"></i><span id="sidebarUpdated">Подключаемся…</span></div>
-        <button type="button" class="admin-logout" id="logoutBtn">Выйти</button>
+        <button type="button" class="admin-logout" id="logoutBtn">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9"/></svg>
+          <span>Выйти</span>
+        </button>
       </div>
     </aside>
 
@@ -60,121 +74,57 @@
       <header class="admin-top">
         <div>
           <span class="admin-eyebrow" id="pageEyebrow">Sushi Crazy</span>
-          <h1 id="pageTitle">Обзор</h1>
-          <p id="pageSubtitle">Ключевые показатели и состояние ресторана.</p>
+          <h1 id="pageTitle">Главное</h1>
+          <p id="pageSubtitle">Короткая сводка по ресторану.</p>
         </div>
         <div class="admin-top-actions">
-          <button type="button" class="admin-refresh" id="refreshBtn"><span aria-hidden="true">↻</span> Обновить</button>
-          <a href="/" target="_blank">Открыть меню</a>
+          <span class="admin-header-updated" id="updatedAt">—</span>
+          <button type="button" class="admin-refresh" id="refreshBtn" aria-label="Обновить данные">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8A7 7 0 0 1 18 6l2 1M17.9 16A7 7 0 0 1 6 18l-2-1"/></svg>
+          </button>
         </div>
       </header>
 
       <div class="admin-connection" id="connectionBanner" role="status" hidden>
-        <div><b>Нет связи с админ-панелью</b><span id="connectionText">Показываем последние полученные данные.</span></div>
+        <div><b>Нет связи</b><span id="connectionText">Показываем последние полученные данные.</span></div>
         <button type="button" onclick="refresh(false)">Повторить</button>
       </div>
 
       <section class="admin-page on" id="pageOverview" data-page="overview">
         <section class="admin-kpis" id="stats"></section>
 
-        <section class="admin-now-banner">
-          <div class="admin-now-copy">
-            <span class="admin-now-kicker"><i class="live-dot"></i> Ресторан сейчас</span>
-            <strong id="nowHeadline">Загружаем текущие заказы…</strong>
-            <small id="nowSubline">Собираем состояние кухни, зала и столов.</small>
-          </div>
-          <div class="admin-now-actions">
-            <button type="button" data-jump="orders">Все заказы</button>
-            <a href="/kitchen" target="_blank">Кухня</a>
-            <a href="/staff" target="_blank">Официанты</a>
-          </div>
-        </section>
-
-        <section class="admin-live-grid">
-          <article class="admin-panel admin-live-orders-panel">
-            <div class="admin-panel-head admin-live-head">
-              <div>
-                <span class="panel-eyebrow">Операции</span>
-                <h2>Заказы сейчас</h2>
-                <p>Только активные заказы — от поступления до выдачи официанту.</p>
-              </div>
-              <button type="button" class="panel-link" data-jump="orders">Открыть историю</button>
-            </div>
-
-            <div class="admin-order-board">
-              <section class="admin-live-lane lane-new">
-                <header><div><i></i><b>Новые</b></div><span id="liveNewCount">0</span></header>
-                <p>Ждут принятия</p>
-                <div class="admin-live-cards" id="liveNewOrders"><div class="admin-live-empty">Загружаем…</div></div>
-              </section>
-
-              <section class="admin-live-lane lane-kitchen">
-                <header><div><i></i><b>На кухне</b></div><span id="liveKitchenCount">0</span></header>
-                <p>Приняты и готовятся</p>
-                <div class="admin-live-cards" id="liveKitchenOrders"><div class="admin-live-empty">Загружаем…</div></div>
-              </section>
-
-              <section class="admin-live-lane lane-ready">
-                <header><div><i></i><b>Готовы</b></div><span id="liveReadyCount">0</span></header>
-                <p>Нужно забрать и подать</p>
-                <div class="admin-live-cards" id="liveReadyOrders"><div class="admin-live-empty">Загружаем…</div></div>
-              </section>
-            </div>
-          </article>
-
-          <aside class="admin-panel admin-attention-panel">
+        <section class="admin-home-grid">
+          <article class="admin-panel admin-attention-panel">
             <div class="admin-panel-head">
-              <div>
-                <span class="panel-eyebrow">Контроль</span>
-                <h2>Требует внимания</h2>
-                <p>То, что администратору стоит проверить сейчас.</p>
-              </div>
+              <div><h2>Требует внимания</h2><p>Только то, что сейчас может потребовать действия.</p></div>
               <span class="admin-attention-count" id="attentionCount">0</span>
             </div>
-            <div class="admin-attention-list" id="attentionList">
-              <div class="admin-live-empty">Проверяем ресторан…</div>
-            </div>
-          </aside>
-        </section>
+            <div class="admin-attention-list" id="attentionList"><div class="admin-empty">Проверяем ресторан…</div></div>
+          </article>
 
-        <article class="admin-panel admin-live-tables-panel">
-          <div class="admin-panel-head">
-            <div>
-              <span class="panel-eyebrow">Зал</span>
-              <h2>Открытые столы</h2>
-              <p>Кто сейчас сидит в ресторане и на каком этапе их заказ.</p>
+          <article class="admin-panel admin-recent-orders">
+            <div class="admin-panel-head">
+              <div><h2>Последние заказы</h2><p>Свежие события без лишних деталей.</p></div>
+              <button type="button" class="panel-link" data-jump="orders">Все заказы</button>
             </div>
-            <button type="button" class="panel-link" data-jump="tables">Все столы</button>
-          </div>
-          <div class="admin-open-tables" id="liveTables">
-            <div class="admin-live-empty admin-live-empty-wide">Загружаем столы…</div>
-          </div>
-        </article>
-
-        <section class="admin-section-divider">
-          <div><span class="panel-eyebrow">Сводка</span><h2>Показатели и продажи</h2></div>
-          <small id="updatedAt">—</small>
+            <div class="admin-mini-table" id="recentOrders"><div class="admin-empty">Загружаем заказы…</div></div>
+          </article>
         </section>
 
         <section class="admin-dashboard-grid">
           <article class="admin-panel admin-chart-panel">
-            <div class="admin-panel-head">
-              <div><span class="panel-eyebrow">7 дней</span><h2>Сумма заказов</h2><p>Динамика оформленных заказов. Это не подтверждённая выручка.</p></div>
-            </div>
+            <div class="admin-panel-head"><div><h2>Заказы за 7 дней</h2><p>Сумма оформленных заказов по дням.</p></div></div>
             <div class="chart admin-chart" id="chart"></div>
           </article>
-
           <article class="admin-panel">
-            <div class="admin-panel-head">
-              <div><span class="panel-eyebrow">7 дней</span><h2>Способы расчёта</h2><p>Что гости выбирают при оформлении.</p></div>
-            </div>
+            <div class="admin-panel-head"><div><h2>Способы оплаты</h2><p>Распределение за последние 7 дней.</p></div></div>
             <div class="payments admin-payments" id="payments"></div>
           </article>
         </section>
 
         <section class="admin-panel admin-table-ranking">
           <div class="admin-panel-head">
-            <div><span class="panel-eyebrow">30 дней</span><h2>Активность столов</h2><p>Заказы по столам за последние 30 дней.</p></div>
+            <div><h2>Активные столы</h2><p>Столы с наибольшим количеством заказов за 30 дней.</p></div>
             <button type="button" class="panel-link" data-jump="tables">Все столы</button>
           </div>
           <div id="tableRanking"></div>
@@ -182,17 +132,10 @@
       </section>
 
       <section class="admin-page" id="pageOrders" data-page="orders" hidden>
-        <div class="menu-admin-summary order-admin-summary">
-          <article><span>Заказов</span><strong id="ordersTotalCount">—</strong><small id="ordersTotalScope">Последние 200</small></article>
-          <article><span>В работе</span><strong id="ordersActiveCount">—</strong><small>До подачи гостю</small></article>
-          <article><span>Сумма заказов</span><strong id="ordersAmount">—</strong><small>Без отменённых</small></article>
-          <article><span>Средний чек</span><strong id="ordersAverage">—</strong><small>Без отменённых</small></article>
-        </div>
-
-        <div class="orders-toolbar">
+        <div class="admin-page-toolbar">
           <div class="table-search orders-search">
             <span aria-hidden="true">⌕</span>
-            <input id="orderSearch" type="search" autocomplete="off" placeholder="Заказ, стол или блюдо…" aria-label="Найти заказ">
+            <input id="orderSearch" type="search" autocomplete="off" placeholder="Номер, стол или блюдо" aria-label="Найти заказ">
           </div>
           <div class="segmented-control orders-filters" id="orderFilters" role="tablist" aria-label="Фильтр заказов">
             <button type="button" data-filter="all" aria-selected="true">Все <span id="orderCountAll">0</span></button>
@@ -200,131 +143,101 @@
             <button type="button" data-filter="served" aria-selected="false">Поданы <span id="orderCountServed">0</span></button>
             <button type="button" data-filter="cancelled" aria-selected="false">Отменены <span id="orderCountCancelled">0</span></button>
           </div>
-          <label class="orders-payment-filter">Оплата
-            <select id="orderPayment">
-              <option value="all">Все способы</option>
-              <option value="kaspi">Kaspi</option>
-              <option value="card">Карта</option>
-              <option value="cash">Наличные</option>
-            </select>
+          <label class="orders-payment-filter"><span>Оплата</span>
+            <select id="orderPayment"><option value="all">Все</option><option value="kaspi">Kaspi</option><option value="card">Карта</option><option value="cash">Наличные</option></select>
           </label>
         </div>
 
-        <div class="orders-context">
+        <div class="admin-list-heading">
           <div><b id="ordersResultTitle">Все заказы</b><span id="ordersResultMeta">Загрузка…</span></div>
-          <p id="ordersScopeNote">История показывает последние 200 заказов. Отменённые сохраняются для контроля.</p>
+          <p id="ordersScopeNote">История показывает последние 200 заказов.</p>
         </div>
 
-        <section class="admin-orders-list" id="ordersList">
-          <div class="admin-empty admin-empty-wide">Загружаем заказы…</div>
+        <section class="admin-data-table admin-orders-table">
+          <div class="admin-data-head"><span>Заказ</span><span>Время</span><span>Стол</span><span>Статус</span><span>Оплата</span><span>Сумма</span><span></span></div>
+          <div class="admin-data-body" id="ordersList"><div class="admin-empty admin-empty-wide">Загружаем заказы…</div></div>
         </section>
-      </section>
 
-
-      <section class="admin-page" id="pageReports" data-page="reports" hidden>
-        <div class="menu-admin-summary report-summary">
-          <article><span>Заказов · 30 дней</span><strong id="reportOrders30">—</strong><small>Без отменённых</small></article>
-          <article><span>Сумма заказов</span><strong id="reportRevenue30">—</strong><small>За последние 30 дней</small></article>
-          <article><span>Средний чек</span><strong id="reportAverage30">—</strong><small>По оформленным заказам</small></article>
-          <article><span>Лучший день</span><strong id="reportBestDay">—</strong><small id="reportBestDayMeta">По сумме заказов</small></article>
+        <div class="admin-page-footnote">
+          <span><b id="ordersTotalCount">—</b> заказов</span>
+          <span><b id="ordersActiveCount">—</b> в работе</span>
+          <span><b id="ordersAmount">—</b> сумма</span>
+          <span><b id="ordersAverage">—</b> средний чек</span>
+          <span id="ordersTotalScope">Последние 200</span>
         </div>
-
-        <div class="reports-toolbar">
-          <div>
-            <b>Операционный отчёт</b>
-            <span>Данные обновляются вместе с админ-панелью.</span>
-          </div>
-          <button type="button" class="create-table-btn" id="exportReportsCsv">Скачать CSV</button>
-        </div>
-
-        <section class="reports-grid">
-          <article class="admin-panel report-panel report-panel-wide">
-            <div class="admin-panel-head">
-              <div><span class="panel-eyebrow">30 дней</span><h2>Динамика заказов</h2><p>Сумма и количество оформленных заказов по дням.</p></div>
-            </div>
-            <div class="report-daily-chart" id="reportDaily30"></div>
-          </article>
-
-          <article class="admin-panel report-panel">
-            <div class="admin-panel-head">
-              <div><span class="panel-eyebrow">30 дней</span><h2>Способы оплаты</h2><p>Распределение выбора гостей.</p></div>
-            </div>
-            <div class="payments admin-payments" id="reportPayments30"></div>
-          </article>
-
-          <article class="admin-panel report-panel">
-            <div class="admin-panel-head">
-              <div><span class="panel-eyebrow">30 дней</span><h2>Столы</h2><p>Топ по сумме заказов.</p></div>
-            </div>
-            <div class="report-table-ranking" id="reportTables30"></div>
-          </article>
-        </section>
       </section>
 
       <section class="admin-page" id="pageTables" data-page="tables" hidden>
-        <div class="tables-toolbar">
-          <div class="table-search">
-            <span aria-hidden="true">⌕</span>
-            <input id="tableSearch" type="search" autocomplete="off" placeholder="Найти стол…" aria-label="Найти стол">
-          </div>
+        <div class="admin-page-toolbar tables-toolbar">
+          <div class="table-search"><span aria-hidden="true">⌕</span><input id="tableSearch" type="search" autocomplete="off" placeholder="Найти стол" aria-label="Найти стол"></div>
           <div class="segmented-control admin-table-filters" id="tableFilters" role="tablist" aria-label="Фильтр столов">
             <button type="button" data-filter="all" aria-selected="true">Все <span id="countAll">0</span></button>
+            <button type="button" data-filter="open" aria-selected="false">Открыты <span id="countOpen">0</span></button>
             <button type="button" data-filter="active" aria-selected="false">QR вкл <span id="countActive">0</span></button>
             <button type="button" data-filter="off" aria-selected="false">QR выкл <span id="countOff">0</span></button>
-            <button type="button" data-filter="open" aria-selected="false">Открыты <span id="countOpen">0</span></button>
           </div>
-          <button type="button" class="create-table-btn" id="openCreateTableBtn">+ Создать стол</button>
+          <button type="button" class="admin-primary-btn" id="openCreateTableBtn">Создать стол</button>
         </div>
-
-        <div class="tables-context">
-          <div><b id="tablesResultTitle">Все столы</b><span id="tablesResultMeta">—</span></div>
-          <p>QR нельзя отключить или перевыпустить, пока стол открыт в зале.</p>
-        </div>
-
+        <div class="admin-list-heading"><div><b id="tablesResultTitle">Все столы</b><span id="tablesResultMeta">—</span></div><p>Настройки QR спрятаны в меню конкретного стола.</p></div>
         <section class="admin-tables-grid" id="tables"></section>
       </section>
 
       <section class="admin-page" id="pageMenu" data-page="menu" hidden>
-        <div class="menu-admin-summary">
-          <article><span>Позиций</span><strong id="menuTotalCount">—</strong><small>Всего в базе</small></article>
-          <article><span>Стоп-лист</span><strong id="menuStopCount">—</strong><small>Не показываются гостям</small></article>
-          <article><span>Популярные</span><strong id="menuPopularCount">—</strong><small>В блоке рекомендаций</small></article>
-          <article><span>Категории</span><strong id="menuCategoryCount">—</strong><small>Видимые / всего</small></article>
-        </div>
-
-        <div class="menu-admin-toolbar">
-          <div class="table-search menu-search">
-            <span aria-hidden="true">⌕</span>
-            <input id="menuSearch" type="search" autocomplete="off" placeholder="Найти блюдо…" aria-label="Найти блюдо">
-          </div>
+        <div class="admin-page-toolbar menu-admin-toolbar">
+          <div class="table-search menu-search"><span aria-hidden="true">⌕</span><input id="menuSearch" type="search" autocomplete="off" placeholder="Найти блюдо" aria-label="Найти блюдо"></div>
           <div class="segmented-control menu-admin-filters" id="menuFilters" role="tablist" aria-label="Фильтр меню">
-            <button type="button" data-filter="all" aria-selected="true">Все</button>
-            <button type="button" data-filter="available" aria-selected="false">В меню</button>
-            <button type="button" data-filter="stop" aria-selected="false">Стоп-лист <span id="filterStopCount">0</span></button>
-            <button type="button" data-filter="popular" aria-selected="false">Популярные</button>
+            <button type="button" data-filter="all" aria-selected="true">Все</button><button type="button" data-filter="available" aria-selected="false">В меню</button>
+            <button type="button" data-filter="stop" aria-selected="false">Стоп <span id="filterStopCount">0</span></button><button type="button" data-filter="popular" aria-selected="false">Популярные</button>
           </div>
-          <button type="button" class="create-table-btn" id="openCreateDishBtn">+ Добавить блюдо</button>
+          <button type="button" class="admin-primary-btn" id="openCreateDishBtn">Добавить блюдо</button>
         </div>
 
-        <section class="menu-categories-panel">
-          <div class="menu-panel-head">
-            <div><span class="panel-eyebrow">Категории</span><h2>Видимость меню</h2><p>Скрытая категория исчезает из гостевого меню вместе со всеми блюдами.</p></div>
+        <div class="menu-admin-summary admin-inline-stats">
+          <article><span>Позиций</span><strong id="menuTotalCount">—</strong></article>
+          <article><span>Стоп-лист</span><strong id="menuStopCount">—</strong></article>
+          <article><span>Популярные</span><strong id="menuPopularCount">—</strong></article>
+          <article><span>Категории</span><strong id="menuCategoryCount">—</strong></article>
+        </div>
+
+        <section class="menu-admin-layout">
+          <aside class="menu-category-sidebar">
+            <div class="menu-side-title"><b>Категории</b><span>Фильтр и видимость</span></div>
+            <div class="menu-category-filter" id="menuCategoryFilter"></div>
+            <div class="menu-side-divider"></div>
+            <div class="menu-categories" id="menuCategories"></div>
+          </aside>
+          <div class="menu-list-pane">
+            <div class="admin-list-heading"><div><b id="menuResultTitle">Все блюда</b><span id="menuResultMeta">Загрузка…</span></div></div>
+            <section class="menu-dishes-grid" id="menuDishes"><div class="admin-empty admin-empty-wide">Загружаем меню…</div></section>
           </div>
-          <div class="menu-categories" id="menuCategories"></div>
         </section>
+      </section>
 
-        <div class="menu-list-context">
-          <div><b id="menuResultTitle">Все блюда</b><span id="menuResultMeta">Загрузка…</span></div>
-          <div class="menu-category-filter" id="menuCategoryFilter"></div>
+      <section class="admin-page" id="pageReports" data-page="reports" hidden>
+        <div class="menu-admin-summary report-summary">
+          <article><span>Заказов · 30 дней</span><strong id="reportOrders30">—</strong><small>Без отменённых</small></article>
+          <article><span>Сумма заказов</span><strong id="reportRevenue30">—</strong><small>30 дней</small></article>
+          <article><span>Средний чек</span><strong id="reportAverage30">—</strong><small>По заказам</small></article>
+          <article><span>Лучший день</span><strong id="reportBestDay">—</strong><small id="reportBestDayMeta">По сумме</small></article>
         </div>
-
-        <section class="menu-dishes-grid" id="menuDishes">
-          <div class="admin-empty admin-empty-wide">Загружаем меню…</div>
+        <div class="reports-toolbar"><div><b>Последние 30 дней</b><span>Продажи, оплата и активность столов.</span></div><button type="button" class="admin-secondary-btn" id="exportReportsCsv">Скачать CSV</button></div>
+        <section class="reports-grid">
+          <article class="admin-panel report-panel report-panel-wide"><div class="admin-panel-head"><div><h2>Динамика заказов</h2><p>Сумма и количество по дням.</p></div></div><div class="report-daily-chart" id="reportDaily30"></div></article>
+          <article class="admin-panel report-panel"><div class="admin-panel-head"><div><h2>Способы оплаты</h2><p>Выбор гостей.</p></div></div><div class="payments admin-payments" id="reportPayments30"></div></article>
+          <article class="admin-panel report-panel"><div class="admin-panel-head"><div><h2>Столы</h2><p>Топ по сумме заказов.</p></div></div><div class="report-table-ranking" id="reportTables30"></div></article>
         </section>
       </section>
     </div>
   </div>
 </main>
+
+<aside class="admin-order-drawer" id="orderDrawer" aria-hidden="true">
+  <button type="button" class="order-drawer-backdrop" id="closeOrderDrawerBackdrop" aria-label="Закрыть заказ"></button>
+  <div class="order-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="orderDrawerTitle">
+    <div class="order-drawer-head"><div><span>Заказ</span><h2 id="orderDrawerTitle">—</h2></div><button type="button" class="x" id="closeOrderDrawerBtn">×</button></div>
+    <div class="order-drawer-content" id="orderDrawerContent"></div>
+  </div>
+</aside>
 
 <div class="modal action-sheet" id="createTableModal" role="dialog" aria-modal="true" aria-labelledby="createTableTitle">
   <div class="modal-card">
