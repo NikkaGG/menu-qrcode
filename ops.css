@@ -3003,3 +3003,7 @@ body.admin-workspace>.login{
   .admin-nav button.on svg{stroke-width:2}
   .admin-nav button.on span{font-weight:700}
 }
+
+
+/* ── ADMIN MODAL LAYER FIX ── */
+.admin-workspace .modal{z-index:190}
