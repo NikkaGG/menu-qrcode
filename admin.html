@@ -602,22 +602,36 @@ function orderStatusClass(status){
   return 'active';
 }
 function orderCard(order){
-  const table=order.table||{},items=order.items||[],status=String(order.status||'');
+  const table=order.table||{},status=String(order.status||'');
   const label=table.label||('Стол '+(table.table_number||'—'));
   const when=new Date(order.created_at||Date.now()).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  return '<button type="button" class="admin-data-row '+(status==='cancelled'?'is-cancelled':'')+'" data-order-id="'+h(order.id)+'">'+
+    '<strong>#'+h(order.id)+'</strong><span>'+h(when)+'</span><span>'+h(label)+'</span>'+
+    '<span><i class="order-status '+orderStatusClass(status)+'">'+h(orderStatusLabels[status]||status||'—')+'</i></span>'+
+    '<span>'+h(payLabels[order.payment_method]||order.payment_method||'—')+'</span>'+
+    '<b>'+h(money(order.total))+'</b><span class="admin-row-arrow">›</span></button>';
+}
+function openOrderDrawer(orderId){
+  const order=(orderState?.orders||[]).find(item=>String(item.id)===String(orderId));
+  if(!order)return;
+  const table=order.table||{},items=order.items||[],status=String(order.status||'');
+  const label=table.label||('Стол '+(table.table_number||'—'));
+  const when=new Date(order.created_at||Date.now()).toLocaleString('ru-RU',{day:'2-digit',month:'long',hour:'2-digit',minute:'2-digit'});
   const qty=items.reduce((sum,item)=>sum+Number(item.quantity||0),0);
-  const itemsHtml=items.length?items.map(item=>
-    '<div class="order-item-row"><div><b>'+h(item.name||'Позиция')+'</b>'+(item.item_comment?'<small>'+h(item.item_comment)+'</small>':'')+'</div><span>'+Number(item.quantity||0)+' × '+money(item.unit_price)+'</span><strong>'+money(item.line_total)+'</strong></div>'
-  ).join(''):'<div class="admin-empty">Состав заказа недоступен</div>';
-  return '<article class="admin-order-card '+(status==='cancelled'?'is-cancelled':'')+'">'+
-    '<div class="order-card-head"><div class="order-id"><span>Заказ</span><strong>#'+h(order.id)+'</strong></div>'+
-    '<div class="order-table"><span>Стол</span><b>'+h(label)+'</b></div>'+
-    '<div class="order-time"><span>Создан</span><b>'+h(when)+'</b></div>'+
-    '<span class="order-status '+orderStatusClass(status)+'">'+h(orderStatusLabels[status]||status||'—')+'</span></div>'+
-    '<div class="order-card-main"><div><span>Сумма</span><strong>'+money(order.total)+'</strong></div><div><span>Оплата</span><strong>'+h(payLabels[order.payment_method]||order.payment_method||'—')+'</strong></div><div><span>Позиций</span><strong>'+qty+'</strong></div></div>'+
-    (order.comment?'<p class="order-comment"><b>Комментарий:</b> '+h(order.comment)+'</p>':'')+
-    '<details class="order-details"><summary>Состав заказа · '+qty+' поз.</summary><div class="order-items">'+itemsHtml+'</div></details>'+
-  '</article>';
+  document.getElementById('orderDrawerTitle').textContent='#'+order.id+' · '+label;
+  document.getElementById('orderDrawerContent').innerHTML=
+    '<div class="drawer-order-status"><span class="order-status '+orderStatusClass(status)+'">'+h(orderStatusLabels[status]||status||'—')+'</span><small>'+h(when)+'</small></div>'+
+    '<div class="drawer-order-facts"><div><span>Сумма</span><b>'+h(money(order.total))+'</b></div><div><span>Оплата</span><b>'+h(payLabels[order.payment_method]||order.payment_method||'—')+'</b></div><div><span>Позиций</span><b>'+qty+'</b></div></div>'+
+    (order.comment?'<div class="drawer-comment"><span>Комментарий</span><p>'+h(order.comment)+'</p></div>':'')+
+    '<section class="drawer-items"><h3>Состав заказа</h3>'+(items.length?items.map(item=>
+      '<div class="drawer-item"><div><b>'+h(item.name||'Позиция')+'</b>'+(item.item_comment?'<small>'+h(item.item_comment)+'</small>':'')+'</div><span>'+Number(item.quantity||0)+' × '+h(money(item.unit_price))+'</span><strong>'+h(money(item.line_total))+'</strong></div>'
+    ).join(''):'<div class="admin-empty">Состав недоступен</div>')+'</section>';
+  const drawer=document.getElementById('orderDrawer');
+  drawer.classList.add('on');drawer.setAttribute('aria-hidden','false');
+}
+function closeOrderDrawer(){
+  const drawer=document.getElementById('orderDrawer');
+  drawer.classList.remove('on');drawer.setAttribute('aria-hidden','true');
 }
 function renderOrders(){
   if(!orderState)return;
