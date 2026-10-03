@@ -854,6 +854,7 @@ function switchSection(section,updateHash=true){
   if(section==='menu')loadMenu(true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
+  document.querySelector('.admin-content')?.scrollTo({top:0,behavior:'auto'});
 }
 
 async function refresh(silent=true){
