@@ -691,21 +691,13 @@ function dishMatches(dish){
 function dishCard(dish){
   const busy=busyDishes.has(Number(dish.id)),available=!!dish.is_available,categoryVisible=menuCategoryVisible(dish.category_id);
   const image=dish.image_url||dish.detail_image_url||'';
-  const badges=[
-    '<span class="menu-dish-badge category">'+h(menuCategoryName(dish.category_id))+'</span>',
-    !categoryVisible?'<span class="menu-dish-badge hidden-cat">Категория скрыта</span>':'',
-    dish.is_popular?'<span class="menu-dish-badge popular">Популярное</span>':'',
-    !available?'<span class="menu-dish-badge stop">Стоп-лист</span>':''
-  ].join('');
   return '<article class="menu-dish-card '+(!available?'is-stop ':'')+(!categoryVisible?'is-category-hidden':'')+'" data-dish-id="'+dish.id+'">'+
     '<div class="menu-dish-image">'+(image?'<img src="'+h(image)+'" alt="" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'missing\')">':'')+'</div>'+
-    '<div class="menu-dish-body"><div class="menu-dish-badges">'+badges+'</div><h3>'+h(dish.name)+'</h3>'+
-    '<p>'+h(dish.weight||'Без веса')+(dish.description?' · '+h(dish.description):'')+'</p>'+
-    '<div class="menu-dish-price">'+money(dish.price)+'</div></div>'+
-    '<div class="menu-dish-actions">'+
-      '<button type="button" class="menu-edit-btn" data-menu-action="edit" data-id="'+dish.id+'" '+(busy?'disabled':'')+'>Изменить</button>'+
-      '<button type="button" class="menu-stop-btn '+(available?'':'restore')+'" data-menu-action="availability" data-id="'+dish.id+'" data-available="'+(!available)+'" '+(busy?'disabled':'')+'>'+(busy?'Сохраняем…':available?'В стоп-лист':'Вернуть в меню')+'</button>'+
-    '</div>'+
+    '<div class="menu-dish-body"><h3>'+h(dish.name)+'</h3><p>'+h(menuCategoryName(dish.category_id))+(dish.weight?' · '+h(dish.weight):'')+'</p></div>'+
+    '<div class="menu-dish-price">'+h(money(dish.price))+'</div>'+
+    '<div class="menu-dish-state">'+(!categoryVisible?'<span class="menu-dish-badge hidden-cat">Категория скрыта</span>':available?'<span class="menu-dish-badge available">В меню</span>':'<span class="menu-dish-badge stop">Стоп-лист</span>')+'</div>'+
+    '<div class="menu-dish-actions"><button type="button" data-menu-action="edit" data-id="'+dish.id+'" '+(busy?'disabled':'')+'>Изменить</button>'+
+      '<button type="button" class="'+(available?'danger':'restore')+'" data-menu-action="availability" data-id="'+dish.id+'" data-available="'+(!available)+'" '+(busy?'disabled':'')+'>'+(busy?'Сохраняем…':available?'В стоп':'Вернуть')+'</button></div>'+
   '</article>';
 }
 function renderMenu(){
