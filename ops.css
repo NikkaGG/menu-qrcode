@@ -2829,3 +2829,84 @@ body.admin-workspace>.login{
   .admin-inline-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   .drawer-order-facts{grid-template-columns:1fr!important}
 }
+
+
+/* ── ADMIN MOBILE STICKY CONTROLS ── */
+@media(max-width:760px){
+  html,body.admin-workspace{height:100%;overscroll-behavior:none}
+  body.admin-workspace{overflow:hidden}
+
+  .admin-shell,.admin-layout-v2{height:100dvh;min-height:100dvh;overflow:hidden}
+  .admin-content{
+    height:100dvh!important;overflow-y:auto!important;overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;
+    scrollbar-gutter:stable both-edges;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom))!important
+  }
+
+  .admin-sidebar{
+    transform:translateZ(0);
+    will-change:transform;
+    touch-action:manipulation
+  }
+  .admin-nav button{touch-action:manipulation}
+  .admin-nav button:active{transform:scale(.96)}
+
+  /* Keep primary actions reachable inside long bottom sheets/editors */
+  .admin-workspace .action-sheet .modal-card{
+    display:flex;flex-direction:column;overflow:hidden!important
+  }
+  .admin-workspace .action-sheet .modal-head{
+    flex:0 0 auto;background:#fff
+  }
+  .admin-workspace .action-sheet .sheet-form,
+  .admin-workspace .action-sheet .dish-form{
+    min-height:0;display:flex;flex-direction:column;overflow:hidden
+  }
+  .admin-workspace .action-sheet .dish-form-grid,
+  .admin-workspace .action-sheet .dish-form-switches,
+  .admin-workspace .action-sheet .dish-preview,
+  .admin-workspace .action-sheet .sheet-copy,
+  .admin-workspace .action-sheet .qr-health,
+  .admin-workspace .action-sheet .qr-box,
+  .admin-workspace .action-sheet .qr-url{
+    flex:0 0 auto
+  }
+  .admin-workspace .action-sheet .sheet-form,
+  .admin-workspace .action-sheet .dish-form{
+    padding-bottom:0
+  }
+  .admin-workspace .action-sheet .sheet-actions{
+    z-index:6;flex:0 0 auto;margin-top:12px;padding:10px 0 0;
+    border-top:1px solid var(--admin-border);background:#fff
+  }
+
+  /* QR and generic sheets can scroll while their bottom buttons stay put */
+  #qrModal .modal-card,
+  #rotateModal .modal-card{
+    overflow-y:auto!important
+  }
+  #qrModal .sheet-actions,
+  #rotateModal .sheet-actions{
+    position:sticky!important;bottom:0;margin-left:-1px;margin-right:-1px;
+    padding:10px 0 max(2px,env(safe-area-inset-bottom));background:#fff
+  }
+
+  /* Order drawer: only content scrolls, header stays visible */
+  .order-drawer-panel{
+    display:flex;flex-direction:column;overflow:hidden!important
+  }
+  .order-drawer-head{
+    position:relative!important;top:auto!important;flex:0 0 auto
+  }
+  .order-drawer-content{
+    min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(14px + env(safe-area-inset-bottom))
+  }
+
+  /* Floating create button stays easy to reach on long Menu/Tables lists */
+  #pageMenu .admin-primary-btn,
+  #pageTables .admin-primary-btn{
+    position:sticky;bottom:calc(72px + env(safe-area-inset-bottom));z-index:45;
+    box-shadow:0 8px 24px rgba(0,0,0,.12)
+  }
+}
