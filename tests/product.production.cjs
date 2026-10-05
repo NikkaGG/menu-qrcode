@@ -5,7 +5,7 @@ const puppeteer = require('puppeteer-core');
 const origin = process.env.MENU_PRODUCTION_ORIGIN || 'https://menu-qrcode-lt1q.vercel.app';
 const token = process.env.MENU_TABLE_TOKEN || '1617390c-d431-49aa-aa42-f4bb6a982117';
 const output = path.resolve(__dirname, '../artifacts/ui-audit');
-const readActions = new Set(['public-settings', 'bootstrap', 'dashboard', 'orders', 'menu', 'financial', 'settings', 'role-access', 'incidents', 'push-config']);
+const readActions = new Set(['public-settings', 'bootstrap', 'status', 'dashboard', 'orders', 'menu', 'financial', 'settings', 'role-access', 'incidents', 'push-config']);
 fs.mkdirSync(output, {recursive:true});
 
 (async()=>{
