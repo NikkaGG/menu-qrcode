@@ -816,7 +816,6 @@ function openDishEditor(dishId=null){
   window.loadDishGroups?.(dish?.modifier_groups||[]);
   syncDishPreview();
   document.getElementById('dishModal').classList.add('on');
-  setTimeout(()=>document.getElementById('dishName').focus(),50);
 }
 function closeDishEditor(){document.getElementById('dishModal').classList.remove('on');editDishId=null;document.getElementById('dishForm').reset();document.getElementById('dishPreview').hidden=true}
 async function saveDish(event){
@@ -909,7 +908,6 @@ function withTableBusy(tableId,task){
 
 function openCreateTable(){
   document.getElementById('createTableModal').classList.add('on');
-  setTimeout(()=>document.getElementById('tableNumber').focus(),50);
 }
 function closeCreateTable(){
   document.getElementById('createTableModal').classList.remove('on');
@@ -955,7 +953,7 @@ async function confirmRotate(){
 function renameTable(tableId){
   const table=(state.tables||[]).find(x=>x.id===tableId);if(!table)return;
   editTableId=tableId;document.getElementById('editTableNumber').value=table.table_number||'';document.getElementById('editTableLabel').value=table.label||('Стол '+table.table_number);
-  document.getElementById('editTableModal').classList.add('on');setTimeout(()=>document.getElementById('editTableNumber').focus(),50);
+  document.getElementById('editTableModal').classList.add('on');
 }
 function closeEdit(){document.getElementById('editTableModal').classList.remove('on');editTableId=null}
 async function saveEdit(event){

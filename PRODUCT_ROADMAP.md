@@ -2,6 +2,8 @@
 
 Approved on 2026-10-05. One restaurant per configurable installation.
 
+Commercial handoff: the seller prepares the customer's menu, tables and branding before delivery. Notifications must be accepted on both Android and iPhone. Private off-site backups are requested; a new Cloudflare R2 storage area is proposed in the owner's existing account, but it is not connected yet.
+
 ## Approved rules
 - Sushi Crazy, Kazakhstan, KZT, UTC+5 (Asia/Qyzylorda).
 - Table ordering only; public browse link cannot place orders.

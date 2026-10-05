@@ -67,6 +67,7 @@ const control = async (url) => { assert.equal((await fetch(origin + url, { metho
     let state = await getState(); let table = state.restaurant_tables.find(t => String(t.table_number) === '12'); assert.ok(table); pass('table creation');
     const menuFor = id => `.admin-table-menu:has([data-id="${id}"]) summary`;
     await click(menuFor(table.id)); await click(`[data-action=rename][data-id="${table.id}"]`);
+    await page.focus('#editTableLabel');await delay(80);assert.equal(await page.evaluate(()=>document.activeElement.id),'editTableLabel');pass('table editor does not steal focus after field selection');
     await fill('#editTableLabel', 'Терраса у окна'); await click('#editTableForm [type=submit]'); await closed('editTableModal');
     assert.equal((await getState()).restaurant_tables.find(t => t.id === table.id).label, 'Терраса у окна'); pass('table edit');
     await click(`[data-action=qr][data-id="${table.id}"]`); await page.waitForSelector('#qrModal.on');
