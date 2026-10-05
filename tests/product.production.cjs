@@ -45,6 +45,7 @@ fs.mkdirSync(output, {recursive:true});
       if(await page.$eval('#app',el=>el.hidden)){await page.type('#pin',pin);await page.click('#loginForm button');}await page.waitForSelector('#app:not([hidden])');
       if(route==='admin'){
         await page.click('#adminNav [data-section=reports]');await page.waitForSelector('#paidReports .product-metrics');
+        assert.equal(await page.$('#shiftButton'),null);assert.ok(await page.$eval('#paidReports',el=>el.textContent.includes('Ежедневная смена')));
         await page.click('button[aria-label="Настройки ресторана"]');await page.waitForSelector('#restaurantSettings[open]');await page.click('#settingsCancel');
       }
       await page.screenshot({path:path.join(output,'production-'+route+'.png')});pass('production '+route+' login and read-only dashboard');

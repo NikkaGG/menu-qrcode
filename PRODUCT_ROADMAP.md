@@ -26,7 +26,14 @@ Approved on 2026-10-05. One restaurant per configurable installation.
 - [x] Paid revenue, unpaid balances, preparation time, shifts and role activity.
 - [x] Administrator incident inbox and staff notification subscription.
 - [x] Reproducible deployment, automated checks and documented backup/restore procedure.
-- [ ] Browser and real-Postgres verification, production deployment and smoke check.
+- [x] Browser and real-Postgres verification, production deployment and read-only smoke check.
+
+## Verified Release
+- 2026-10-05: production frontend and all three backend functions published.
+- 17 embedded-PostgreSQL checks cover fresh schema, retries, payment/closing, cancellation, options and midnight shift rotation.
+- Browser flows cover guest, administrator, waiter and kitchen, responsive layouts, import/uploads and failure recovery.
+- The production read-only smoke check passed all 9 checks; real menu count remained 61 and historical unpaid amount remained 13,050 KZT.
+- The database daily-shift schedule is active and its actual executions succeeded. Physical-device notification delivery and backup restore are not yet verified.
 
 ## Explicitly deferred decisions
 - Scheduled private backups, selected retention and an actual restore drill are required before commercial handoff.
