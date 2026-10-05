@@ -3,9 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f2f2f7">
+<meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
 <title>Sushi Crazy · Зал</title>
-<link rel="stylesheet" href="/ops.css?v=20261002-floor-v1">
+<link rel="icon" href="/icons/app-192.png" type="image/png">
+<link rel="preload" href="/fonts/SFProText_Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/SFProText_Bold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/ops.css?v=20261005-monochrome">
+<link rel="stylesheet" href="/product-ui.css?v=20261005">
 </head>
 <body class="ops ops-staff floor-workspace">
 <div id="login" class="login">
@@ -13,7 +18,7 @@
   <h1>Зал</h1>
   <p>Введите PIN персонала.</p>
   <form id="loginForm">
-    <input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN персонала">
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN персонала" required>
     <button>Войти</button>
   </form>
   <div id="loginErr" class="err" role="alert"></div>
@@ -30,11 +35,11 @@
       </div>
     </div>
     <nav class="floor-nav" aria-label="Действия зала">
-      <button class="floor-sound" id="soundBtn" type="button" aria-pressed="false" onclick="toggleSound()">
-        <span class="sound-glyph" aria-hidden="true">♪</span><span id="soundLabel">Звук выкл</span>
-      </button>
+      <a href="/admin" class="ops-workspace-link">Админ</a>
+      <button class="floor-sound ops-icon-btn" id="soundBtn" type="button" aria-label="Включить звук" title="Включить звук" aria-pressed="false" onclick="toggleSound()"><i data-lucide="volume-x" aria-hidden="true"></i><span id="soundLabel" hidden>Звук выкл</span></button>
       <a href="/kitchen">Кухня</a>
-      <button type="button" onclick="logout()">Выйти</button>
+      <button class="ops-icon-btn" type="button" onclick="refresh(false)" aria-label="Обновить данные" title="Обновить данные"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+      <button class="ops-icon-btn" type="button" onclick="logout()" aria-label="Выйти" title="Выйти"><i data-lucide="log-out" aria-hidden="true"></i></button>
     </nav>
   </header>
 
@@ -96,8 +101,12 @@
 
 <div class="toast" id="floorToast" role="status" aria-live="polite"></div>
 
+<script src="/vendor/lucide.min.js?v=0.468.0"></script>
+<script src="/api/config"></script>
+<script src="/ops-product.js"></script>
+<script src="/ops-ui.js?v=20261005"></script>
 <script>
-const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
+const API=window.MenuConfig.supabaseUrl+'/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
 const ATTENTION_WARNING_MINUTES=8;
 const ATTENTION_CRITICAL_MINUTES=15;
@@ -119,11 +128,12 @@ async function api(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin,'x-staff-role':'waiter','x-device-id':ProductDevice},body:JSON.stringify({action,...payload}),signal:controller.signal});
     const d=await r.json().catch(()=>({}));
     if(!r.ok){const e=new Error(d.error||'Ошибка');e.status=r.status;throw e}
     return d;
   }catch(error){
+    if(!error.status||error.status>=500)recordProductFailure(error);
     if(error?.name==='AbortError')throw new Error('Сервер отвечает слишком долго');
     if(/failed to fetch|networkerror|load failed|network request failed/i.test(String(error?.message||'')))throw new Error('Нет связи с сервером');
     throw error;
@@ -156,6 +166,8 @@ function attentionUrgency(ts){
 }
 function activeOrdersFor(sessionId){return sessionOrders(sessionId).filter(o=>['submitted','accepted','preparing','ready'].includes(o.status))}
 function nonCancelledOrders(sessionId){return sessionOrders(sessionId).filter(o=>o.status!=='cancelled')}
+function unpaidOrders(sessionId){return nonCancelledOrders(sessionId).filter(o=>!o.paid_at)}
+function tableClosable(id){return !activeOrdersFor(id).length&&!sessionRequests(id).length&&!unpaidOrders(id).length}
 
 function attentionItems(source=state){
   if(!source)return [];
@@ -180,7 +192,7 @@ function attentionCard(item){
   }
   const o=item.order,busy=busyOrders.has(Number(o.id)),items=itemsFor(o.id);
   const itemHtml=items.map(i=>'<span><b>'+h(i.quantity)+'×</b> '+h(i.name)+'</span>').join('');
-  return '<article class="attention-card ready-attention '+urgency+fresh+'">'+
+  return '<article class="attention-card ready-attention '+urgency+fresh+'" data-ready-order="'+o.id+'">'+
     '<div class="attention-main"><img class="attention-icon" src="/apple-emoji/frying-pan.png" alt=""><div class="attention-copy"><span class="attention-table">'+h(table)+' · #'+o.id+'</span><h3>Заказ готов к выдаче</h3><p>'+age+' · '+h(timeLabel(item.created_at))+'</p></div></div>'+
     '<div class="ready-items">'+itemHtml+'</div>'+
     '<button class="attention-action serve-action" type="button" onclick="serveOrder('+o.id+')" '+(busy?'disabled':'')+'>'+(busy?'Сохраняем…':'Подано')+'</button>'+
@@ -194,27 +206,31 @@ function tableCard(session){
   const working=active.filter(o=>['submitted','accepted','preparing'].includes(o.status));
   const total=orders.filter(o=>o.status!=='cancelled').reduce((sum,o)=>sum+Number(o.total||0),0);
   const lastOrder=orders.find(o=>o.status!=='cancelled');
-  const payment=lastOrder?payLabels[lastOrder.payment_method]||lastOrder.payment_method:'—';
+  const methods=new Set(nonCancelledOrders(session.id).map(o=>o.payment_method));
+  const payment=methods.size>1?'Разные':lastOrder?payLabels[lastOrder.payment_method]||lastOrder.payment_method:'Нет заказов';
   const busy=busySessions.has(session.id);
-  const closable=active.length===0&&requests.length===0;
+  const closable=tableClosable(session.id);
   const stateClass=requests.length||ready.length?'needs-attention':working.length?'is-active':'is-calm';
-  const orderRows=orders.filter(o=>!['cancelled'].includes(o.status)).slice(0,4).map(o=>
-    '<div class="floor-order-row '+(o.status==='ready'?'ready':'')+'"><span>#'+o.id+' · '+h(statusLabels[o.status]||o.status)+'</span><b>'+money(o.total)+'</b></div>'
+  const orderRows=orders.filter(o=>o.status!=='cancelled').map(o=>
+    '<details class="floor-order-details" data-order-id="'+o.id+'"><summary><span>#'+o.id+' · '+h(statusLabels[o.status]||o.status)+'</span><b>'+money(o.total)+'</b></summary><div class="floor-order-items">'+
+    itemsFor(o.id).map(i=>'<p>'+Number(i.quantity)+' × '+h(i.name)+(i.item_comment?'<br>'+h(i.item_comment):'')+'</p>').join('')+
+    (o.comment?'<div class="kitchen-comment"><span>Комментарий гостя</span><b>'+h(o.comment)+'</b></div>':'')+
+    '<p>'+ (o.paid_at?'Оплачен · '+h(payLabels[o.payment_method]):'Не оплачен · <button class="product-button" onclick="openPayment('+o.id+')" type="button"><i data-lucide="credit-card"></i> Подтвердить оплату</button>')+'</p></div></details>'
   ).join('');
-  const more=Math.max(0,orders.filter(o=>o.status!=='cancelled').length-4);
   return '<article class="floor-table '+stateClass+'" data-table-state="'+(closable?'closable':'active')+'">'+
     '<div class="floor-table-head"><div><span class="floor-table-name">'+h(table?.label||('Стол '+(table?.table_number||'?')))+'</span><small>Открыт '+h(timeLabel(session.opened_at))+' · '+h(ageLabel(session.opened_at))+'</small></div><strong>'+money(total)+'</strong></div>'+
     '<div class="floor-table-metrics">'+
       '<div><span>В работе</span><b>'+working.length+'</b></div>'+
       '<div><span>На выдаче</span><b>'+ready.length+'</b></div>'+
       '<div><span>Запросы</span><b>'+requests.length+'</b></div>'+
-      '<div><span>Расчёт</span><b>'+h(payment)+'</b></div>'+
+      '<div><span>Оплата</span><b>'+h(payment)+'</b></div>'+
     '</div>'+
-    (orderRows?'<div class="floor-order-list">'+orderRows+(more?'<small class="floor-more-orders">Ещё заказов: '+more+'</small>':'')+'</div>':'<div class="floor-table-empty">Заказов пока нет</div>')+
+    (orderRows?'<div class="floor-order-list">'+orderRows+'</div>':'<div class="floor-table-empty">Заказов пока нет</div>')+
     '<div class="floor-table-actions">'+
-      (ready.length?'<button class="primary" type="button" onclick="scrollToAttention()">На выдачу · '+ready.length+'</button>':'')+
+      (ready.length?'<button class="primary" type="button" onclick="scrollToAttention(\''+session.id+'\')">На выдачу · '+ready.length+'</button>':'')+
       '<button type="button" onclick="openCloseTable(\''+session.id+'\')" '+(!closable||busy?'disabled':'')+'>'+(busy?'Закрываем…':'Закрыть стол')+'</button>'+
     '</div>'+
+    (!closable?'<p class="floor-table-note">'+(active.length?'Сначала подайте все заказы этого стола.':unpaidOrders(session.id).length?'Подтвердите оплату всех заказов.':'Сначала выполните запросы гостя.')+'</p>':'')+
   '</article>';
 }
 
@@ -230,12 +246,12 @@ function render(){
   document.getElementById('attentionCount').textContent=attention.length;
   document.getElementById('attentionList').innerHTML=attention.length?attention.map(attentionCard).join(''):'<div class="floor-all-clear"><span>✓</span><div><b>Срочных действий нет</b><small>Новые вызовы и готовые заказы появятся здесь автоматически.</small></div></div>';
 
-  const activeCount=sessions.filter(s=>activeOrdersFor(s.id).length>0).length;
-  const closableCount=sessions.filter(s=>activeOrdersFor(s.id).length===0&&sessionRequests(s.id).length===0).length;
+  const activeCount=sessions.filter(s=>!tableClosable(s.id)).length;
+  const closableCount=sessions.filter(s=>tableClosable(s.id)).length;
   document.getElementById('filterAllCount').textContent=sessions.length;
   document.getElementById('filterActiveCount').textContent=activeCount;
   document.getElementById('filterClosableCount').textContent=closableCount;
-  const visible=sessions.filter(s=>tableFilter==='all'||(tableFilter==='active'&&(activeOrdersFor(s.id).length>0||sessionRequests(s.id).length>0))||(tableFilter==='closable'&&activeOrdersFor(s.id).length===0&&sessionRequests(s.id).length===0));
+  const visible=sessions.filter(s=>tableFilter==='all'||(tableFilter==='active'&&(activeOrdersFor(s.id).length>0||sessionRequests(s.id).length>0))||(tableFilter==='closable'&&tableClosable(s.id)));
   document.getElementById('tables').innerHTML=visible.length?visible.map(tableCard).join(''):'<div class="floor-empty-filter">Столов в этой категории нет</div>';
 }
 
@@ -255,8 +271,8 @@ function applyState(next){
   document.getElementById('updated').textContent='Обновлено '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
-async function refresh(silent=true){
-  if(refreshBusy||(silent&&(busyRequests.size||busyOrders.size||busySessions.size)))return;
+async function refresh(silent=true,force=false){
+  if(refreshBusy||(!force&&silent&&(busyRequests.size||busyOrders.size||busySessions.size)))return;
   refreshBusy=true;
   try{
     const next=await api('dashboard');
@@ -278,14 +294,14 @@ async function resolveRequest(requestId){
   const id=Number(requestId);if(busyRequests.has(id))return;
   busyRequests.add(id);render();
   try{applyState(await api('resolve-request',{requestId:id}));showToast('Запрос выполнен')}
-  catch(e){showToast(e.message||'Не удалось закрыть запрос');await refresh(true)}
+  catch(e){showToast(e.message||'Не удалось закрыть запрос');await refresh(true,true)}
   finally{busyRequests.delete(id);render()}
 }
 async function serveOrder(orderId){
   const id=Number(orderId);if(busyOrders.has(id))return;
   busyOrders.add(id);render();
   try{applyState(await api('update-order',{orderId:id,status:'served'}));showToast('Заказ #'+id+' подан')}
-  catch(e){showToast(e.message||'Не удалось отметить заказ');await refresh(true)}
+  catch(e){showToast(e.message||'Не удалось отметить заказ');await refresh(true,true)}
   finally{busyOrders.delete(id);render()}
 }
 
@@ -293,6 +309,7 @@ function openCloseTable(sessionId){
   const s=(state.sessions||[]).find(x=>x.id===sessionId);if(!s)return;
   if(activeOrdersFor(sessionId).length){showToast('Сначала завершите активные заказы');return;}
   if(sessionRequests(sessionId).length){showToast('Сначала выполните запрос гостя');return;}
+  if(unpaidOrders(sessionId).length){showToast('Сначала подтвердите оплату всех заказов');return;}
   closeTableTarget=sessionId;
   document.getElementById('closeTableCopy').textContent=tableLabel(sessionId)+' · после закрытия стол исчезнет из списка.';
   document.getElementById('closeTableModal').classList.add('on');
@@ -301,10 +318,10 @@ function closeCloseTable(){closeTableTarget=null;document.getElementById('closeT
 async function confirmCloseTable(){
   if(!closeTableTarget)return;
   const id=closeTableTarget;if(busySessions.has(id))return;
-  closeCloseTable();busySessions.add(id);render();
-  try{applyState(await api('close-session',{sessionId:id}));showToast('Стол закрыт')}
-  catch(e){showToast(e.message||'Не удалось закрыть стол');await refresh(true)}
-  finally{busySessions.delete(id);render()}
+  busySessions.add(id);document.getElementById('confirmCloseTableBtn').disabled=true;render();
+  try{applyState(await api('close-session',{sessionId:id}));closeCloseTable();showToast('Стол закрыт')}
+  catch(e){showToast(e.message||'Не удалось закрыть стол');await refresh(true,true)}
+  finally{busySessions.delete(id);document.getElementById('confirmCloseTableBtn').disabled=false;render()}
 }
 
 function setTableFilter(filter){
@@ -314,7 +331,12 @@ function setTableFilter(filter){
   try{sessionStorage.setItem('sushi-floor-filter',filter)}catch(_){}
   render();
 }
-function scrollToAttention(){document.getElementById('attentionTitle')?.scrollIntoView({behavior:'smooth',block:'start'})}
+function scrollToAttention(sessionId){
+  const order=(state.orders||[]).find(o=>o.table_session_id===sessionId&&o.status==='ready');
+  const target=order?document.querySelector('[data-ready-order="'+order.id+'"]'):document.getElementById('attentionTitle');
+  target?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'center'});
+  target?.querySelector('button')?.focus({preventScroll:true});
+}
 function setConnection(ok,message=''){
   const banner=document.getElementById('connectionBanner');banner.hidden=ok;
   if(!ok)document.getElementById('connectionText').textContent=message||'Показываем последние полученные данные.';
@@ -327,6 +349,8 @@ function showToast(message){
   toastTimer=setTimeout(()=>el.classList.remove('on'),2600);
 }
 function syncSoundButton(){
+  document.getElementById('soundBtn').setAttribute('aria-label',soundEnabled?'Выключить звук':'Включить звук');
+  document.getElementById('soundBtn').title=soundEnabled?'Выключить звук':'Включить звук';
   const btn=document.getElementById('soundBtn'),label=document.getElementById('soundLabel');
   btn?.setAttribute('aria-pressed',String(soundEnabled));btn?.classList.toggle('on',soundEnabled);
   if(label)label.textContent=soundEnabled?'Звук вкл':'Звук выкл';
@@ -371,6 +395,14 @@ window.addEventListener('online',()=>{if(pin)refresh(false)});
 syncSoundButton();
 setTableFilter(sessionStorage.getItem('sushi-floor-filter')||'all');
 if(pin)refresh(true);
+</script>
+<script>addNotificationButton('waiter',api,showToast);</script>
+
+<dialog class="product-dialog" id="paymentDialog" aria-labelledby="paymentTitle"><h2 id="paymentTitle">Оплата заказа</h2><p id="paymentAmount"></p><form id="paymentForm"><label>Способ оплаты<select id="actualPayment" required><option value="cash">Наличные</option><option value="card">Карта</option><option value="kaspi">Kaspi</option></select></label><p class="product-error" id="paymentError"></p><div class="product-actions"><button type="button" onclick="document.getElementById('paymentDialog').close()">Назад</button><button class="primary" id="confirmPaymentBtn" type="submit">Оплата получена</button></div></form></dialog>
+<script>
+let paymentTarget=null;
+function openPayment(id){const order=(state?.orders||[]).find(o=>o.id===Number(id));if(!order||order.paid_at)return;paymentTarget=order.id;document.getElementById('paymentTitle').textContent='Оплата заказа #'+order.id;document.getElementById('paymentAmount').textContent=money(order.total);document.getElementById('actualPayment').value=order.payment_method;document.getElementById('paymentError').textContent='';document.getElementById('paymentDialog').showModal();}
+document.getElementById('paymentForm').onsubmit=async e=>{e.preventDefault();const button=document.getElementById('confirmPaymentBtn');button.disabled=true;try{applyState(await api('confirm-payment',{orderId:paymentTarget,paymentMethod:document.getElementById('actualPayment').value}));document.getElementById('paymentDialog').close();showToast('Оплата подтверждена');}catch(e){document.getElementById('paymentError').textContent=e.message;}finally{button.disabled=false;}};
 </script>
 </body>
 </html>

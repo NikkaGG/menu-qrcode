@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "rewrites": [
+    {"source":"/manifest.webmanifest","destination":"/api/manifest"},
     {
       "source": "/apple-emoji/gear.png",
       "destination": "https://raw.githubusercontent.com/emojes/assets/master/apple/png/160/2699-fe0f.png"

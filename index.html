@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="ru">
 <head>
+<script>document.documentElement.classList.add('guest-locked');</script>
+<script src="/api/config"></script>
+<link rel="stylesheet" href="/product-ui.css?v=20261005">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sushi Crazy — суши, фастфуд и пицца</title>
@@ -22,6 +25,8 @@
 </script>
 </head>
 <body>
+<section class="product-gate" id="guestGate"><h1>Суши Крейзи</h1><p id="guestGateText">Откройте QR-код на столе</p><div class="product-actions"><button class="product-button" onclick="location.reload()" type="button">Проверить снова</button></div></section>
+<dialog class="product-dialog" id="dishOptions" aria-label="Варианты блюда"></dialog>
 
 <main class="page" id="mainContent">
 

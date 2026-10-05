@@ -1,7 +1,7 @@
-const products=require('../../ref-products-dom.json');
+const {config,restaurantSettings}=require('../../lib/server-config.cjs');
 const PUBLIC_ORIGIN='https://menu-qrcode-lt1q.vercel.app';
-const SUPABASE_URL='https://gelezvudpcsnhqgjaqkl.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_w24dlBQIlqYyQwY-6bJPmw_KNa-FCRK';
+const SUPABASE_URL=config.supabaseUrl;
+const SUPABASE_PUBLISHABLE_KEY=config.publishableKey;
 
 function esc(value){
   return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -26,18 +26,20 @@ async function getProduct(id){
   }catch(error){
     console.warn(error);
   }
-  return products[id-1]||null;
+  return null;
 }
 
 module.exports=async function handler(req,res){
   const id=Number(req.query.id);
   const item=await getProduct(id);
   if(!item){res.statusCode=404;res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><title>Товар не найден — Sushi Crazy</title><p>Товар не найден.</p>');return;}
-  const origin=PUBLIC_ORIGIN;
-  const target=origin+'/?product='+id;
+  let settings={};try{settings=await restaurantSettings();}catch(_){}
+  const restaurantName=settings.restaurant_name||'Menu-QR';
+  const origin=settings.canonical_url||PUBLIC_ORIGIN;
+  const target=origin+'/?view=menu&product='+id;
   const image=item.detailImg||item.img||'/icons/app-512.png';
   const imageUrl=image.startsWith('http')?image:origin+image;
-  const title=item.name+' — Sushi Crazy';
+  const title=item.name+' — '+restaurantName;
   const description=[item.weight,item.desc,item.price?item.price.toLocaleString('ru-RU')+' ₸':''].filter(Boolean).join(' · ');
   const html=`<!doctype html>
 <html lang="ru"><head>
@@ -46,7 +48,7 @@ module.exports=async function handler(req,res){
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <meta property="og:type" content="product">
-<meta property="og:site_name" content="Sushi Crazy">
+<meta property="og:site_name" content="${esc(restaurantName)}">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:image" content="${esc(imageUrl)}">

@@ -12,6 +12,11 @@ function fallbackSvg(type){
 
 module.exports = async function handler(req,res){
   const type=String(req.query.type||'');
+  if(!['banner','logo'].includes(type)){res.status(404).send('Not found');return;}
+  try{
+    const settings=await require('../lib/server-config.cjs').restaurantSettings();const custom=settings[type+'_url'];
+    if(custom&&(custom.startsWith('/')&&!custom.startsWith('//')||/^https:\/\//.test(custom))){res.setHeader('Cache-Control','no-cache');res.redirect(302,custom);return;}
+  }catch(_){}
   const url=ASSETS[type];
   if(!url){res.status(404).send('Not found');return;}
   try{
@@ -19,7 +24,7 @@ module.exports = async function handler(req,res){
     if(!upstream.ok)throw new Error('Upstream '+upstream.status);
     const body=Buffer.from(await upstream.arrayBuffer());
     res.setHeader('Content-Type',upstream.headers.get('content-type')||'image/webp');
-    res.setHeader('Cache-Control','public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800');
+    res.setHeader('Cache-Control','public, max-age=300, s-maxage=300');
     res.setHeader('X-Content-Type-Options','nosniff');
     res.status(200).send(body);
   }catch(error){

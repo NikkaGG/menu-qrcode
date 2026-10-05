@@ -1,4 +1,4 @@
-const CACHE_NAME='sushi-crazy-shell-v19-menu-admin';
+const CACHE_NAME='menu-qr-product-v20';
 const OFFLINE_URL='/offline.html';
 const PRECACHE=[
   '/',
@@ -9,6 +9,18 @@ const PRECACHE=[
   '/icons/app-192.png',
   '/icons/app-512.png'
 ];
+self.addEventListener('push',event=>{
+  let data={};try{data=event.data?.json()||{};}catch(_){}
+  event.waitUntil(self.registration.showNotification(data.title||'Ресторан',{body:data.body||'',icon:'/icons/app-192.png',tag:data.tag||'menu-event',data:{url:data.url||'/staff'}}));
+});
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();const target=new URL(event.notification.data?.url||'/staff',self.location.origin);
+  if(target.origin!==self.location.origin)return;
+  event.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(async clients=>{
+    const existing=clients.find(c=>new URL(c.url).pathname===target.pathname);
+    if(existing){await existing.focus();return;}return self.clients.openWindow(target.href);
+  }));
+});
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(PRECACHE)));
@@ -29,7 +41,7 @@ async function networkFirst(request,fallback){
     if(response&&response.ok)cache.put(request,response.clone());
     return response;
   }catch(error){
-    return (await cache.match(request))||(fallback?await cache.match(fallback):undefined)||Response.error();
+    return (fallback?await cache.match(fallback):await cache.match(request))||Response.error();
   }
 }
 

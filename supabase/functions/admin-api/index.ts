@@ -1,6 +1,8 @@
+import { authenticate, pinHash, audit, incident, settings, pushAction } from '../_shared/product.ts';
+import { productAction, normalizeGroups } from './product-actions.ts';
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type, x-admin-pin, apikey, authorization",
+  "Access-Control-Allow-Headers": "content-type, x-admin-pin, x-admin-role, x-device-id, apikey, authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json; charset=utf-8",
 };
@@ -8,6 +10,32 @@ const cors = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const secretKeys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") || "{}");
 const serviceKey = secretKeys.default || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const RESTAURANT_TIME_ZONE = "Asia/Qyzylorda";
+
+const restaurantDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: RESTAURANT_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const restaurantHourFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone: RESTAURANT_TIME_ZONE,
+  hour: "2-digit",
+  hourCycle: "h23",
+});
+
+function restaurantDateKey(value: string | number | Date,timeZone=RESTAURANT_TIME_ZONE) {
+  const formatter=timeZone===RESTAURANT_TIME_ZONE?restaurantDateFormatter:new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'});
+  const parts = formatter.formatToParts(new Date(value));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function restaurantHour(value: string | number | Date,timeZone=RESTAURANT_TIME_ZONE) {
+  const formatter=timeZone===RESTAURANT_TIME_ZONE?restaurantHourFormatter:new Intl.DateTimeFormat('en-GB',{timeZone,hour:'2-digit',hourCycle:'h23'});
+  const hour = Number(formatter.format(new Date(value)));
+  return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : 0;
+}
 
 function reply(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors });
@@ -38,15 +66,43 @@ async function db(path: string, init: RequestInit = {}) {
   return data;
 }
 
+async function dbAll(path: string, pageSize = 1000) {
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const separator = path.includes("?") ? "&" : "?";
+    const page = await db(`${path}${separator}limit=${pageSize}&offset=${offset}`);
+    const list = Array.isArray(page) ? page : [];
+    rows.push(...list);
+    if (list.length < pageSize) return rows;
+  }
+}
+
+async function dbInChunks<T>(values: T[], pathBuilder: (chunk: T[]) => string, chunkSize = 80) {
+  if (!values.length) return [];
+  const result: any[] = [];
+  for (let index = 0; index < values.length; index += chunkSize) {
+    const rows = await dbAll(pathBuilder(values.slice(index, index + chunkSize)));
+    result.push(...rows);
+  }
+  return result;
+}
+
 async function sha256(value: string) {
   const data = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function adminPinOk(pin: string) {
-  // Temporary owner-requested development PIN. Restore hashed DB verification before production handoff.
-  return pin === "1";
+type AdminRole = "owner" | "admin";
+type AdminActor = { id: number; name: string; role: AdminRole; temporary?: boolean };
+
+function cleanAdminRole(value: unknown): AdminRole | "" {
+  const role = String(value || "").trim().toLowerCase();
+  return role === "owner" || role === "admin" ? role : "";
+}
+
+async function authenticateAdmin(req: Request, pin: string, _role: unknown): Promise<AdminActor | null> {
+  return authenticate(req,pin,"admin") as Promise<AdminActor | null>;
 }
 
 function cleanUuid(value: unknown) {
@@ -89,7 +145,7 @@ function cleanSortOrder(value: unknown) {
 function cleanAssetUrl(value: unknown) {
   const s = String(value || "").trim().slice(0, 1000);
   if (!s) return null;
-  if (s.startsWith("/") || /^https?:\/\//i.test(s)) return s;
+  if (s.startsWith("/")&&!s.startsWith("//") || /^https:\/\//i.test(s)) return s;
   return "";
 }
 
@@ -106,27 +162,55 @@ function averageCheck(orders: any[]) {
 }
 
 async function adminDashboard() {
+  const timezone=(await settings()).timezone||RESTAURANT_TIME_ZONE;
+  const dateKey=(value:string|number|Date)=>restaurantDateKey(value,timezone);
+  const hourKey=(value:string|number|Date)=>restaurantHour(value,timezone);
   const now = Date.now();
-  const since30 = new Date(now - 30 * 86400000).toISOString();
-  const since7 = now - 7 * 86400000;
+  const querySince = new Date(now - 31 * 86400000).toISOString();
   const since24 = now - 24 * 3600000;
+  const calendarKeys = (days: number) => new Set(
+    Array.from({ length: days }, (_, index) => dateKey(now - index * 86400000))
+  );
+  const dates30 = calendarKeys(30);
+  const dates7 = calendarKeys(7);
 
-  const [tablesRaw, sessionsRaw, ordersRaw, requestsRaw] = await Promise.all([
+  const [tablesRaw, ordersWindowRaw, requestsRaw, openSessionsRaw] = await Promise.all([
     db("restaurant_tables?select=id,table_number,qr_token,label,is_active,created_at,updated_at&order=table_number.asc"),
-    db(`table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&opened_at=gte.${encodeURIComponent(since30)}&order=opened_at.asc`),
-    db(`orders?select=id,table_session_id,status,payment_method,total,created_at,updated_at&created_at=gte.${encodeURIComponent(since30)}&order=created_at.asc`),
+    dbAll(`orders?select=id,table_session_id,status,payment_method,total,created_at,updated_at&created_at=gte.${encodeURIComponent(querySince)}&order=created_at.asc`),
     db("service_requests?select=id,table_session_id,kind,status,created_at,resolved_at&status=eq.open&order=created_at.asc"),
+    db("table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&status=eq.open&order=opened_at.asc"),
   ]);
 
   const tables = Array.isArray(tablesRaw) ? tablesRaw : [];
-  const sessions = Array.isArray(sessionsRaw) ? sessionsRaw : [];
-  const orders = (Array.isArray(ordersRaw) ? ordersRaw : []).filter((order: any) => !isCancelled(order));
+  const orderWindow = Array.isArray(ordersWindowRaw) ? ordersWindowRaw : [];
+  const allOrders = orderWindow.filter((order: any) => dates30.has(dateKey(order.created_at)));
+  const orders = allOrders.filter((order: any) => !isCancelled(order));
   const requests = Array.isArray(requestsRaw) ? requestsRaw : [];
+  const openSessions = Array.isArray(openSessionsRaw) ? openSessionsRaw : [];
+  const orderIds = allOrders.map((order: any) => Number(order.id)).filter((id: number) => Number.isInteger(id) && id > 0);
+  const sessionIds = [...new Set(allOrders.map((order: any) => cleanUuid(order.table_session_id)).filter(Boolean))];
+  const orderSessionsRaw = await dbInChunks(
+    sessionIds,
+    (ids) => `table_sessions?select=id,table_id,status,opened_at,closed_at,updated_at&id=in.(${ids.join(",")})`
+  );
+  const sessionsById = new Map<string, any>();
+  for (const session of [...(Array.isArray(orderSessionsRaw) ? orderSessionsRaw : []), ...openSessions]) {
+    sessionsById.set(session.id, session);
+  }
+  const sessions = [...sessionsById.values()];
 
-  const sessionsById = new Map(sessions.map((s: any) => [s.id, s]));
-  const last24 = orders.filter((o: any) => new Date(o.created_at).getTime() >= since24);
-  const last7 = orders.filter((o: any) => new Date(o.created_at).getTime() >= since7);
-  const openSessions = sessions.filter((s: any) => s.status === "open");
+  const [items, statusEvents] = await Promise.all([
+    dbInChunks(orderIds, (ids) =>
+      `order_items?select=order_id,dish_id,name,quantity,line_total&order_id=in.(${ids.join(",")})&order=order_id.asc,id.asc`
+    ),
+    dbInChunks(orderIds, (ids) =>
+      `order_status_events?select=order_id,from_status,to_status,created_at&order_id=in.(${ids.join(",")})&order=order_id.asc,created_at.asc`
+    ),
+  ]);
+
+  const validOrderIds = new Set(orders.map((order: any) => Number(order.id)));
+  const last24 = orders.filter((order: any) => new Date(order.created_at).getTime() >= since24);
+  const last7 = orders.filter((order: any) => dates7.has(dateKey(order.created_at)));
 
   const tableStats = new Map<string, { orders: number; revenue: number }>();
   for (const order of orders) {
@@ -145,49 +229,88 @@ async function adminDashboard() {
     revenue30: tableStats.get(table.id)?.revenue || 0,
   }));
 
-  const daily = [];
-  for (let offset = 6; offset >= 0; offset--) {
-    const start = new Date(now - offset * 86400000);
-    start.setUTCHours(0, 0, 0, 0);
-    const end = new Date(start.getTime() + 86400000);
-    const dayOrders = orders.filter((o: any) => {
-      const ts = new Date(o.created_at).getTime();
-      return ts >= start.getTime() && ts < end.getTime();
-    });
-    daily.push({
-      date: start.toISOString().slice(0, 10),
-      orders: dayOrders.length,
-      revenue: sumTotal(dayOrders),
-    });
-  }
+  const dailyFor = (days: number) => {
+    const buckets = new Map<string, { date: string; orders: number; revenue: number }>();
+    for (let offset = days - 1; offset >= 0; offset--) {
+      const date = dateKey(now - offset * 86400000);
+      buckets.set(date, { date, orders: 0, revenue: 0 });
+    }
+    for (const order of orders) {
+      const key = dateKey(order.created_at);
+      const bucket = buckets.get(key);
+      if (!bucket) continue;
+      bucket.orders += 1;
+      bucket.revenue += Number(order.total || 0);
+    }
+    return [...buckets.values()];
+  };
 
-  const payments: Record<string, number> = {};
-  for (const order of last7) {
-    const method = String(order.payment_method || "unknown");
-    payments[method] = (payments[method] || 0) + 1;
-  }
+  const paymentsFor = (source: any[]) => {
+    const result: Record<string, number> = {};
+    for (const order of source) {
+      const method = String(order.payment_method || "unknown");
+      result[method] = (result[method] || 0) + 1;
+    }
+    return result;
+  };
 
-  const daily30 = [];
-  for (let offset = 29; offset >= 0; offset--) {
-    const start = new Date(now - offset * 86400000);
-    start.setUTCHours(0, 0, 0, 0);
-    const end = new Date(start.getTime() + 86400000);
-    const dayOrders = orders.filter((o: any) => {
-      const ts = new Date(o.created_at).getTime();
-      return ts >= start.getTime() && ts < end.getTime();
-    });
-    daily30.push({
-      date: start.toISOString().slice(0, 10),
-      orders: dayOrders.length,
-      revenue: sumTotal(dayOrders),
-    });
-  }
-
-  const payments30: Record<string, number> = {};
+  const hourly30 = Array.from({ length: 24 }, (_, hour) => ({ hour, orders: 0, revenue: 0 }));
   for (const order of orders) {
-    const method = String(order.payment_method || "unknown");
-    payments30[method] = (payments30[method] || 0) + 1;
+    const localHour = hourKey(order.created_at);
+    hourly30[localHour].orders += 1;
+    hourly30[localHour].revenue += Number(order.total || 0);
   }
+
+  const dishes = new Map<string, { dishId: number | null; name: string; quantity: number; revenue: number }>();
+  let items30 = 0;
+  for (const item of items) {
+    if (!validOrderIds.has(Number(item.order_id))) continue;
+    const dishId = Number(item.dish_id);
+    const name = String(item.name || "Без названия");
+    const key = Number.isInteger(dishId) && dishId > 0 ? `id:${dishId}` : `name:${name}`;
+    const current = dishes.get(key) || {
+      dishId: Number.isInteger(dishId) && dishId > 0 ? dishId : null,
+      name,
+      quantity: 0,
+      revenue: 0,
+    };
+    const quantity = Math.max(0, Number(item.quantity || 0));
+    current.quantity += quantity;
+    current.revenue += Number(item.line_total || 0);
+    items30 += quantity;
+    dishes.set(key, current);
+  }
+  const popularDishes30 = [...dishes.values()]
+    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue || a.name.localeCompare(b.name, "ru"))
+    .slice(0, 10);
+
+  const eventsByOrder = new Map<number, any[]>();
+  for (const event of statusEvents) {
+    const orderId = Number(event.order_id);
+    if (!eventsByOrder.has(orderId)) eventsByOrder.set(orderId, []);
+    eventsByOrder.get(orderId)!.push(event);
+  }
+  const prepSamples: number[] = [];
+  for (const order of orders) {
+    const events = eventsByOrder.get(Number(order.id)) || [];
+    const preparing = events.find((event: any) => event.to_status === "preparing");
+    if (!preparing) continue;
+    const preparingAt = new Date(preparing.created_at).getTime();
+    const ready = events.find((event: any) => event.to_status === "ready" && new Date(event.created_at).getTime() >= preparingAt);
+    if (!ready) continue;
+    const minutes = (new Date(ready.created_at).getTime() - preparingAt) / 60000;
+    if (Number.isFinite(minutes) && minutes >= 0 && minutes <= 1440) prepSamples.push(minutes);
+  }
+  prepSamples.sort((a, b) => a - b);
+  const averagePrepMinutes = prepSamples.length
+    ? Math.round(prepSamples.reduce((sum, value) => sum + value, 0) / prepSamples.length)
+    : null;
+  const medianPrepMinutes = prepSamples.length
+    ? Math.round(prepSamples[Math.floor((prepSamples.length - 1) / 2)])
+    : null;
+
+  const cancelled30 = allOrders.filter((order: any) => isCancelled(order)).length;
+  const cancellationRate30 = allOrders.length ? Math.round(cancelled30 * 1000 / allOrders.length) / 10 : 0;
 
   return {
     generatedAt: new Date(now).toISOString(),
@@ -200,34 +323,42 @@ async function adminDashboard() {
       orders30: orders.length,
       revenue30: sumTotal(orders),
       averageCheck30: averageCheck(orders),
+      cancelled30,
+      cancellationRate30,
+      served30: orders.filter((order: any) => order.status === "served").length,
+      items30,
+      averagePrepMinutes,
+      medianPrepMinutes,
+      prepSampleCount: prepSamples.length,
       openTables: openSessions.length,
       openRequests: requests.length,
       totalTables: tables.length,
       activeTables: tables.filter((table: any) => table.is_active).length,
-      daily,
-      payments,
-      daily30,
-      payments30,
+      daily: dailyFor(7),
+      payments: paymentsFor(last7),
+      daily30: dailyFor(30),
+      payments30: paymentsFor(orders),
+      hourly30,
+      popularDishes30,
     },
     tables: enrichedTables,
   };
 }
 
-
 async function adminOrdersState() {
-  const ordersRaw = await db("orders?select=id,table_session_id,status,payment_method,comment,total,created_at,updated_at&order=created_at.desc&limit=200");
+  const ordersRaw = await dbAll("orders?select=id,table_session_id,status,payment_method,paid_at,comment,total,created_at,updated_at&order=created_at.desc");
   const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
   const orderIds = orders.map((order: any) => Number(order.id)).filter((id: number) => Number.isInteger(id) && id > 0);
   const sessionIds = [...new Set(orders.map((order: any) => cleanUuid(order.table_session_id)).filter(Boolean))];
 
   const [tablesRaw, sessionsRaw, itemsRaw] = await Promise.all([
     db("restaurant_tables?select=id,table_number,label&order=table_number.asc"),
-    sessionIds.length
-      ? db(`table_sessions?select=id,table_id,status,opened_at,closed_at&id=in.(${sessionIds.join(",")})`)
-      : Promise.resolve([]),
-    orderIds.length
-      ? db(`order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order_id=in.(${orderIds.join(",")})&order=order_id.desc,id.asc`)
-      : Promise.resolve([]),
+    dbInChunks(sessionIds, (ids) =>
+      `table_sessions?select=id,table_id,status,opened_at,closed_at&id=in.(${ids.join(",")})`
+    ),
+    dbInChunks(orderIds, (ids) =>
+      `order_items?select=id,order_id,dish_id,name,quantity,unit_price,line_total,item_comment&order_id=in.(${ids.join(",")})&order=order_id.desc,id.asc`
+    ),
   ]);
 
   const tables = Array.isArray(tablesRaw) ? tablesRaw : [];
@@ -285,7 +416,7 @@ async function adminOrdersState() {
 async function adminMenuState() {
   const [categoriesRaw, dishesRaw] = await Promise.all([
     db("categories?select=id,name,sort_order,is_visible,updated_at&order=sort_order.asc,id.asc"),
-    db("dishes?select=id,category_id,name,weight,description,price,image_url,detail_image_url,is_available,is_popular,sort_order,popular_order,updated_at&order=category_id.asc,sort_order.asc,id.asc"),
+    db("dishes?select=id,category_id,name,weight,description,price,image_url,detail_image_url,modifier_groups,is_available,is_popular,sort_order,popular_order,updated_at&order=category_id.asc,sort_order.asc,id.asc"),
   ]);
   return {
     generatedAt: new Date().toISOString(),
@@ -299,12 +430,6 @@ async function categoryExists(categoryId: string) {
   return Array.isArray(rows) && Boolean(rows[0]?.id);
 }
 
-async function nextDishId() {
-  const rows = await db("dishes?select=id&order=id.desc&limit=1");
-  const current = Array.isArray(rows) ? Number(rows[0]?.id || 0) : 0;
-  return current + 1;
-}
-
 function dishPayload(body: any) {
   const categoryId = cleanCategoryId(body?.categoryId);
   const name = cleanText(body?.name, 140);
@@ -315,6 +440,8 @@ function dishPayload(body: any) {
   const detailImageUrl = cleanAssetUrl(body?.detailImageUrl);
   const sortOrder = cleanSortOrder(body?.sortOrder);
   const isPopular = body?.isPopular === true;
+  let modifierGroups;
+  try {modifierGroups=normalizeGroups(body?.modifierGroups||[]);}catch(_){return null;}
   if (!categoryId || !name || price < 0 || imageUrl === "" || detailImageUrl === "") {
     return null;
   }
@@ -327,6 +454,7 @@ function dishPayload(body: any) {
     image_url: imageUrl,
     detail_image_url: detailImageUrl,
     is_available: body?.isAvailable !== false,
+    modifier_groups: modifierGroups,
     is_popular: isPopular,
     sort_order: sortOrder,
     updated_at: new Date().toISOString(),
@@ -340,6 +468,37 @@ async function tableHasOpenSession(tableId: string) {
   return Array.isArray(rows) && rows.length > 0;
 }
 
+function cleanStaffRole(value: unknown) {
+  const role = String(value || "").trim().toLowerCase();
+  return ["owner", "admin", "waiter", "kitchen"].includes(role) ? role : "";
+}
+
+function cleanStaffName(value: unknown) {
+  return String(value || "").trim().slice(0, 80);
+}
+
+function cleanStaffPin(value: unknown) {
+  const pin = String(value || "").trim();
+  return /^\d{1,12}$/.test(pin) ? pin : "";
+}
+
+async function adminAccessState() {
+  const rows = await db(
+    "staff_members?select=id,name,role,is_active,created_at,updated_at&order=role.asc,name.asc,id.asc"
+  );
+  return {
+    generatedAt: new Date().toISOString(),
+    members: Array.isArray(rows) ? rows : [],
+  };
+}
+
+async function canRemoveOwner(memberId: number) {
+  const rows = await db(
+    `staff_members?select=id&role=eq.owner&is_active=eq.true&id=neq.${memberId}&limit=1`
+  );
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("", { headers: cors });
   if (req.method !== "POST") return reply({ error: "Method not allowed" }, 405);
@@ -347,12 +506,99 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const pin = req.headers.get("x-admin-pin") || String(body?.pin || "");
-    if (!(await adminPinOk(pin))) return reply({ error: "Неверный PIN администратора" }, 401);
+    const requestedRole = req.headers.get("x-admin-role") || body?.role || "owner";
+    const actor = await authenticateAdmin(req, pin, requestedRole);
+    if (!actor) return reply({ error: "Неверный PIN для выбранной роли" }, 401);
 
     const action = String(body?.action || "dashboard");
-    if (action === "dashboard") return reply(await adminDashboard());
-    if (action === "orders") return reply(await adminOrdersState());
-    if (action === "menu") return reply(await adminMenuState());
+    const done=async(data:unknown,status=200)=>{await audit(req,"admin",action,body.dishId||body.tableId||body.categoryId||"");return reply(data,status);};
+    const pushReply=await pushAction(req,body,"admin"); if(pushReply) return pushReply;
+    const extension=await productAction(req,body); if(extension) return extension;
+    if (action === "dashboard") return reply({ ...(await adminDashboard()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    if (action === "orders") return reply({ ...(await adminOrdersState()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    if (action === "menu") return reply({ ...(await adminMenuState()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    if (action === "access") {
+      if (actor.role !== "owner") return reply({ error: "Только владелец может управлять доступом" }, 403);
+      return reply({ ...(await adminAccessState()), actor: { id: actor.id, name: actor.name, role: actor.role } });
+    }
+
+    if (["create-staff", "update-staff", "set-staff-pin"].includes(action) && actor.role !== "owner") {
+      return reply({ error: "Только владелец может управлять доступом" }, 403);
+    }
+
+    if (action === "create-staff") {
+      const name = cleanStaffName(body?.name);
+      const role = cleanStaffRole(body?.staffRole);
+      const staffPin = cleanStaffPin(body?.staffPin);
+      if (!name || !role || !staffPin) return reply({ error: "Проверьте имя, роль и PIN" }, 400);
+      const pinHash = await sha256(staffPin);
+      try {
+        await db("staff_members", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify([{ name, role, pin_hash: pinHash, is_active: true }]),
+        });
+      } catch (error) {
+        if (String((error as Error)?.message || "").toLowerCase().includes("duplicate")) {
+          return reply({ error: "Такой PIN уже используется в этой роли" }, 409);
+        }
+        throw error;
+      }
+      return await done({ ok: true, ...(await adminAccessState()) }, 201);
+    }
+
+    if (action === "update-staff") {
+      const memberId = Number(body?.memberId);
+      const name = cleanStaffName(body?.name);
+      const role = cleanStaffRole(body?.staffRole);
+      const active = body?.active !== false;
+      if (!Number.isInteger(memberId) || memberId <= 0 || !name || !role) {
+        return reply({ error: "Некорректные данные сотрудника" }, 400);
+      }
+      const currentRows = await db(`staff_members?select=id,role,is_active&id=eq.${memberId}&limit=1`);
+      const current = Array.isArray(currentRows) ? currentRows[0] : null;
+      if (!current) return reply({ error: "Сотрудник не найден" }, 404);
+      if (current.role === "owner" && current.is_active && (!active || role !== "owner") && !(await canRemoveOwner(memberId))) {
+        return reply({ error: "Нельзя отключить последнего активного владельца" }, 409);
+      }
+      try {
+        await db(`staff_members?id=eq.${memberId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ name, role, is_active: active, updated_at: new Date().toISOString() }),
+        });
+      } catch (error) {
+        if (String((error as Error)?.message || "").toLowerCase().includes("duplicate")) {
+          return reply({ error: "Такой PIN уже используется в этой роли" }, 409);
+        }
+        throw error;
+      }
+      return await done({ ok: true, ...(await adminAccessState()) });
+    }
+
+    if (action === "set-staff-pin") {
+      const memberId = Number(body?.memberId);
+      const staffPin = cleanStaffPin(body?.staffPin);
+      if (!Number.isInteger(memberId) || memberId <= 0 || !staffPin) {
+        return reply({ error: "Некорректный PIN" }, 400);
+      }
+      const rows = await db(`staff_members?select=id,role&id=eq.${memberId}&limit=1`);
+      const member = Array.isArray(rows) ? rows[0] : null;
+      if (!member) return reply({ error: "Сотрудник не найден" }, 404);
+      try {
+        await db(`staff_members?id=eq.${memberId}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ pin_hash: await sha256(staffPin), updated_at: new Date().toISOString() }),
+        });
+      } catch (error) {
+        if (String((error as Error)?.message || "").toLowerCase().includes("duplicate")) {
+          return reply({ error: "Такой PIN уже используется в этой роли" }, 409);
+        }
+        throw error;
+      }
+      return await done({ ok: true, ...(await adminAccessState()) });
+    }
 
     if (action === "set-dish-available") {
       const dishId = cleanDishId(body?.dishId);
@@ -363,7 +609,7 @@ Deno.serve(async (req) => {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ is_available: available, updated_at: new Date().toISOString() }),
       });
-      return reply({ ok: true, ...(await adminMenuState()) });
+      return await done({ ok: true, ...(await adminMenuState()) });
     }
 
     if (action === "set-category-visible") {
@@ -375,7 +621,7 @@ Deno.serve(async (req) => {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ is_visible: visible, updated_at: new Date().toISOString() }),
       });
-      return reply({ ok: true, ...(await adminMenuState()) });
+      return await done({ ok: true, ...(await adminMenuState()) });
     }
 
     if (action === "update-dish") {
@@ -389,7 +635,7 @@ Deno.serve(async (req) => {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify(payload),
       });
-      return reply({ ok: true, ...(await adminMenuState()) });
+      return await done({ ok: true, ...(await adminMenuState()) });
     }
 
     if (action === "create-dish") {
@@ -397,17 +643,17 @@ Deno.serve(async (req) => {
       if (!payload) return reply({ error: "Проверьте данные блюда" }, 400);
       if (!(await categoryExists(payload.category_id))) return reply({ error: "Категория не найдена" }, 404);
 
-      const id = await nextDishId();
-      await db("dishes", {
+      const created = await db("dishes?select=id", {
         method: "POST",
-        headers: { Prefer: "return=minimal" },
+        headers: { Prefer: "return=representation" },
         body: JSON.stringify([{
-          id,
           ...payload,
           popular_order: null,
         }]),
       });
-      return reply({ ok: true, createdDishId: id, ...(await adminMenuState()) }, 201);
+      const createdDishId = Number(Array.isArray(created) ? created[0]?.id : 0);
+      if (!createdDishId) throw new Error("Dish was not created");
+      return await done({ ok: true, createdDishId, ...(await adminMenuState()) }, 201);
     }
 
     if (action === "create-table") {
@@ -431,7 +677,7 @@ Deno.serve(async (req) => {
         }
         throw error;
       }
-      return reply({ ok: true, ...(await adminDashboard()) }, 201);
+      return await done({ ok: true, ...(await adminDashboard()) }, 201);
     }
 
     if (action === "update-table") {
@@ -456,7 +702,7 @@ Deno.serve(async (req) => {
         }
         throw error;
       }
-      return reply({ ok: true, ...(await adminDashboard()) });
+      return await done({ ok: true, ...(await adminDashboard()) });
     }
 
     if (action === "set-table-active") {
@@ -472,7 +718,7 @@ Deno.serve(async (req) => {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ is_active: active, updated_at: new Date().toISOString() }),
       });
-      return reply({ ok: true, ...(await adminDashboard()) });
+      return await done({ ok: true, ...(await adminDashboard()) });
     }
 
     if (action === "rotate-table-qr") {
@@ -487,12 +733,13 @@ Deno.serve(async (req) => {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ qr_token: crypto.randomUUID(), updated_at: new Date().toISOString() }),
       });
-      return reply({ ok: true, ...(await adminDashboard()) });
+      return await done({ ok: true, ...(await adminDashboard()) });
     }
 
     return reply({ error: "Unknown action" }, 400);
   } catch (error) {
-    console.error(error);
-    return reply({ error: "Server error" }, 500);
+    if((error as any).status===429) return reply({error:(error as Error).message},429);
+    await incident("admin-api",error);
+    return reply({ error: "Сервис временно недоступен" }, 500);
   }
 });

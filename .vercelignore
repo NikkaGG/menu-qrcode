@@ -1,0 +1,9 @@
+.github/
+.worktrees/
+artifacts/
+supabase/
+tests/
+scripts/
+node_modules/
+*.md
+deno.lock

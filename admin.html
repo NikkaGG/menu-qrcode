@@ -3,9 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f2f2f7">
+<meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
 <title>Sushi Crazy · Администратор</title>
-<link rel="stylesheet" href="/ops.css?v=20261003-admin-audit-v2">
+<link rel="icon" href="/icons/app-192.png" type="image/png">
+<link rel="preload" href="/fonts/SFProText_Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/SFProText_Bold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/ops.css?v=20261005-monochrome">
+<link rel="stylesheet" href="/product-ui.css?v=20261005">
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -108,7 +113,7 @@
         <section class="admin-home-grid">
           <article class="admin-panel admin-attention-panel">
             <div class="admin-panel-head">
-              <div><h2>Требует внимания</h2><p>Только то, что сейчас может потребовать действия.</p></div>
+              <div><h2>Требует внимания</h2></div>
               <span class="admin-attention-count" id="attentionCount">0</span>
             </div>
             <div class="admin-attention-list" id="attentionList"><div class="admin-empty">Проверяем ресторан…</div></div>
@@ -116,7 +121,7 @@
 
           <article class="admin-panel admin-recent-orders">
             <div class="admin-panel-head">
-              <div><h2>Последние заказы</h2><p>Свежие события без лишних деталей.</p></div>
+              <div><h2>Последние заказы</h2></div>
               <button type="button" class="panel-link" data-jump="orders">Все заказы</button>
             </div>
             <div class="admin-mini-table" id="recentOrders"><div class="admin-empty">Загружаем заказы…</div></div>
@@ -188,9 +193,9 @@
             <button type="button" data-filter="active" aria-selected="false">QR вкл <span id="countActive">0</span></button>
             <button type="button" data-filter="off" aria-selected="false">QR выкл <span id="countOff">0</span></button>
           </div>
-          <button type="button" class="admin-primary-btn" id="openCreateTableBtn">+ Создать стол</button>
+          <button type="button" class="admin-primary-btn create-table-btn" id="openCreateTableBtn">Создать стол</button>
         </div>
-        <div class="admin-list-heading"><div><b id="tablesResultTitle">Все столы</b><span id="tablesResultMeta">—</span></div><p>Настройки QR спрятаны в меню конкретного стола.</p></div>
+        <div class="admin-list-heading"><div><b id="tablesResultTitle">Все столы</b><span id="tablesResultMeta">—</span></div></div>
         <section class="admin-tables-grid" id="tables"></section>
       </section>
 
@@ -201,7 +206,7 @@
             <button type="button" data-filter="all" aria-selected="true">Все</button><button type="button" data-filter="available" aria-selected="false">В меню</button>
             <button type="button" data-filter="stop" aria-selected="false">Стоп <span id="filterStopCount">0</span></button><button type="button" data-filter="popular" aria-selected="false">Популярные</button>
           </div>
-          <button type="button" class="admin-primary-btn" id="openCreateDishBtn">+ Добавить блюдо</button>
+          <button type="button" class="admin-primary-btn create-table-btn" id="openCreateDishBtn">Добавить блюдо</button>
         </div>
 
         <div class="menu-admin-summary admin-inline-stats">
@@ -307,7 +312,7 @@
         <label class="dish-field dish-field-wide">Название<input id="dishName" maxlength="140" required></label>
         <label class="dish-field">Категория<select id="dishCategory" required></select></label>
         <label class="dish-field">Цена, ₸<input id="dishPrice" type="number" min="0" max="1000000" step="1" inputmode="numeric" required></label>
-        <label class="dish-field">Вес / объём<input id="dishWeight" maxlength="120" placeholder="Например, 250 г"></label>
+        <label class="dish-field">Вес / объём<input id="dishWeight" maxlength="120" placeholder="250 г"></label>
         <label class="dish-field">Порядок<input id="dishSort" type="number" min="-100000" max="100000" step="1" value="0"></label>
         <label class="dish-field dish-field-wide">Описание<textarea id="dishDescription" maxlength="2000" rows="4"></textarea></label>
         <label class="dish-field dish-field-wide">Фото карточки<input id="dishImage" maxlength="1000" placeholder="/assets/... или https://..."></label>
@@ -325,9 +330,13 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/vendor/qrcode-generator.js?v=1"></script>
+<script src="/vendor/lucide.min.js?v=0.468.0"></script>
+<script src="/api/config"></script>
+<script src="/ops-product.js"></script>
+<script src="/ops-ui.js?v=20261005"></script>
 <script>
-const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/admin-api';
-const STAFF_API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
+const API=window.MenuConfig.supabaseUrl+'/functions/v1/admin-api';
+const STAFF_API=window.MenuConfig.supabaseUrl+'/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
 let pin=sessionStorage.getItem('sushi-admin-pin')||'';
 let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
@@ -341,16 +350,18 @@ const money=n=>Number(n||0).toLocaleString('ru-RU')+' ₸';
 const payLabels={kaspi:'Kaspi',card:'Карта',cash:'Наличные',unknown:'Другое'};
 const orderStatusLabels={submitted:'Новый',accepted:'Принят',preparing:'Готовится',ready:'Готов',served:'Подан',cancelled:'Отменён'};
 const activeOrderStatuses=new Set(['submitted','accepted','preparing','ready']);
+let paidFinancial=null;
 
 async function api(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const response=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-admin-pin':pin,'x-admin-role':'admin','x-device-id':ProductDevice},body:JSON.stringify({action,...payload}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
     return data;
   }catch(error){
+    if(!error.status||error.status>=500)recordProductFailure(error);
     if(error?.name==='AbortError')throw new Error('Сервер отвечает слишком долго');
     if(/failed to fetch|networkerror|load failed|network request failed/i.test(String(error?.message||'')))throw new Error('Нет связи с сервером');
     throw error;
@@ -361,7 +372,7 @@ async function staffOrdersFallback(){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action:'dashboard'}),signal:controller.signal});
+    const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin,'x-staff-role':'admin','x-device-id':ProductDevice},body:JSON.stringify({action:'dashboard'}),signal:controller.signal});
     const data=await response.json().catch(()=>({}));
     if(!response.ok){const error=new Error(data.error||'Ошибка');error.status=response.status;throw error}
     const tablesById=new Map((data.tables||[]).map(table=>[table.id,table]));
@@ -393,6 +404,7 @@ async function staffOrdersFallback(){
       orders
     };
   }catch(error){
+    if(!error.status||error.status>=500)recordProductFailure(error);
     if(error?.name==='AbortError')throw new Error('Сервер отвечает слишком долго');
     throw error;
   }finally{clearTimeout(timeout)}
@@ -424,9 +436,9 @@ function setConnection(ok,message=''){
 function renderStats(a){
   const cards=[
     ['Заказы за 24 часа',a.orders24,'оформлено за последние сутки'],
-    ['Сумма за 24 часа',money(a.revenue24),'по оформленным заказам'],
-    ['Средний чек',money(a.averageCheck7),'за последние 7 дней'],
-    ['Открытые столы',a.openTables+' / '+a.activeTables,'открыто / QR активно']
+    ['Оплачено за 24 часа',paidFinancial?money(paidFinancial.paid24):'—','подтверждено сотрудником'],
+    ['Средний оплаченный заказ',paidFinancial?money(paidFinancial.averagePaidCheck):'—','за последние 30 дней'],
+    ['Не оплачено',paidFinancial?money(paidFinancial.unpaidTotal):'—','все незакрытые счета']
   ];
   document.getElementById('stats').innerHTML=cards.map(x=>
     '<article class="admin-kpi"><span>'+h(x[0])+'</span><strong>'+h(x[1])+'</strong><small>'+h(x[2])+'</small></article>'
@@ -487,6 +499,7 @@ function exportReportsCsv(){
   const a=state?.analytics||{},daily=a.daily30||[];
   if(!daily.length){notify('Нет данных для выгрузки');return}
   const rows=[['Дата','Заказы','Сумма, ₸'],...daily.map(day=>[day.date,Number(day.orders||0),Number(day.revenue||0)])];
+  if(paidFinancial)rows.push([],['Показатель','Значение'],['Оплачено за 30 дней',paidFinancial.paid30],['Оплачено за 24 часа',paidFinancial.paid24],['Не оплачено',paidFinancial.unpaidTotal],['Средний оплаченный заказ',paidFinancial.averagePaidCheck]);
   const csv='\uFEFF'+rows.map(row=>row.map(value=>'"'+String(value).replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),link=document.createElement('a');
@@ -573,9 +586,9 @@ function tableCard(table){
     '<div class="admin-table-top"><div><span class="admin-table-number">Стол '+h(table.table_number)+'</span><h3>'+h(label)+'</h3></div>'+
     '<span class="admin-table-state '+(ready?'ready':open?'open':'')+'">'+h(status)+'</span></div>'+
     '<div class="admin-table-meta"><span>'+related.length+' активных заказов</span><span>'+(active?'QR активен':'QR выключен')+'</span></div>'+
-    '<div class="admin-table-footer"><button class="admin-table-qr" type="button" data-action="qr" data-id="'+h(table.id)+'">QR-код</button>'+
+    '<div class="admin-table-footer"><button class="admin-table-qr" type="button" data-action="qr" data-id="'+h(table.id)+'"><i data-lucide="qr-code" aria-hidden="true"></i>QR-код</button>'+
     '<details class="admin-table-menu"><summary aria-label="Действия со столом">•••</summary><div>'+
-      '<button type="button" data-action="rename" data-id="'+h(table.id)+'">Изменить стол</button>'+
+      '<button type="button" data-action="rename" data-id="'+h(table.id)+'" '+(busy?'disabled':'')+'>Изменить стол</button>'+
       '<button type="button" data-action="toggle" data-id="'+h(table.id)+'" data-active="'+(!active)+'" '+(lock?'disabled':'')+'>'+(active?'Выключить QR':'Включить QR')+'</button>'+
       '<button class="danger" type="button" data-action="rotate" data-id="'+h(table.id)+'" '+(lock?'disabled':'')+'>Перевыпустить QR</button>'+
     '</div></details></div>'+
@@ -637,6 +650,7 @@ function openOrderDrawer(orderId){
   document.getElementById('orderDrawerContent').innerHTML=
     '<div class="drawer-order-status"><span class="order-status '+orderStatusClass(status)+'">'+h(orderStatusLabels[status]||status||'—')+'</span><small>'+h(when)+'</small></div>'+
     '<div class="drawer-order-facts"><div><span>Сумма</span><b>'+h(money(order.total))+'</b></div><div><span>Оплата</span><b>'+h(payLabels[order.payment_method]||order.payment_method||'—')+'</b></div><div><span>Позиций</span><b>'+qty+'</b></div></div>'+
+    (order.status==='cancelled'?'':order.paid_at?'<p>Оплачен</p>':'<div class="product-actions"><button class="product-button" type="button" onclick="openAdminPayment('+order.id+')"><i data-lucide="credit-card"></i> Подтвердить оплату</button></div>')+
     (order.comment?'<div class="drawer-comment"><span>Комментарий</span><p>'+h(order.comment)+'</p></div>':'')+
     '<section class="drawer-items"><h3>Состав заказа</h3>'+(items.length?items.map(item=>
       '<div class="drawer-item"><div><b>'+h(item.name||'Позиция')+'</b>'+(item.item_comment?'<small>'+h(item.item_comment)+'</small>':'')+'</div><span>'+Number(item.quantity||0)+' × '+h(money(item.unit_price))+'</span><strong>'+h(money(item.line_total))+'</strong></div>'
@@ -712,8 +726,8 @@ function dishCard(dish){
     '<div class="menu-dish-body"><h3>'+h(dish.name)+'</h3><p>'+h(menuCategoryName(dish.category_id))+(dish.weight?' · '+h(dish.weight):'')+'</p></div>'+
     '<div class="menu-dish-price">'+h(money(dish.price))+'</div>'+
     '<div class="menu-dish-state">'+(!categoryVisible?'<span class="menu-dish-badge hidden-cat">Категория скрыта</span>':available?'<span class="menu-dish-badge available">В меню</span>':'<span class="menu-dish-badge stop">Стоп-лист</span>')+'</div>'+
-    '<div class="menu-dish-actions"><button type="button" data-menu-action="edit" data-id="'+dish.id+'" '+(busy?'disabled':'')+'>Изменить</button>'+
-      '<button type="button" class="'+(available?'danger':'restore')+'" data-menu-action="availability" data-id="'+dish.id+'" data-available="'+(!available)+'" '+(busy?'disabled':'')+'>'+(busy?'Сохраняем…':available?'В стоп':'Вернуть')+'</button></div>'+
+    '<div class="menu-dish-actions"><button type="button" data-menu-action="edit" data-id="'+dish.id+'" aria-label="Изменить '+h(dish.name)+'" title="Изменить блюдо" '+(busy?'disabled':'')+'><i data-lucide="pencil" aria-hidden="true"></i></button>'+
+      '<button type="button" class="'+(available?'danger':'restore')+'" data-menu-action="availability" data-id="'+dish.id+'" data-available="'+(!available)+'" aria-label="'+(available?'В стоп-лист: ':'Вернуть в меню: ')+h(dish.name)+'" title="'+(available?'В стоп-лист':'Вернуть в меню')+'" '+(busy?'disabled':'')+'><i data-lucide="'+(available?'circle-pause':'circle-play')+'" aria-hidden="true"></i></button></div>'+
   '</article>';
 }
 function renderMenu(){
@@ -730,7 +744,7 @@ function renderMenu(){
   document.getElementById('menuCategories').innerHTML=categories.map(cat=>{
     const busy=busyCategories.has(cat.id),count=dishes.filter(d=>d.category_id===cat.id).length,visible=cat.is_visible!==false;
     return '<article class="menu-category-card '+(!visible?'is-hidden':'')+'"><div><b>'+h(cat.name)+'</b><span>'+count+' позиций</span></div>'+
-      '<button type="button" class="switch-control '+(visible?'on':'')+'" data-category-action="visibility" data-id="'+h(cat.id)+'" data-visible="'+(!visible)+'" aria-pressed="'+visible+'" '+(busy?'disabled':'')+'><span class="switch-track" aria-hidden="true"><i></i></span><span>'+(visible?'Видна':'Скрыта')+'</span></button></article>';
+      '<button type="button" class="switch-control '+(visible?'on':'')+'" data-category-action="visibility" data-id="'+h(cat.id)+'" data-visible="'+(!visible)+'" role="switch" aria-checked="'+visible+'" aria-label="Показывать категорию '+h(cat.name)+'" '+(busy?'disabled':'')+'><span class="switch-track" aria-hidden="true"><i></i></span><span>'+(visible?'Видна':'Скрыта')+'</span></button></article>';
   }).join('');
 
   const categoryButtons=['<button type="button" data-category="all" class="'+(menuCategory==='all'?'on':'')+'">Все</button>'].concat(categories.map(cat=>
@@ -748,9 +762,11 @@ async function loadMenu(silent=true,force=false){
   if(menuLoading||(!force&&menuState))return;
   menuLoading=true;
   try{
-    menuState=await api('menu');renderMenu();renderLiveOperations();
+    menuState=await api('menu');renderMenu();renderLiveOperations();setConnection(true);
     if(!silent)notify('Меню обновлено');
   }catch(error){
+    setConnection(false,error.message||'Не удалось загрузить меню');
+    if(error.status===401){sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;document.getElementById('loginError').textContent='Войдите снова'}
     if(!silent)notify(error.message||'Не удалось загрузить меню');
     if(!menuState)document.getElementById('menuDishes').innerHTML='<div class="admin-empty admin-empty-wide">Не удалось загрузить меню</div>';
   }finally{menuLoading=false}
@@ -797,6 +813,7 @@ function openDishEditor(dishId=null){
   document.getElementById('dishDetailImage').value=dish?.detail_image_url||'';
   document.getElementById('dishAvailable').checked=dish?dish.is_available!==false:true;
   document.getElementById('dishPopular').checked=!!dish?.is_popular;
+  window.loadDishGroups?.(dish?.modifier_groups||[]);
   syncDishPreview();
   document.getElementById('dishModal').classList.add('on');
   setTimeout(()=>document.getElementById('dishName').focus(),50);
@@ -814,7 +831,8 @@ async function saveDish(event){
     imageUrl:document.getElementById('dishImage').value.trim(),
     detailImageUrl:document.getElementById('dishDetailImage').value.trim(),
     isAvailable:document.getElementById('dishAvailable').checked,
-    isPopular:document.getElementById('dishPopular').checked
+    isPopular:document.getElementById('dishPopular').checked,
+    modifierGroups:window.readDishGroups?.()||[]
   };
   if(!payload.name||!Number.isFinite(payload.price)||payload.price<0){notify('Укажите название и корректную цену');return}
   const submit=document.getElementById('saveDishBtn');submit.disabled=true;submit.textContent='Сохраняем…';
@@ -822,7 +840,7 @@ async function saveDish(event){
     const editing=Boolean(editDishId);
     menuState=editing?await api('update-dish',{dishId:editDishId,...payload}):await api('create-dish',payload);
     renderMenu();closeDishEditor();notify(editing?'Блюдо обновлено':'Блюдо добавлено');
-  }catch(error){notify(error.message||'Не удалось сохранить блюдо')}
+  }catch(error){opsFormError('dishForm',error.message||'Не удалось сохранить блюдо')}
   finally{submit.disabled=false;submit.textContent='Сохранить'}
 }
 
@@ -841,7 +859,7 @@ function switchSection(section,updateHash=true){
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
   const copies={
-    overview:['Sushi Crazy','Главное','Короткая сводка по ресторану.'],
+    overview:[window.RestaurantName||'Sushi Crazy','Главное','Короткая сводка по ресторану.'],
     orders:['Операции','Заказы','Все заказы и их текущие статусы.'],
     reports:['Аналитика','Статистика','Продажи и показатели за последние 30 дней.'],
     tables:['Управление','Столы','Статусы столов и настройки QR-кодов.'],
@@ -851,8 +869,8 @@ function switchSection(section,updateHash=true){
   document.getElementById('pageEyebrow').textContent=copy[0];
   document.getElementById('pageTitle').textContent=copy[1];
   document.getElementById('pageSubtitle').textContent=copy[2];
-  if(section==='orders'||section==='overview'||section==='tables')loadOrders(true);
-  if(section==='menu'||section==='overview')loadMenu(true);
+  if(pin&&(section==='orders'||section==='overview'||section==='tables'))loadOrders(true,true);
+  if(pin&&(section==='menu'||section==='overview'))loadMenu(true,true);
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
   document.querySelector('.admin-content')?.scrollTo({top:0,behavior:'auto'});
@@ -902,7 +920,7 @@ async function createTable(event){
   const tableNumber=document.getElementById('tableNumber').value.trim(),label=document.getElementById('tableLabel').value.trim();
   const submit=event.submitter||event.target.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
   try{state=await api('create-table',{tableNumber,label});render();closeCreateTable();notify('Стол создан')}
-  catch(error){notify(error.message)}
+  catch(error){opsFormError('addTableForm',error.message)}
   finally{if(submit)submit.disabled=false}
 }
 
@@ -926,9 +944,11 @@ function closeRotate(){document.getElementById('rotateModal').classList.remove('
 async function confirmRotate(){
   if(!rotateTableId)return;
   const tableId=rotateTableId;
+  document.getElementById('confirmRotateBtn').disabled=true;
   await withTableBusy(tableId,async()=>{
     try{state=await api('rotate-table-qr',{tableId});render();closeRotate();notify('QR-код перевыпущен');openQr(tableId)}
     catch(error){notify(error.message)}
+    finally{document.getElementById('confirmRotateBtn').disabled=false}
   });
 }
 
@@ -944,7 +964,7 @@ async function saveEdit(event){
   const submit=event.submitter||event.target.querySelector('button[type="submit"]');if(submit)submit.disabled=true;
   await withTableBusy(tableId,async()=>{
     try{state=await api('update-table',{tableId,tableNumber,label});render();closeEdit();notify('Стол обновлён')}
-    catch(error){notify(error.message)}
+    catch(error){opsFormError('editTableForm',error.message)}
     finally{if(submit)submit.disabled=false}
   });
 }
@@ -973,8 +993,8 @@ function setQrHealth(ok,message=''){
   const box=document.querySelector('#qrModal .qr-health');
   const title=document.getElementById('qrHealthTitle'),copy=document.getElementById('qrHealthText');
   box?.classList.toggle('error',!ok);
-  if(title)title.textContent=ok?'Локальный QR готов':'QR не построен';
-  if(copy)copy.textContent=message||(ok?'Генерируется прямо в админке, без внешнего сервиса.':'Скопируйте ссылку и повторите попытку после обновления страницы.');
+  if(title)title.textContent=ok?'QR-код готов':'Не удалось создать QR-код';
+  if(copy)copy.textContent=ok?'Меню и заказы для этого стола':message||'Ссылка на меню доступна ниже.';
   document.getElementById('downloadQrBtn').disabled=!ok;
 }
 function openQr(tableId){
@@ -990,7 +1010,7 @@ function openQr(tableId){
     setQrHealth(true,'Локально · '+meta.modules+'×'+meta.modules+' модулей · коррекция M');
   }catch(error){
     const ctx=canvas.getContext('2d');canvas.width=360;canvas.height=360;ctx.fillStyle='#fff';ctx.fillRect(0,0,360,360);
-    ctx.fillStyle='#6e6e73';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('Не удалось построить QR',180,172);ctx.fillText('Ссылка ниже остаётся рабочей',180,194);
+    ctx.fillStyle='#707070';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText('Не удалось построить QR',180,172);ctx.fillText('Ссылка ниже остаётся рабочей',180,194);
     setQrHealth(false,error.message);notify(error.message);
   }
 }
@@ -1074,5 +1094,8 @@ window.addEventListener('hashchange',()=>switchSection(location.hash.slice(1),fa
 switchSection(location.hash.slice(1)||'overview',false);
 if(pin)refresh(true);
 </script>
+<script>addNotificationButton('admin',api,notify);</script>
+<script src="/vendor/read-excel-file.js"></script>
+<script src="/admin-product.js"></script>
 </body>
 </html>

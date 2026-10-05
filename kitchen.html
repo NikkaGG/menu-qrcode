@@ -3,9 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f2f2f7">
+<meta name="theme-color" content="#f5f5f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
 <title>Sushi Crazy · Кухня</title>
-<link rel="stylesheet" href="/ops.css?v=20261002-kitchen-v1">
+<link rel="icon" href="/icons/app-192.png" type="image/png">
+<link rel="preload" href="/fonts/SFProText_Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/SFProText_Bold.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/ops.css?v=20261005-monochrome">
+<link rel="stylesheet" href="/product-ui.css?v=20261005">
 </head>
 <body class="ops ops-kitchen kitchen-workspace">
 <div id="login" class="login">
@@ -13,7 +18,7 @@
   <h1>Кухня</h1>
   <p>Введите PIN персонала.</p>
   <form id="loginForm">
-    <input id="pin" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN персонала">
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" aria-label="PIN персонала" required>
     <button>Войти</button>
   </form>
   <div class="err" id="loginErr" role="alert"></div>
@@ -30,11 +35,11 @@
       </div>
     </div>
     <nav class="kitchen-nav" aria-label="Действия кухни">
-      <button class="kitchen-sound" id="soundBtn" type="button" aria-pressed="false" onclick="toggleSound()">
-        <span class="sound-glyph" aria-hidden="true">♪</span><span id="soundLabel">Звук выкл</span>
-      </button>
+      <a href="/admin" class="ops-workspace-link">Админ</a>
+      <button class="kitchen-sound ops-icon-btn" id="soundBtn" type="button" aria-label="Включить звук" title="Включить звук" aria-pressed="false" onclick="toggleSound()"><i data-lucide="volume-x" aria-hidden="true"></i><span id="soundLabel" hidden>Звук выкл</span></button>
       <a href="/staff">Зал</a>
-      <button type="button" onclick="logout()">Выйти</button>
+      <button class="ops-icon-btn" type="button" onclick="refresh(false)" aria-label="Обновить данные" title="Обновить данные"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+      <button class="ops-icon-btn" type="button" onclick="logout()" aria-label="Выйти" title="Выйти"><i data-lucide="log-out" aria-hidden="true"></i></button>
     </nav>
   </header>
 
@@ -107,8 +112,12 @@
 
 <div class="toast" id="kitchenToast" role="status" aria-live="polite"></div>
 
+<script src="/vendor/lucide.min.js?v=0.468.0"></script>
+<script src="/api/config"></script>
+<script src="/ops-product.js"></script>
+<script src="/ops-ui.js?v=20261005"></script>
 <script>
-const API='https://gelezvudpcsnhqgjaqkl.supabase.co/functions/v1/staff-orders';
+const API=window.MenuConfig.supabaseUrl+'/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
 const WARNING_MINUTES=15;
 const CRITICAL_MINUTES=25;
@@ -131,11 +140,12 @@ async function api(action,payload={}){
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),API_TIMEOUT_MS);
   try{
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin},body:JSON.stringify({action,...payload}),signal:controller.signal});
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-pin':pin,'x-staff-role':'kitchen','x-device-id':ProductDevice},body:JSON.stringify({action,...payload}),signal:controller.signal});
     const d=await r.json().catch(()=>({}));
     if(!r.ok){const e=new Error(d.error||'Ошибка');e.status=r.status;throw e}
     return d;
   }catch(error){
+    if(!error.status||error.status>=500)recordProductFailure(error);
     if(error?.name==='AbortError')throw new Error('Сервер отвечает слишком долго');
     if(/failed to fetch|networkerror|load failed|network request failed/i.test(String(error?.message||'')))throw new Error('Нет связи с сервером');
     throw error;
@@ -183,9 +193,9 @@ function orderCard(o){
   const busy=busyOrders.has(Number(o.id));
   const urgency=urgencyClass(o);
   const arrived=justArrived.has(Number(o.id))?' just-arrived':'';
-  const itemRows=items.map(i=>'<div class="kitchen-item"><span class="kitchen-qty">'+h(i.quantity)+'×</span><span class="kitchen-item-name">'+h(i.name)+'</span></div>').join('');
+  const itemRows=items.map(i=>'<div class="kitchen-item"><span class="kitchen-qty">'+h(i.quantity)+'×</span><span class="kitchen-item-name">'+h(i.name)+(i.item_comment?'<small class="kitchen-item-comment">'+h(i.item_comment)+'</small>':'')+'</span></div>').join('');
   const primary=next?'<button class="kitchen-primary" type="button" onclick="move('+o.id+',\''+next.status+'\')" '+(busy?'disabled':'')+'>'+(busy?'Сохраняем…':next.label)+'</button>':'<div class="ready-message"><span>✓</span><div><b>Готов к выдаче</b><small>Зал отметит, когда заказ подан.</small></div></div>';
-  const cancel=['submitted','accepted','preparing'].includes(o.status)?'<button class="kitchen-more" type="button" onclick="openCancel('+o.id+')" '+(busy?'disabled':'')+' aria-label="Отменить заказ #'+o.id+'">Отменить</button>':'';
+  const cancel=['submitted','accepted'].includes(o.status)?'<button class="kitchen-more" type="button" onclick="openCancel('+o.id+')" '+(busy?'disabled':'')+' aria-label="Отменить заказ #'+o.id+'" title="Отменить заказ"><i data-lucide="ellipsis" aria-hidden="true"></i></button>':'';
   return '<article class="kitchen-ticket '+urgency+arrived+'" data-order-id="'+o.id+'">'+
     '<div class="ticket-top"><div class="ticket-identity"><span class="ticket-table">'+h(tableFor(o))+'</span><span class="ticket-number">#'+o.id+'</span></div>'+
     '<div class="ticket-clock"><b>'+h(ageLabel(o.created_at))+'</b><span>'+h(timeLabel(o.created_at))+'</span></div></div>'+
@@ -242,8 +252,8 @@ function applyState(next){
   setConnection(true);
 }
 
-async function refresh(silent=true){
-  if(refreshBusy||(silent&&busyOrders.size))return;
+async function refresh(silent=true,force=false){
+  if(refreshBusy||(!force&&silent&&busyOrders.size))return;
   refreshBusy=true;
   try{
     const next=await api('dashboard');
@@ -274,23 +284,28 @@ async function move(orderId,status){
   try{
     const next=await api('update-order',{orderId:id,status});
     applyState(next);
+    return true;
   }catch(e){
     showToast(e.message||'Не удалось изменить заказ');
-    await refresh(true);
+    await refresh(true,true);
+    return false;
   }finally{busyOrders.delete(id);render()}
 }
 
 function openCancel(orderId){
   const o=activeOrders().find(x=>Number(x.id)===Number(orderId));if(!o)return;
   cancelTarget=Number(orderId);
-  document.getElementById('cancelCopy').textContent=(tableFor(o))+' · заказ #'+o.id+'. Отмена сразу исчезнет с кухни.';
+  document.getElementById('cancelCopy').textContent=tableFor(o)+' · заказ #'+o.id+'. Заказ будет отменён. Это действие нельзя отменить.';
   document.getElementById('cancelModal').classList.add('on');
 }
 function closeCancel(){cancelTarget=null;document.getElementById('cancelModal').classList.remove('on')}
 async function confirmCancel(){
   if(!cancelTarget)return;
-  const id=cancelTarget;closeCancel();
-  await move(id,'cancelled');
+  const id=cancelTarget,btn=document.getElementById('confirmCancelBtn');
+  if(btn.disabled)return;
+  btn.disabled=true;
+  try{if(await move(id,'cancelled'))closeCancel()}
+  finally{btn.disabled=false}
 }
 
 function setKitchenView(view){
@@ -313,6 +328,8 @@ function showToast(message){
 }
 
 function syncSoundButton(){
+  document.getElementById('soundBtn').setAttribute('aria-label',soundEnabled?'Выключить звук':'Включить звук');
+  document.getElementById('soundBtn').title=soundEnabled?'Выключить звук':'Включить звук';
   const btn=document.getElementById('soundBtn'),label=document.getElementById('soundLabel');
   btn?.setAttribute('aria-pressed',String(soundEnabled));
   btn?.classList.toggle('on',soundEnabled);
@@ -363,5 +380,7 @@ syncSoundButton();
 setKitchenView(sessionStorage.getItem('sushi-kitchen-view')||'all');
 if(pin)refresh(true);
 </script>
+<script>addNotificationButton('kitchen',api,showToast);</script>
+
 </body>
 </html>
