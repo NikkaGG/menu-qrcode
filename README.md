@@ -7,6 +7,7 @@ One configurable restaurant installation. Current production: https://menu-qrcod
 - Guests at a table see all its current orders. Delivery, takeaway and guest accounts are not part of this release.
 - Kitchen: start cooking, mark ready, or cancel before cooking starts. Waiter: serve, receive cash/card/Kaspi, explicitly confirm payment, resolve guest requests, close a paid and fully served table.
 - A submitted order cannot be edited. A repeat submission with the same request ID does not create another order.
+- Kitchen, waiter and admin can cancel unpaid orders before cooking. Guests cannot cancel. At local midnight the calendar shift rotates automatically; outstanding table orders remain open and payments are counted in the shift of their confirmation.
 - Admin: actual paid/unpaid amounts, order/preparation reports, shifts, role activity, tables/QR, stop list, dish options, image upload, Excel import, restaurant settings and incident inbox.
 - Shared role PINs are currently `1`, retained at the owner's request. Set distinct shared PINs per role before handing an installation to paying customers. Equal PINs do not provide meaningful separation between people who know the common code.
 - Background notifications require the bell button, permission, HTTPS and a supported browser. Physical-device delivery still needs acceptance testing. The open-screen sound must be enabled using its sound button.
@@ -32,6 +33,8 @@ Set `CHROME_PATH` when Chrome is not at the default Windows path. Do not run bro
 No separate public testing site is required. Verify locally, apply additive database changes, deploy all three Edge Functions, then publish the frontend and check the production URLs.
 
 Current database: `gelezvudpcsnhqgjaqkl`. Vercel project: `menu-qrcode-lt1q`.
+
+After applying the daily-shift migration, apply `supabase/cron/daily-shift.sql` once to install the database schedule. Its one-minute check follows the restaurant timezone, opens the initial day, and logs rotation failures to the admin incident inbox. Payment confirmation also ensures the current day transactionally, so midnight payments do not depend on scheduler timing. See https://supabase.com/docs/guides/cron/quickstart.
 
 For an existing installation, apply only the unapplied release SQL files. Historical files include an aggregate bootstrap whose timestamps differ from the existing remote migration history; **do not blindly replay them with `db push --include-all`**. Preserve the menu, QR tokens and order history. A migration rollback must not remove payment/history data.
 
@@ -72,4 +75,4 @@ Official backup guidance: https://supabase.com/docs/guides/platform/backups.
 ## Deferred Scope
 Partial payments, split bills, discounts, tips and service fees need a separate design. Equal shared PINs cannot identify individual employee performance. The current reports identify role/device activity only.
 
-Cloud hosting does not accept orders when the restaurant loses internet. The offline screen states this explicitly. LAN operation requires a local always-on server, connection discovery, local persistence, conflict/idempotency rules and recovery tests; it is not implemented. Online acquiring is intentionally out of scope. Do not treat the current pilot as an unattended commercial rollout before staff/device, backup and real-service acceptance tests.
+Internet-only operation is approved for now. Cloud hosting does not accept orders when the restaurant loses internet. The offline screen states this explicitly. LAN operation is deferred; it would require a local always-on server, connection discovery, local persistence, conflict/idempotency rules and recovery tests. Online acquiring is intentionally out of scope. Do not treat the current pilot as an unattended commercial rollout before staff/device, backup and real-service acceptance tests.

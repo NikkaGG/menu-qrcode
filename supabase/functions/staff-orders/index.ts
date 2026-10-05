@@ -147,7 +147,8 @@ function roleCanTransition(role: StaffRole, current: string, next: string) {
     return (current === "submitted" || current === "accepted") && next === "preparing"
       || current === "preparing" && next === "ready";
   }
-  if (role === "waiter") return current === "ready" && next === "served";
+  if (role === "waiter") return current === "ready" && next === "served"
+    || ["submitted","accepted"].includes(current) && next === "cancelled";
   return false;
 }
 

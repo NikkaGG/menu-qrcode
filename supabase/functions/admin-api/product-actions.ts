@@ -75,8 +75,7 @@ export async function productAction(req: Request,body:any):Promise<Response|null
     }
     if(action==='financial')return reply({financial:await financial()});
     if(action==='open-shift'||action==='close-shift') {
-      await db('rpc/manage_shift',{method:'POST',body:JSON.stringify({p_action:action==='open-shift'?'open':'close',p_device:req.headers.get('x-device-id')||''})});
-      return reply({ok:true,financial:await financial()});
+      return reply({error:'Смены открываются и закрываются автоматически по времени ресторана'},409);
     }
     if(action==='upload-image') {
       const mime=String(body.mime||''),encoded=String(body.data||'');

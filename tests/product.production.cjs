@@ -31,6 +31,7 @@ fs.mkdirSync(output, {recursive:true});
     await page.waitForFunction(()=>menuReady&&tableOrdering.ready);
     const menu=await page.evaluate(()=>({count:M.length,session:tableOrdering.session,config:window.MenuConfig,items:M.map(x=>({id:x.id,price:x.p}))}));
     assert.ok(menu.count>0);assert.ok(menu.items.every(x=>x.price>0));pass('real QR menu and positive prices load');
+    await page.evaluate(()=>document.querySelectorAll('img[loading="lazy"]').forEach(img=>img.loading='eager'));
     for(let y=0;y<await page.evaluate(()=>document.documentElement.scrollHeight);y+=700){await page.evaluate(y=>window.scrollTo(0,y),y);await new Promise(r=>setTimeout(r,100));}
     await page.waitForFunction(()=>[...document.images].filter(i=>i.getClientRects().length).every(i=>i.complete&&i.naturalWidth>0));
     await page.evaluate(()=>window.scrollTo(0,0));
@@ -41,7 +42,7 @@ fs.mkdirSync(output, {recursive:true});
     const manifest=await(await fetch(origin+'/manifest.webmanifest')).json();assert.ok(manifest.name);assert.ok(manifest.icons.length);pass('configured PWA manifest responds');
     for(const [route,pin] of [['admin',process.env.MENU_ADMIN_PIN||'1'],['staff',process.env.MENU_WAITER_PIN||'1'],['kitchen',process.env.MENU_KITCHEN_PIN||'1']]){
       await page.setViewport({width:1440,height:1000});await page.goto(origin+'/'+route,{waitUntil:'networkidle0'});
-      await page.type('#pin',pin);await page.click('#loginForm button');await page.waitForSelector('#app:not([hidden])');
+      if(await page.$eval('#app',el=>el.hidden)){await page.type('#pin',pin);await page.click('#loginForm button');}await page.waitForSelector('#app:not([hidden])');
       if(route==='admin'){
         await page.click('#adminNav [data-section=reports]');await page.waitForSelector('#paidReports .product-metrics');
         await page.click('button[aria-label="Настройки ресторана"]');await page.waitForSelector('#restaurantSettings[open]');await page.click('#settingsCancel');
@@ -50,5 +51,5 @@ fs.mkdirSync(output, {recursive:true});
     }
     assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);pass('no browser errors or attempted mutations');
     console.log('Completed '+checks+' read-only production checks; dishes: '+menu.count+'.');
-  }catch(e){await page.screenshot({path:path.join(output,'production-failure.png')});console.error(e);process.exitCode=1;}finally{await browser.close();}
+  }catch(e){console.error(await page.evaluate(()=>[...document.images].filter(i=>i.getClientRects().length&&(!i.complete||!i.naturalWidth)).map(i=>({src:i.src,complete:i.complete}))));await page.screenshot({path:path.join(output,'production-failure.png')});console.error(e);process.exitCode=1;}finally{await browser.close();}
 })();

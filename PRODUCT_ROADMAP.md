@@ -10,6 +10,8 @@ Approved on 2026-10-05. One restaurant per configurable installation.
 - Everyone at the same table sees the current table orders.
 - Cash/card/Kaspi; waiter confirms payment; unpaid tables cannot close.
 - No cancellation once cooking begins. Submitted orders are immutable.
+- Kitchen, waiter and administrator can cancel unpaid orders before cooking starts; guests cannot.
+- Calendar shifts rotate automatically at local midnight. Outstanding tables/orders carry forward; payments belong to the day they are confirmed.
 - Stop list and configurable dish options/add-ons.
 - Admin/waiter/kitchen use shared role PINs; no individual staff accounts in this release.
 - Role activity is measurable; individual productivity cannot be inferred from shared PINs.
@@ -31,7 +33,7 @@ Approved on 2026-10-05. One restaurant per configurable installation.
 - Real restaurant/device acceptance, including background delivery, remains to be performed.
 - Actual dish variants and upcharges must be supplied by the owner; none were invented for the real menu.
 - Partial payments, splitting amounts, discounts, tips and service fees need a separate design.
-- LAN ordering without internet needs a local always-on server, device and sync/conflict rules; cloud hosting alone cannot provide it.
+- Internet-only operation is approved for now. LAN ordering is deferred; no local server will be installed in this release.
 - Background delivery uses Web Push and requires browser permission; support depends on the device/browser.
 
 ## Data preservation

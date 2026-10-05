@@ -17,7 +17,13 @@ const state = async () => (await fetch(origin + '/__dev/state')).json();
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  const click = async selector => { await page.waitForSelector(selector, { visible: true }); await page.waitForFunction(sel => !document.querySelector(sel).disabled, {}, selector); await page.click(selector); };
+  const click = async selector => {
+    for(let attempt=0;attempt<3;attempt++){
+      await page.waitForSelector(selector,{visible:true});
+      await page.waitForFunction(sel=>{const el=document.querySelector(sel);return el&&!el.disabled;},{},selector);
+      try{await page.click(selector);return;}catch(error){if(attempt===2||!/detached/i.test(error.message))throw error;}
+    }
+  };
   const login = async pin => { await page.$eval('#pin', el => { el.value = ''; }); await page.type('#pin', pin); await click('#loginForm button'); };
   const app = () => page.waitForSelector('#app:not([hidden])');
   try {

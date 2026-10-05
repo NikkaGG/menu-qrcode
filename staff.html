@@ -215,7 +215,8 @@ function tableCard(session){
     '<details class="floor-order-details" data-order-id="'+o.id+'"><summary><span>#'+o.id+' · '+h(statusLabels[o.status]||o.status)+'</span><b>'+money(o.total)+'</b></summary><div class="floor-order-items">'+
     itemsFor(o.id).map(i=>'<p>'+Number(i.quantity)+' × '+h(i.name)+(i.item_comment?'<br>'+h(i.item_comment):'')+'</p>').join('')+
     (o.comment?'<div class="kitchen-comment"><span>Комментарий гостя</span><b>'+h(o.comment)+'</b></div>':'')+
-    '<p>'+ (o.paid_at?'Оплачен · '+h(payLabels[o.payment_method]):'Не оплачен · <button class="product-button" onclick="openPayment('+o.id+')" type="button"><i data-lucide="credit-card"></i> Подтвердить оплату</button>')+'</p></div></details>'
+    '<p>'+ (o.paid_at?'Оплачен · '+h(payLabels[o.payment_method]):'Не оплачен · <button class="product-button" onclick="openPayment('+o.id+')" type="button"><i data-lucide="credit-card"></i> Подтвердить оплату</button>')+'</p>'+
+    (!o.paid_at&&['submitted','accepted'].includes(o.status)?'<button class="product-button" type="button" onclick="openWaiterCancel('+o.id+')"><i data-lucide="circle-x"></i> Отменить заказ</button>':'')+'</div></details>'
   ).join('');
   return '<article class="floor-table '+stateClass+'" data-table-state="'+(closable?'closable':'active')+'">'+
     '<div class="floor-table-head"><div><span class="floor-table-name">'+h(table?.label||('Стол '+(table?.table_number||'?')))+'</span><small>Открыт '+h(timeLabel(session.opened_at))+' · '+h(ageLabel(session.opened_at))+'</small></div><strong>'+money(total)+'</strong></div>'+
@@ -397,6 +398,13 @@ setTableFilter(sessionStorage.getItem('sushi-floor-filter')||'all');
 if(pin)refresh(true);
 </script>
 <script>addNotificationButton('waiter',api,showToast);</script>
+
+<dialog class="product-dialog" id="waiterCancelDialog" aria-labelledby="waiterCancelTitle"><h2 id="waiterCancelTitle">Отменить заказ?</h2><p id="waiterCancelCopy"></p><p class="product-error" id="waiterCancelError"></p><div class="product-actions"><button type="button" onclick="document.getElementById('waiterCancelDialog').close()">Назад</button><button class="primary" type="button" id="confirmWaiterCancel">Отменить заказ</button></div></dialog>
+<script>
+let waiterCancelTarget=null;
+function openWaiterCancel(id){const order=(state?.orders||[]).find(o=>o.id===Number(id));if(!order||order.paid_at||!['submitted','accepted'].includes(order.status))return;waiterCancelTarget=order.id;document.getElementById('waiterCancelCopy').textContent='Заказ #'+order.id+' · '+money(order.total);document.getElementById('waiterCancelError').textContent='';document.getElementById('waiterCancelDialog').showModal();}
+document.getElementById('confirmWaiterCancel').onclick=async e=>{const id=waiterCancelTarget;if(!id||busyOrders.has(id))return;busyOrders.add(id);e.target.disabled=true;try{applyState(await api('update-order',{orderId:id,status:'cancelled'}));document.getElementById('waiterCancelDialog').close();showToast('Заказ отменён');}catch(error){document.getElementById('waiterCancelError').textContent=error.message;await refresh(true,true);}finally{busyOrders.delete(id);e.target.disabled=false;render();}};
+</script>
 
 <dialog class="product-dialog" id="paymentDialog" aria-labelledby="paymentTitle"><h2 id="paymentTitle">Оплата заказа</h2><p id="paymentAmount"></p><form id="paymentForm"><label>Способ оплаты<select id="actualPayment" required><option value="cash">Наличные</option><option value="card">Карта</option><option value="kaspi">Kaspi</option></select></label><p class="product-error" id="paymentError"></p><div class="product-actions"><button type="button" onclick="document.getElementById('paymentDialog').close()">Назад</button><button class="primary" id="confirmPaymentBtn" type="submit">Оплата получена</button></div></form></dialog>
 <script>
