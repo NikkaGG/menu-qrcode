@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/dev-server.cjs",
+    "build:pages": "node scripts/build-pages.cjs",
+    "test:pages": "node --test tests/pages.test.cjs",
     "test": "node --test tests/operations.test.cjs",
     "test:browser": "node tests/operations.browser.cjs",
     "test:controls": "node tests/operations.controls.cjs",
@@ -19,7 +21,8 @@
     "axe-core": "4.13.0",
     "esbuild": "0.28.2",
     "puppeteer-core": "25.3.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wrangler": "4.147.0"
   },
   "dependencies": {
     "read-excel-file": "9.3.10"

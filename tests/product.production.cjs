@@ -52,5 +52,5 @@ fs.mkdirSync(output, {recursive:true});
     }
     assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);pass('no browser errors or attempted mutations');
     console.log('Completed '+checks+' read-only production checks; dishes: '+menu.count+'.');
-  }catch(e){console.error(await page.evaluate(()=>[...document.images].filter(i=>i.getClientRects().length&&(!i.complete||!i.naturalWidth)).map(i=>({src:i.src,complete:i.complete}))));await page.screenshot({path:path.join(output,'production-failure.png')});console.error(e);process.exitCode=1;}finally{await browser.close();}
+  }catch(e){console.error(e);try{console.error(await page.evaluate(()=>[...document.images].filter(i=>i.getClientRects().length&&(!i.complete||!i.naturalWidth)).map(i=>({src:i.src,complete:i.complete}))));await page.screenshot({path:path.join(output,'production-failure.png')});}catch(diagnostic){console.error('Diagnostics unavailable: '+diagnostic.message);}process.exitCode=1;}finally{await browser.close();}
 })();

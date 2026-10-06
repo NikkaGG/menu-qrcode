@@ -98,6 +98,11 @@ let fault = false;
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json', '.woff2': 'font/woff2', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.png': 'image/png' };
 const server = http.createServer(async (req, res) => {
   try {
+    // The Pages preview uses a separate local origin from this isolated fixture API.
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type,x-admin-pin,x-admin-role,x-staff-pin,x-staff-role,x-device-id,apikey,authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,HEAD,OPTIONS');
+    if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
     const url = new URL(req.url, origin);
     if(url.pathname==='/api/config'){res.setHeader('Content-Type','application/javascript');res.end('window.MenuConfig='+JSON.stringify({supabaseUrl:origin,publishableKey:'local-only'})+';');return;}
     if(url.pathname.startsWith('/storage/v1/object/public/restaurant-media/')){const item=media.get(url.pathname.split('/').pop());if(!item){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',item.mime);res.end(item.bytes);return;}

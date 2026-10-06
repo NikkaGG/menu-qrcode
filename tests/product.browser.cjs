@@ -3,17 +3,18 @@ const fs=require('node:fs');
 const path=require('node:path');
 const puppeteer=require('puppeteer-core');
 const {zipSync,strToU8}=require('fflate');
-const origin='http://127.0.0.1:4173',out=path.resolve(__dirname,'../artifacts/ui-audit');
+const origin=process.env.MENU_TEST_ORIGIN||'http://127.0.0.1:4173',fixture=process.env.MENU_FIXTURE_ORIGIN||origin,out=path.resolve(__dirname,'../artifacts/ui-audit');
+assert.ok(['localhost','127.0.0.1'].includes(new URL(fixture).hostname),'Mutating browser checks require a local fixture');
 fs.mkdirSync(out,{recursive:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
   let checks=0;const pass=s=>{checks++;console.log('PASS '+s);};
   const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:process.env.CI?['--no-sandbox']:[]});const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const state=async()=>await(await fetch(origin+'/__dev/state')).json();
-  const call=async(action,payload={},role='admin',endpoint='admin-api')=>{const r=await fetch(origin+'/functions/v1/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json',...(endpoint==='admin-api'?{'x-admin-pin':'1','x-admin-role':role}:{'x-staff-pin':'1','x-staff-role':role})},body:JSON.stringify({action,...payload})});return {status:r.status,data:await r.json()};};
+  const state=async()=>await(await fetch(fixture+'/__dev/state')).json();
+  const call=async(action,payload={},role='admin',endpoint='admin-api')=>{const r=await fetch(fixture+'/functions/v1/'+endpoint,{method:'POST',headers:{'Content-Type':'application/json',...(endpoint==='admin-api'?{'x-admin-pin':'1','x-admin-role':role}:{'x-staff-pin':'1','x-staff-role':role})},body:JSON.stringify({action,...payload})});return {status:r.status,data:await r.json()};};
   const login=async()=>{await page.goto(origin+'/admin',{waitUntil:'networkidle0'});await page.type('#pin','1');await page.click('#loginForm button');await page.waitForSelector('#app:not([hidden])');};
   try{
-    await fetch(origin+'/__dev/reset?empty',{method:'POST'});
+    await fetch(fixture+'/__dev/reset?empty',{method:'POST'});
     await page.goto(origin+'/',{waitUntil:'networkidle0'});assert.equal(await page.$eval('#mainContent',el=>getComputedStyle(el).display),'none');pass('without QR the menu is gated');
     const settings=(await call('settings')).data.settings;await call('save-settings',{settings:{...settings,public_menu_enabled:true,restaurant_name:'Суши Крейзи'}});
     await page.goto(origin+'/?view=menu',{waitUntil:'networkidle0'});await page.waitForFunction(()=>!document.getElementById('guestGate').hidden===false);await page.evaluate(()=>addCart(1));assert.equal(await page.evaluate(()=>Object.keys(cart).length),0);pass('public menu is read-only');
@@ -22,7 +23,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     await page.reload({waitUntil:'networkidle0'});await page.waitForFunction(()=>menuReady&&tableOrdering.ready);await page.evaluate(()=>addCart(1));await page.waitForSelector('#dishOptions[open]');await page.click('#dishOptions input[value=large]');await page.click('#dishOptions [type=submit]');
     const selected=await page.evaluate(()=>buildOrderPayload());assert.equal(selected.items[0].modifiers[0].optionId,'large');assert.equal(selected.items[0].unitPrice,(await state()).dishes[0].price+300);assert.deepEqual(await page.evaluate(()=>({qty:shownQty(1),total:shownTotal(getItem(1))})),{qty:1,total:selected.items[0].unitPrice});pass('guest selects a modifier and sees its price and card quantity');
     const data={action:'place-order',tableToken:table.qr_token,guestToken:crypto.randomUUID(),clientRequestId:crypto.randomUUID(),items:selected.items,paymentMethod:'cash'};
-    const guestCall=async body=>{const r=await fetch(origin+'/functions/v1/table-api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.ok(r.ok,'guest API '+r.status);return r.json();};
+    const guestCall=async body=>{const r=await fetch(fixture+'/functions/v1/table-api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.ok(r.ok,'guest API '+r.status);return r.json();};
     const placed=await guestCall(data),duplicate=await guestCall(data);assert.equal(placed.orderId,duplicate.orderId);
     const other=await guestCall({action:'bootstrap',tableToken:table.qr_token,guestToken:crypto.randomUUID()});assert.equal(other.orders.length,1);assert.equal(other.orders[0].isMine,false);assert.equal('guest_token' in other.orders[0],false);pass('table-wide orders and retry without exposing guest identity');
     assert.equal((await call('confirm-payment',{orderId:placed.orderId,paymentMethod:'cash'},'kitchen','staff-orders')).status,403);pass('kitchen cannot confirm payments');
@@ -42,5 +43,5 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
     await page.goto(origin+'/staff',{waitUntil:'networkidle0'});await page.type('#pin','1');await page.click('#loginForm button');await page.waitForSelector('#app:not([hidden])');
     await page.click('.floor-order-details summary');await page.click('button[onclick="openWaiterCancel('+placed.orderId+')"]');await page.waitForSelector('#waiterCancelDialog[open]');await page.click('#confirmWaiterCancel');await page.waitForSelector('#waiterCancelDialog:not([open])');assert.equal((await state()).orders.find(o=>o.id===placed.orderId).status,'cancelled');pass('waiter confirms cancellation before cooking');
     assert.deepEqual(errors,[]);console.log('Completed '+checks+' product browser checks.');
-  }catch(e){await page.screenshot({path:path.join(out,'product-failure.png')});console.error(e);process.exitCode=1;}finally{await browser.close();await fetch(origin+'/__dev/reset',{method:'POST'});}
+  }catch(e){await page.screenshot({path:path.join(out,'product-failure.png')});console.error(e);process.exitCode=1;}finally{await browser.close();await fetch(fixture+'/__dev/reset',{method:'POST'});}
 })();

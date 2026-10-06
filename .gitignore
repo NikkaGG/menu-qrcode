@@ -5,5 +5,7 @@ artifacts/excel-meta.json
 artifacts/*.log
 deno.lock
 node_modules/
+dist-pages/
+.wrangler/
 .vercel/
 supabase/.temp/

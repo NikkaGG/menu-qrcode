@@ -48,6 +48,29 @@ GitHub Actions runs isolated checks on pushes and pull requests. It does not its
 
 `npm run test:production` runs a read-only browser smoke check against the live site. It rejects mutations before sending them. Set `MENU_PRODUCTION_ORIGIN`, `MENU_TABLE_TOKEN` and the three `MENU_*_PIN` variables for another installation. It never places a real order or changes menu/payment data.
 
+## Cloudflare Pages Migration
+**Stopped by the owner on 2026-10-06. The existing Vercel Hobby installation is retained.** Do not publish to Cloudflare, change QR hostnames or switch PWA origins without a new owner decision. Prepared local adapter/build files remain available but are not an active deployment plan. No Cloudflare site was published. Vercel Hobby's non-commercial-use restriction remains unresolved for commercial restaurant handoff; retaining the plan does not waive provider terms. See https://vercel.com/docs/plans/hobby.
+
+The following is reference material for the stopped migration, initially approved on 2026-10-05. It is a hosting migration, not a database migration. Supabase data, staff functions, QR tokens and order history remain unchanged. R2 setup is stopped; off-site backups are still not configured.
+
+The Pages build reuses the four existing HTTP handlers through a request-local adapter. Only `/api/*`, `/product/*` and the dynamic manifest invoke Pages Functions. Static HTML, images and scripts do not consume that Functions quota. Public assets are copied from an explicit allowlist; database source, tests, private configuration and dependencies are excluded.
+
+```powershell
+npm ci
+npm run test:pages
+npm run build:pages
+npx wrangler pages dev dist-pages --port 4175
+```
+Unlike `npm run dev`, that Pages preview uses the configured real Supabase by default. Do not place test orders there. Use `npm run test:production` with `MENU_PRODUCTION_ORIGIN=http://127.0.0.1:4175` for read-only checks. For mutating checks, start the isolated fixture server first, start Pages on another port with `--binding MENU_SUPABASE_URL=http://127.0.0.1:4173 --binding MENU_SUPABASE_PUBLISHABLE_KEY=local-only`, and run `test:product` with both `MENU_TEST_ORIGIN` (Pages) and `MENU_FIXTURE_ORIGIN` (fixture) set. Mutating tests reject non-local fixture hosts.
+
+Git-connected Pages setup: select only the `NikkaGG/menu-qrcode` repository, production branch `main`, framework preset `None`, build command `npm run build:pages`, output directory `dist-pages`. Keep Workers on the Free plan; do not enable paid upgrades. `wrangler.jsonc` pins the compatibility date. For another restaurant, set `MENU_SUPABASE_URL` and `MENU_SUPABASE_PUBLISHABLE_KEY` to its separate database in both production and preview environment settings. Never enter a service-role key in these frontend settings.
+
+After publication, verify QR gating, all menu photos, all three staff roles, manifest and product metadata at the actual Pages URL. Then review canonical URLs, regenerate printed QR URLs for the new hostname, and reinstall/re-enable staff PWA notifications on the new origin. Browser permissions, installed apps and local guest identity do not transfer automatically between domains. Avoid a switch during an active service. Do not delete old deployments or rewrite existing order/payment records as part of this migration.
+
+Free hosting remains subject to quotas and provider terms; it is not a promise of unlimited capacity or a paid availability guarantee. Before selling an installation, measure database/Functions/traffic usage and complete backup/restore and physical-device acceptance. Supabase Free project limits also constrain the number of separately hosted customer installations under one owner.
+
+Official guides: https://developers.cloudflare.com/pages/functions/advanced-mode/ and https://developers.cloudflare.com/pages/functions/pricing/.
+
 ## Another Restaurant
 Create a separate Supabase/Vercel installation. Bootstrap the schema from the SQL files in order on an empty database, provision service-role grants, deploy the functions, then configure these public Vercel variables:
 - `MENU_SUPABASE_URL`

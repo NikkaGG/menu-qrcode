@@ -2,7 +2,7 @@
 
 Approved on 2026-10-05. One restaurant per configurable installation.
 
-Commercial handoff: the seller prepares the customer's menu, tables and branding before delivery. Notifications must be accepted on both Android and iPhone. Private off-site backups are requested; a new Cloudflare R2 storage area is proposed in the owner's existing account, but it is not connected yet.
+Commercial handoff: the seller prepares the customer's menu, tables and branding before delivery. Notifications must be accepted on both Android and iPhone. On 2026-10-06 the owner decided to retain the existing Vercel Hobby installation; Cloudflare Pages migration is stopped. Hobby's non-commercial-use restriction remains a commercial-launch constraint, not an exception granted by this decision. R2 setup is stopped; private off-site backups still need a destination, schedule and restore verification.
 
 ## Approved rules
 - Sushi Crazy, Kazakhstan, KZT, UTC+5 (Asia/Qyzylorda).
@@ -31,6 +31,7 @@ Commercial handoff: the seller prepares the customer's menu, tables and branding
 - [x] Browser and real-Postgres verification, production deployment and read-only smoke check.
 
 ## Verified Release
+- Cloudflare migration preparation: 12 adapter/build checks passed, 13 product scenarios passed through the actual local Pages runtime against isolated fixtures, and all 9 read-only menu/staff checks passed through Pages against the existing real database. Migration was stopped by the owner on 2026-10-06; no Cloudflare publication or hostname switch was made.
 - 2026-10-05: production frontend and all three backend functions published.
 - 17 embedded-PostgreSQL checks cover fresh schema, retries, payment/closing, cancellation, options and midnight shift rotation.
 - Browser flows cover guest, administrator, waiter and kitchen, responsive layouts, import/uploads and failure recovery.
@@ -38,6 +39,7 @@ Commercial handoff: the seller prepares the customer's menu, tables and branding
 - The database daily-shift schedule is active and its actual executions succeeded. Physical-device notification delivery and backup restore are not yet verified.
 
 ## Explicitly deferred decisions
+- Vercel Hobby is retained; do not resume Cloudflare publication, change QR hostnames or switch staff PWA origins without a new owner decision. Resolve Hobby's commercial-use restriction before paid restaurant handoff.
 - Scheduled private backups, selected retention and an actual restore drill are required before commercial handoff.
 - Real restaurant/device acceptance, including background delivery, remains to be performed.
 - Actual dish variants and upcharges must be supplied by the owner; none were invented for the real menu.

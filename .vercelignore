@@ -7,3 +7,6 @@ scripts/
 node_modules/
 *.md
 deno.lock
+cloudflare/
+dist-pages/
+wrangler.jsonc

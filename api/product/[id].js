@@ -1,17 +1,15 @@
 const {config,restaurantSettings}=require('../../lib/server-config.cjs');
 const PUBLIC_ORIGIN='https://menu-qrcode-lt1q.vercel.app';
-const SUPABASE_URL=config.supabaseUrl;
-const SUPABASE_PUBLISHABLE_KEY=config.publishableKey;
 
 function esc(value){
   return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
 
-async function getProduct(id){
+async function getProduct(id,installation){
   if(!Number.isInteger(id)||id<=0)return null;
   try{
-    const response=await fetch(`${SUPABASE_URL}/rest/v1/dishes?id=eq.${id}&select=id,name,weight,description,price,image_url,detail_image_url&limit=1`,{
-      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}
+    const response=await fetch(`${installation.supabaseUrl}/rest/v1/dishes?id=eq.${id}&select=id,name,weight,description,price,image_url,detail_image_url&limit=1`,{
+      headers:{apikey:installation.publishableKey,Accept:'application/json'},signal:AbortSignal.timeout(8000)
     });
     if(!response.ok)throw new Error('Supabase product '+response.status);
     const rows=await response.json();
@@ -29,13 +27,13 @@ async function getProduct(id){
   return null;
 }
 
-module.exports=async function handler(req,res){
+module.exports=async function handler(req,res,installation=config){
   const id=Number(req.query.id);
-  const item=await getProduct(id);
+  const item=await getProduct(id,installation);
   if(!item){res.statusCode=404;res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><title>Товар не найден — Sushi Crazy</title><p>Товар не найден.</p>');return;}
-  let settings={};try{settings=await restaurantSettings();}catch(_){}
+  let settings={};try{settings=await restaurantSettings(installation);}catch(_){}
   const restaurantName=settings.restaurant_name||'Menu-QR';
-  const origin=settings.canonical_url||PUBLIC_ORIGIN;
+  const origin=installation.publicOrigin||settings.canonical_url||PUBLIC_ORIGIN;
   const target=origin+'/?view=menu&product='+id;
   const image=item.detailImg||item.img||'/icons/app-512.png';
   const imageUrl=image.startsWith('http')?image:origin+image;
@@ -59,7 +57,7 @@ module.exports=async function handler(req,res){
 <meta name="twitter:image" content="${esc(imageUrl)}">
 <link rel="canonical" href="${esc(origin+'/product/'+id)}">
 <meta http-equiv="refresh" content="0;url=${esc(target)}">
-<script>location.replace(${JSON.stringify(target)})</script>
+<script>location.replace(${JSON.stringify(target).replace(/</g,'\\u003c')})</script>
 </head><body><p>Открываем «${esc(item.name)}»…</p><p><a href="${esc(target)}">Перейти к товару</a></p></body></html>`;
   res.setHeader('Content-Type','text/html; charset=utf-8');
   res.setHeader('Cache-Control','public, max-age=60, s-maxage=300, stale-while-revalidate=3600');

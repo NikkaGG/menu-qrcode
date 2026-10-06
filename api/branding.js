@@ -10,23 +10,23 @@ function fallbackSvg(type){
   return `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="500" viewBox="0 0 1600 500"><defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#111"/><stop offset=".5" stop-color="#272727"/><stop offset="1" stop-color="#111"/></linearGradient></defs><rect width="1600" height="500" fill="url(#g)"/><text x="800" y="235" text-anchor="middle" font-family="Arial,sans-serif" font-size="104" font-weight="800" fill="#fff">SUSHI CRAZY</text><rect x="565" y="270" width="470" height="10" rx="5" fill="#e74c3c"/><text x="800" y="340" text-anchor="middle" font-family="Arial,sans-serif" font-size="34" letter-spacing="9" fill="#ddd">FAST FOOD</text></svg>`;
 }
 
-module.exports = async function handler(req,res){
+module.exports = async function handler(req,res,installation){
   const type=String(req.query.type||'');
   if(!['banner','logo'].includes(type)){res.status(404).send('Not found');return;}
   try{
-    const settings=await require('../lib/server-config.cjs').restaurantSettings();const custom=settings[type+'_url'];
+    const settings=await require('../lib/server-config.cjs').restaurantSettings(installation);const custom=settings[type+'_url'];
     if(custom&&(custom.startsWith('/')&&!custom.startsWith('//')||/^https:\/\//.test(custom))){res.setHeader('Cache-Control','no-cache');res.redirect(302,custom);return;}
   }catch(_){}
   const url=ASSETS[type];
   if(!url){res.status(404).send('Not found');return;}
   try{
-    const upstream=await fetch(url,{headers:{'User-Agent':'SushiCrazyMenu/1.0'}});
+    const upstream=await fetch(url,{headers:{'User-Agent':'SushiCrazyMenu/1.0'},signal:AbortSignal.timeout(8000)});
     if(!upstream.ok)throw new Error('Upstream '+upstream.status);
-    const body=Buffer.from(await upstream.arrayBuffer());
+    const body=new Uint8Array(await upstream.arrayBuffer());
     res.setHeader('Content-Type',upstream.headers.get('content-type')||'image/webp');
     res.setHeader('Cache-Control','public, max-age=300, s-maxage=300');
     res.setHeader('X-Content-Type-Options','nosniff');
-    res.status(200).send(body);
+    res.status(200).end(body);
   }catch(error){
     res.setHeader('Content-Type','image/svg+xml; charset=utf-8');
     res.setHeader('Cache-Control','public, max-age=300, s-maxage=3600');
