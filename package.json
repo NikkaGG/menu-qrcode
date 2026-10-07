@@ -12,6 +12,7 @@
     "test:palette": "node tests/operations.palette.cjs",
     "test:postgres": "node tests/product.postgres.cjs",
     "test:product": "node tests/product.browser.cjs",
+    "test:guest": "node --test tests/guest-live.test.cjs && node tests/guest-tracker.browser.cjs",
     "test:production": "node tests/product.production.cjs",
     "build:excel": "esbuild scripts/excel-entry.js --bundle --minify --format=iife --outfile=vendor/read-excel-file.js",
     "test:legacy": "node --test tests/regression.test.js"
@@ -22,7 +23,8 @@
     "esbuild": "0.28.2",
     "puppeteer-core": "25.3.0",
     "typescript": "5.9.3",
-    "wrangler": "4.147.0"
+    "wrangler": "4.147.0",
+    "ws": "8.22.0"
   },
   "dependencies": {
     "read-excel-file": "9.3.10"
