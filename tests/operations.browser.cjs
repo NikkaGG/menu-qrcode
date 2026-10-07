@@ -108,7 +108,7 @@ const control = async (url) => { assert.equal((await fetch(origin + url, { metho
 
     const store = await getState(); table = store.restaurant_tables.find(t => String(t.table_number) === '12');
     await page.goto(origin + '/?table=' + table.qr_token, { waitUntil: 'networkidle0' });
-    await page.waitForFunction(() => document.getElementById('tableOrderTitle').textContent.includes('Терраса'));
+    await page.waitForFunction(id => tableOrdering.ready && tableOrdering.table?.id === id, {}, table.id);
     await page.waitForSelector('.menu-area button');
     await page.evaluate(() => document.getElementById('cookieBar')?.remove());
     await click('.menu-area button[aria-label="Добавить в корзину"]');
@@ -117,10 +117,11 @@ const control = async (url) => { assert.equal((await fetch(origin + url, { metho
     await click('#cartItems [aria-label="Увеличить количество"]'); await click('#cartItems [aria-label="Уменьшить количество"]');
     assert.equal(await page.$eval('#cartItems .qn', el => el.textContent), '1'); pass('cart quantity increase and decrease');
     await click('[onclick*="toggleCartComment"]'); await fill('#commentTa', 'Без кунжута'); await click('#orderBtn');
-    await page.waitForFunction(() => document.getElementById('tableOrderList').textContent.includes('Заказ #'));
+    await page.waitForSelector('#orderTracker:not([hidden])');
     let order = (await getState()).orders.find(o => o.comment === 'Без кунжута'); assert.ok(order); pass('guest QR menu, cart, payment and order submission');
-    await click('[data-table-service=waiter]'); await delay(200);
-    assert.ok((await getState()).service_requests.some(r => r.table_session_id === order.table_session_id && r.status === 'open')); pass('guest calls waiter');
+    assert.equal(await page.$('[data-table-service=waiter]'), null);
+    await page.evaluate(() => tableApiCall('service',{kind:'waiter',sessionId:tableOrdering.session.id}));
+    assert.ok((await getState()).service_requests.some(r => r.table_session_id === order.table_session_id && r.status === 'open')); pass('service API supplies waiter dashboard');
     await page.goto(origin + '/kitchen', { waitUntil: 'networkidle0' });
     await fill('#pin', '1'); await click('#loginForm button'); await app();
     await click(`.kitchen-ticket[data-order-id="${order.id}"] .kitchen-primary`);

@@ -43,7 +43,7 @@ const state = async () => (await fetch(origin + '/__dev/state')).json();
     assert.equal(image.subarray(1, 4).toString(), 'PNG'); assert.equal(image.readUInt32BE(16), 1200); assert.equal(image.readUInt32BE(20), 1200); pass('printable QR PNG download');
     const popup = browser.waitForTarget(target => target.url() === url);
     await click('#openQrLinkBtn'); const guest = await (await popup).page();
-    await guest.waitForFunction(() => document.getElementById('tableOrderTitle').textContent.includes('Стол 7')); await guest.close(); pass('QR opens the correct guest menu');
+    await guest.waitForFunction(() => tableOrdering.ready && Number(tableOrdering.table?.table_number) === 7); await guest.close(); pass('QR opens the correct guest menu');
 
     await page.goto(origin + '/kitchen', { waitUntil: 'networkidle0' }); await login('0000');
     await page.waitForFunction(() => document.getElementById('loginErr').textContent.length > 0); assert.equal(await page.$eval('#app', el => el.hidden), true); pass('kitchen rejects invalid PIN');
