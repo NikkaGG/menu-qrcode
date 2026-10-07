@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 const output = path.join(root, 'dist-pages');
 const publicFiles = [
   'index.html', 'menu.html', 'admin.html', 'staff.html', 'kitchen.html', 'offline.html',
-  'app.js', 'admin-product.js', 'ops-product.js', 'ops-ui.js', 'restaurant-config.js',
+  'app.js', 'guest-order-live.js', 'guest-orders.css', 'admin-product.js', 'ops-product.js', 'ops-ui.js', 'restaurant-config.js',
   'styles.css', 'ops.css', 'product-ui.css', 'sw.js', 'ref-products-dom.json'
 ];
 const publicFolders = ['assets', 'fonts', 'icons', 'vendor', 'sushi_crazy_all_photos'];

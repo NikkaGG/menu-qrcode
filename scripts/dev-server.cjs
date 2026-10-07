@@ -4,6 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const crypto = require('node:crypto');
 const zlib = require('node:zlib');
+const { WebSocketServer } = require('ws');
 const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
@@ -41,6 +42,13 @@ reset();
 // Execute the production handlers against an in-memory PostgREST adapter. No remote requests are made.
 async function database(url, init = {}) {
   const parsed = new URL(url);
+  if(parsed.pathname==='/realtime/v1/api/broadcast'){
+    const {messages}=JSON.parse(init.body);
+    for(const message of messages)for(const client of live.clients){
+      if(client.readyState===1&&client.topic==='realtime:'+message.topic)client.send(JSON.stringify({topic:client.topic,event:'broadcast',payload:{event:message.event,payload:message.payload,type:'broadcast'},ref:null}));
+    }
+    return new Response(null,{status:202});
+  }
   if(parsed.pathname.startsWith('/storage/v1/object/')){media.set(parsed.pathname.split('/').pop(),{bytes:Buffer.from(init.body),mime:init.headers['Content-Type']});return new Response('{}',{headers:{'Content-Type':'application/json'}});}
   const table = parsed.pathname.split('/').pop();
   if(parsed.pathname.includes('/rpc/'))return mockRpc(table,JSON.parse(init.body||'{}'));
@@ -133,6 +141,12 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, headers); res.end(data);
   } catch (error) { res.writeHead(404); res.end('Not found'); }
 });
+const live=new WebSocketServer({server,path:'/realtime/v1/websocket'});
+live.on('connection',client=>client.on('message',raw=>{
+  const message=JSON.parse(String(raw));
+  if(message.event==='phx_join')client.topic=message.topic;
+  if(['phx_join','heartbeat'].includes(message.event))client.send(JSON.stringify({topic:message.topic,event:'phx_reply',payload:{status:'ok',response:{}},ref:message.ref,join_ref:message.join_ref}));
+}));
 server.listen(port, '127.0.0.1', () => console.log(`Local isolated preview: ${origin}\nAdmin PIN: 1. Staff PIN: 1. Data resets when the server restarts.`));
 function mockRpc(name,p){
   const response=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json'}});

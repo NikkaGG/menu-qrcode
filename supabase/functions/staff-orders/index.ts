@@ -1,4 +1,4 @@
-import { authenticate, audit, incident, pushAction, notify, background } from '../_shared/product.ts';
+import { authenticate, audit, incident, pushAction, notify, background, broadcastOrderChange, broadcastTableChange } from '../_shared/product.ts';
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type, x-staff-pin, x-staff-role, x-device-id, apikey, authorization",
@@ -171,6 +171,7 @@ Deno.serve(async (req) => {
       if(!Number.isInteger(id)||id<=0||!["cash","card","kaspi"].includes(String(body.paymentMethod))) return reply({error:"Проверьте заказ и способ оплаты"},400);
       const result=await db("rpc/confirm_order_payment",{method:"POST",body:JSON.stringify({p_order_id:id,p_method:String(body.paymentMethod||""),p_role:actor.role,p_device:req.headers.get("x-device-id")||""})});
       if(!["paid","already_paid"].includes(result)) return reply({error:result==="cancelled"?"Отменённый заказ нельзя оплатить":"Заказ не найден"},409);
+      background(broadcastOrderChange(id));
       return reply({ok:true,...await dashboard(actor)});
     }
     if (!isAllowed(actor, action)) return reply({ error: "Недостаточно прав для этого действия" }, 403);
@@ -190,6 +191,7 @@ Deno.serve(async (req) => {
 
       const updated=await db("rpc/change_order_status",{method:"POST",body:JSON.stringify({p_order_id:orderId,p_expected:order.status,p_next:next,p_role:actor.role,p_device:req.headers.get("x-device-id")||""})});
       if(updated!=="updated") return reply({error:"Заказ уже изменён на другом экране. Обновите данные"},409);
+      background(broadcastOrderChange(orderId));
       if(action==="update-order"&&body.status==="ready") background(notify(["waiter"],"Заказ готов",`Заказ #${body.orderId}`,"/staff"));
       return reply({ ok: true, ...(await dashboard(actor)) });
     }
@@ -221,6 +223,7 @@ Deno.serve(async (req) => {
       if (outcome !== "closed") return reply({ error: "Стол уже закрыт или недоступен" }, 409);
 
       await audit(req,actor.role,action,sessionId);
+      background(broadcastTableChange(sessionId));
       return reply({ ok: true, ...(await dashboard(actor)) });
     }
 

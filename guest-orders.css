@@ -1,0 +1,63 @@
+/* Guest orders: a compact glass surface that leaves the menu in place. */
+.order-tracker[hidden],.order-update-notice[hidden]{display:none!important}
+.order-tracker{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(440px,calc(100% - 28px));min-height:66px;display:flex;align-items:center;gap:12px;padding:11px 17px 11px 12px;border:1px solid rgba(255,255,255,.88);border-radius:999px;background:rgba(248,249,250,.8);-webkit-backdrop-filter:blur(24px) saturate(1.5);backdrop-filter:blur(24px) saturate(1.5);box-shadow:0 8px 30px rgba(20,24,30,.14),inset 0 1px 0 #fff,inset 0 -1px 0 rgba(255,255,255,.5);font:inherit;text-align:left;color:#191b1e;cursor:pointer;z-index:96;isolation:isolate;transition:bottom .28s ease,box-shadow .2s ease}
+.order-tracker::before{content:'';position:absolute;inset:1px;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.5),transparent 50%,rgba(255,255,255,.18));z-index:-1;pointer-events:none}
+.order-tracker:hover{box-shadow:0 10px 36px rgba(20,24,30,.2),inset 0 1px 0 #fff}
+.order-tracker:focus-visible,.order-details-close:focus-visible{outline:2px solid #242424;outline-offset:4px}
+.order-tracker-icon{width:40px;height:40px;flex:0 0 40px;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.75);color:#535963;border:1px solid rgba(255,255,255,.9)}
+.order-tracker-icon svg{width:21px;height:21px}
+.order-tracker[data-status=ready] .order-tracker-icon,.order-tracker[data-status=served] .order-tracker-icon{color:#226c49;background:rgba(226,244,234,.85)}
+.order-tracker[data-status=cancelled] .order-tracker-icon{color:#a43a3a;background:rgba(254,238,237,.8)}
+.order-tracker-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.order-tracker-copy strong{font-size:14px;line-height:1.25;font-weight:650}
+.order-tracker-copy>span{font-size:11px;line-height:1.3;color:#72777e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.order-tracker-price{font-size:14px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}
+.order-tracker-arrow{color:#7c8188;font-size:24px;line-height:1;margin-left:0}
+body.cart-has-items .order-tracker{bottom:calc(var(--guest-cart-height,66px) + 12px)}
+body.cookie-visible .order-tracker{bottom:calc(var(--guest-cookie-height,76px) + 24px + env(safe-area-inset-bottom,0px))}
+body.cookie-visible.cart-has-items .order-tracker{bottom:calc(var(--guest-cookie-height,76px) + var(--guest-cart-height,66px) + 36px + env(safe-area-inset-bottom,0px))}
+body.cookie-visible.has-order-tracker .cookie-bar{bottom:calc(12px + env(safe-area-inset-bottom,0px))!important}
+body.cookie-visible.has-order-tracker .cart-pill-shell{bottom:calc(var(--guest-cookie-height,76px) + 24px + env(safe-area-inset-bottom,0px))!important}
+body.has-order-tracker .page{padding-bottom:170px!important}
+body.modal-lock .order-tracker{visibility:hidden;pointer-events:none}
+.order-update-notice{position:fixed;left:50%;bottom:calc(94px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);padding:12px 18px;border:1px solid rgba(255,255,255,.8);border-radius:18px;background:rgba(33,36,40,.94);backdrop-filter:blur(16px);color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.14);font-size:13px;line-height:1.4;z-index:110;text-align:center;pointer-events:none}
+body.cart-has-items .order-update-notice{bottom:calc(var(--guest-cart-height,66px) + 92px)}
+body.cookie-visible .order-update-notice{bottom:calc(var(--guest-cookie-height,76px) + 104px + env(safe-area-inset-bottom,0px))}
+body.cookie-visible.cart-has-items .order-update-notice{bottom:calc(var(--guest-cookie-height,76px) + var(--guest-cart-height,66px) + 116px + env(safe-area-inset-bottom,0px))}
+#orderDetailsOv{align-items:flex-end;padding:0 12px}
+#orderDetailsOv .order-details-sheet{width:min(560px,100%);max-width:560px;max-height:88dvh;display:flex;flex-direction:column;padding:0 22px calc(22px + env(safe-area-inset-bottom,0px));border-radius:28px 28px 0 0;border:1px solid rgba(255,255,255,.9);background:rgba(250,251,252,.94);-webkit-backdrop-filter:blur(26px) saturate(1.3);backdrop-filter:blur(26px) saturate(1.3);box-shadow:0 -12px 50px rgba(0,0,0,.14);overflow:hidden}
+.order-details-sheet .handle{flex:0 0 4px;width:36px;margin:12px auto 18px;background:#d4d7db;border-radius:99px}
+.order-details-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 0 12px}
+.order-details-eyebrow{display:block;font-size:11px;color:#81868d;margin-bottom:5px}
+.order-details-heading h2{font-size:25px;line-height:1.15;letter-spacing:-.6px;font-weight:700}
+.order-details-close{flex:0 0 36px;width:36px;height:36px;border-radius:50%;background:rgba(230,232,235,.85);border:1px solid #fff;display:grid;place-items:center;cursor:pointer;color:#585e66}
+.order-details-close svg{width:19px;height:19px}
+.order-details-connection{color:#838891;font-size:11px;line-height:1.5;margin-bottom:18px}
+.order-details-list{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;scrollbar-width:thin}
+.guest-order-card{border:1px solid rgba(222,225,229,.9);border-radius:21px;padding:18px;margin-bottom:12px;background:rgba(255,255,255,.8);box-shadow:0 2px 3px rgba(0,0,0,.015)}
+.guest-order-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:17px}
+.guest-order-number{display:block;font-size:14px;font-weight:650;line-height:1.3}
+.guest-order-time{display:block;margin-top:3px;color:#92969d;font-size:11px}
+.guest-order-state{font-size:11px;line-height:1.3;font-weight:600;border-radius:99px;padding:6px 10px;background:#eef0f3;color:#535b66;white-space:nowrap}
+.guest-order-state[data-status=ready],.guest-order-state[data-status=served]{background:#e8f4ec;color:#2e7250}
+.guest-order-state[data-status=cancelled]{background:#fbeeee;color:#a74949}
+.order-details-sheet .table-status-steps{display:flex;gap:4px;margin:0 0 20px}
+.order-details-sheet .table-status-step{flex:1;min-width:0;text-align:center;font-size:9px;line-height:1.4;color:#9da1a7}
+.order-details-sheet .table-status-step i{display:block;height:3px;width:100%;margin:0 0 7px;border-radius:99px;background:#e7e9ec;box-shadow:none}
+.order-details-sheet .table-status-step.done i{background:#646c77}
+.order-details-sheet .table-status-step.active{color:#20242a;font-weight:650}
+.order-details-sheet .table-status-step.active i{background:#23282f}
+.order-details-sheet .table-order-cancelled{font-size:12px;color:#a74949;margin-bottom:15px}
+.guest-order-item{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #f0f1f3;line-height:1.4;font-size:12px}
+.guest-order-item:first-child{padding-top:0}
+.guest-order-item>div{min-width:0}.guest-order-item strong{font-size:12px;white-space:nowrap;font-weight:600}
+.guest-order-item small{display:block;margin-top:4px;color:#838992;font-size:10px;overflow-wrap:anywhere}
+.guest-order-summary{display:flex;justify-content:space-between;padding:14px 0 0;font-size:13px}
+.guest-order-payment{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:11px;color:#81878f}
+.guest-order-comment{padding:10px 12px;margin-top:13px;border-radius:12px;background:#f6f7f8;color:#656b74;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.order-details-foot{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 0 0;margin-top:4px;border-top:1px solid #e3e6e9;flex-shrink:0}
+.order-details-foot>span{font-size:11px;color:#838a93;max-width:180px;line-height:1.5}.order-details-foot>strong{font-size:22px;letter-spacing:-.5px;white-space:nowrap}
+@supports not (backdrop-filter:blur(1px)){.order-tracker{background:#f7f8f9}.order-details-sheet{background:#fafbfc}}
+@media(max-width:360px){.order-tracker{gap:8px;padding-right:12px;width:calc(100% - 22px)}.order-tracker-price{font-size:12px}.order-tracker-icon{width:34px;height:34px;flex-basis:34px}#orderDetailsOv .order-details-sheet{padding-left:15px;padding-right:15px}.guest-order-card{padding:14px}.order-details-sheet .table-status-step{font-size:8px}}
+@media(min-width:700px){#orderDetailsOv{align-items:center;padding:24px}#orderDetailsOv .order-details-sheet{border-radius:28px;max-height:85dvh;padding-bottom:24px}}
+@media(prefers-reduced-motion:reduce){.order-tracker{transition:none}}

@@ -5,6 +5,8 @@ function svgIcon(name,cls='svg-icon'){
     plus:`<svg ${common}><path d="M12 5v14M5 12h14"/></svg>`,
     minus:`<svg ${common}><path d="M5 12h14"/></svg>`,
     x:`<svg ${common}><path d="M18 6 6 18M6 6l12 12"/></svg>`,
+    check:`<svg ${common}><path d="m5 12 4 4L19 6"/></svg>`,
+    receipt:`<svg ${common}><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>`,
     search:`<svg ${common}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>`,
     grid:`<svg ${common}><rect x="4" y="4" width="6" height="6" rx="1.3"/><rect x="14" y="4" width="6" height="6" rx="1.3"/><rect x="4" y="14" width="6" height="6" rx="1.3"/><rect x="14" y="14" width="6" height="6" rx="1.3"/></svg>`,
     list:`<svg ${common}><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>`,
@@ -332,7 +334,7 @@ const MAX_ITEM_QUANTITY=20;
 const TABLE_API_TIMEOUT_MS=12000;
 const MENU_API_TIMEOUT_MS=12000;
 const ORDER_REQUEST_TTL_MS=15*60*1000;
-const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,statusLoading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),serviceBusy:new Set(),lastError:'',lastPlacedOrderId:null,pendingOrderRequest:null};
+const tableOrdering={tableToken:'',guestToken:'',table:null,session:null,orders:[],requests:[],ready:false,loading:false,statusLoading:false,submitting:false,pollTimer:null,seenStatuses:new Map(),serviceBusy:new Set(),lastError:'',lastPlacedOrderId:null,pendingOrderRequest:null,live:null,liveConnected:false,refreshPending:false,statusError:'',noticeTimer:null,stateVersion:0};
 function tableEscapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function createGuestUuid(){
   if(crypto.randomUUID)return crypto.randomUUID();
@@ -425,59 +427,85 @@ function tableOrderStatusMarkup(order){
 }
 function tableOrderItemsMarkup(order){
   const items=Array.isArray(order.order_items)?order.order_items:[];
-  return items.map(item=>'<div class="table-order-item"><span>'+tableEscapeHtml(item.name)+' × '+Number(item.quantity||0)+'</span><strong>'+fmt(Number(item.line_total||0))+'</strong></div>').join('');
+  return items.map(item=>'<div class="guest-order-item"><div><span>'+tableEscapeHtml(item.name)+' × '+Number(item.quantity||0)+'</span>'+(item.item_comment?'<small>'+tableEscapeHtml(item.item_comment)+'</small>':'')+'</div><strong>'+fmt(Number(item.line_total||0))+'</strong></div>').join('');
 }
 function openServiceKinds(){return new Set((tableOrdering.requests||[]).filter(r=>r.status==='open').map(r=>r.kind));}
-function renderTableOrderPanel(){
-  const panel=document.getElementById('tableOrderPanel'),title=document.getElementById('tableOrderTitle'),list=document.getElementById('tableOrderList'),service=document.getElementById('tableServiceState'),cartContext=document.getElementById('cartTableContext'),flow=document.getElementById('tableFlowState'),refreshBtn=document.getElementById('tableRefreshBtn');
-  if(cartContext){
-    if(tableOrdering.loading)cartContext.textContent='Проверяем QR-код стола…';
-    else if(tableOrdering.ready)cartContext.textContent=(tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number))+' · заказ принесёт официант';
-    else if(tableOrdering.tableToken)cartContext.innerHTML=tableEscapeHtml(tableOrdering.lastError||'Не удалось подтвердить QR-код')+' <button type="button" onclick="refreshTableStatus(true)">Повторить</button>';
-    else cartContext.textContent='Для заказа отсканируйте QR-код на столе';
-  }
-  if(refreshBtn){refreshBtn.disabled=tableOrdering.loading;refreshBtn.textContent=tableOrdering.loading?'Проверяем…':'Обновить';}
-  if(!panel)return;if(!tableOrdering.tableToken){panel.hidden=true;return;}panel.hidden=false;
-  if(!tableOrdering.ready){
-    if(title)title.textContent=tableOrdering.loading?'Определяем ваш стол…':'Не удалось определить стол';
-    if(flow){flow.hidden=tableOrdering.loading;flow.className='table-flow-state error';flow.textContent=tableOrdering.lastError||'Не удалось проверить QR-код. Нажмите «Обновить», чтобы попробовать ещё раз.';}
-    if(list)list.innerHTML='<div class="table-order-empty">'+(tableOrdering.loading?'Проверяем QR-код.':'Заказ пока недоступен. Повторите проверку QR-кода.')+'</div>';
-    if(service)service.innerHTML='';
-    document.querySelectorAll('.table-order-actions button').forEach(btn=>{btn.disabled=true;});
-    return;
-  }
-  const tableLabel=tableOrdering.table?.label||('Стол '+tableOrdering.table?.table_number);if(title)title.textContent=tableLabel;
-  if(flow){
-    if(tableOrdering.lastPlacedOrderId){flow.hidden=false;flow.className='table-flow-state success';flow.textContent='Заказ #'+tableOrdering.lastPlacedOrderId+' отправлен. Статус будет обновляться здесь автоматически.';}
-    else{flow.hidden=true;flow.textContent='';}
-  }
-  const orders=[...(tableOrdering.orders||[])].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  if(list)list.innerHTML=orders.length?orders.map(order=>{
-    const when=new Date(order.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-    return '<article class="table-order-card"><div class="table-order-card-head"><div><b>Заказ #'+order.id+(order.isMine?' · ваш':' · за столом')+'</b><span>'+when+'</span></div><strong>'+fmt(Number(order.total||0))+'</strong></div>'+tableOrderStatusMarkup(order)+'<div class="table-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="table-order-meta">'+(order.paid_at?'Оплачен · ':'Не оплачен · ')+'Расчёт: '+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||order.payment_method||'—')+(order.comment?' · '+tableEscapeHtml(order.comment):'')+'</div></article>';
-  }).join(''):'<div class="table-order-empty"><b>Вы за столом.</b><span>Соберите корзину — заказ уйдёт прямо на кухню.</span></div>';
-  const open=openServiceKinds();if(service){const labels=[];if(open.has('waiter'))labels.push('Официант уже вызван');if(open.has('bill'))labels.push('Счёт уже запрошен');if(open.has('cutlery'))labels.push('Запрос на приборы отправлен');service.innerHTML=labels.length?'<div class="table-service-open">'+labels.map(x=>'<span>'+x+'</span>').join('')+'</div>':'';}
-  document.querySelectorAll('.table-order-actions button').forEach(btn=>{btn.disabled=false;});
-  document.querySelectorAll('[data-table-service]').forEach(btn=>{
-    const kind=btn.dataset.tableService,busy=tableOrdering.serviceBusy.has(kind),alreadyOpen=open.has(kind),base=btn.dataset.label||btn.textContent;
-    btn.disabled=busy||alreadyOpen||!tableOrdering.session;
-    btn.classList.toggle('is-busy',busy);
-    btn.textContent=busy?'Отправляем…':alreadyOpen?(kind==='waiter'?'Официант вызван':kind==='bill'?'Счёт запрошен':base):base;
-  });
+const ORDER_STATUS_LABELS=Object.freeze({submitted:'Отправлен',accepted:'Принят',preparing:'Готовится',ready:'Готов',served:'Подан',cancelled:'Отменён'});
+function trackedTableOrders(){
+  return [...(tableOrdering.orders||[])].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)||Number(b.id)-Number(a.id));
 }
+function tableOrdersTotal(orders){return orders.filter(o=>o.status!=='cancelled').reduce((sum,o)=>sum+Number(o.total||0),0);}
+function renderTableOrderPanel(){
+  const cartContext=document.getElementById('cartTableContext');
+  if(cartContext){
+    if(tableOrdering.loading)cartContext.textContent='Проверяем QR-код…';
+    else if(tableOrdering.ready){cartContext.textContent='Заказ принесёт официант';}
+    else if(tableOrdering.tableToken)cartContext.innerHTML=tableEscapeHtml(tableOrdering.lastError||'Не удалось подтвердить QR-код')+' <button type="button" onclick="refreshTableStatus(true)">Повторить</button>';
+    else cartContext.textContent='Для заказа отсканируйте QR-код';
+  }
+  const tracker=document.getElementById('orderTracker');
+  if(!tracker)return;
+  const orders=trackedTableOrders();
+  tracker.hidden=!tableOrdering.tableToken||!orders.length;
+  document.body.classList.toggle('has-order-tracker',!tracker.hidden);
+  if(tracker.hidden){if(document.getElementById('orderDetailsOv')?.classList.contains('on'))closeOv('orderDetailsOv');return;}
+  const active=orders.filter(o=>!['served','cancelled'].includes(o.status));
+  const main=active[0]||orders[0];
+  const label=ORDER_STATUS_LABELS[main.status]||'Обновляем';
+  tracker.dataset.status=main.status;
+  document.getElementById('orderTrackerStatus').textContent=tableOrdering.statusError?'Проверяем связь…':label;
+  document.getElementById('orderTrackerMeta').textContent=orders.length===1?'Заказ №'+main.id:orders.length+' '+({one:'заказ',few:'заказа',many:'заказов',other:'заказа'})[new Intl.PluralRules('ru').select(orders.length)]+' · посмотреть детали';
+  document.getElementById('orderTrackerTotal').textContent=fmt(tableOrdersTotal(orders));
+  document.getElementById('orderTrackerIcon').innerHTML=svgIcon(['ready','served'].includes(main.status)?'check':main.status==='cancelled'?'x':'receipt');
+  tracker.setAttribute('aria-label',label+'. '+document.getElementById('orderTrackerMeta').textContent+'. '+fmt(tableOrdersTotal(orders))+'. Посмотреть детали');
+  renderOrderDetails(orders);
+}
+function renderOrderDetails(orders=trackedTableOrders()){
+  const list=document.getElementById('orderDetailsList');if(!list)return;
+  // Keep the reader's position when a status update redraws the open sheet.
+  const scrollTop=list.scrollTop;
+  const markup=orders.map(order=>{
+    const when=new Date(order.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+    return '<article class="guest-order-card"><div class="guest-order-head"><div><span class="guest-order-number">Заказ №'+tableEscapeHtml(order.id)+'</span><span class="guest-order-time">'+when+(order.isMine?' · ваш заказ':' · заказ за этим столом')+'</span></div><span class="guest-order-state" data-status="'+tableEscapeHtml(order.status)+'">'+tableEscapeHtml(ORDER_STATUS_LABELS[order.status]||'Обновляем')+'</span></div>'+tableOrderStatusMarkup(order)+'<div class="guest-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="guest-order-summary"><span>Сумма заказа</span><strong>'+fmt(Number(order.total||0))+'</strong></div><div class="guest-order-payment"><span>'+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||'Расчёт с официантом')+'</span><span>'+(order.paid_at?'Оплачен':'Оплата официанту')+'</span></div>'+(order.comment?'<div class="guest-order-comment">'+tableEscapeHtml(order.comment)+'</div>':'')+'</article>';
+  }).join('');
+  if(list.innerHTML!==markup){list.innerHTML=markup;list.scrollTop=scrollTop;}
+  document.getElementById('orderDetailsTotal').textContent=fmt(tableOrdersTotal(orders));
+  document.getElementById('orderDetailsTitle').textContent=orders.length===1?'Ваш заказ':'Заказы за столом';
+  document.getElementById('orderDetailsConnection').textContent=tableOrdering.statusError?'Связь прервалась. Сохранённые данные — повторяем проверку автоматически.':tableOrdering.liveConnected?'Статусы обновляются в реальном времени':'Статусы проверяются автоматически';
+}
+function openOrderDetails(){
+  if(!trackedTableOrders().length)return;
+  renderOrderDetails();openOv('orderDetailsOv',document.getElementById('orderTracker'));refreshTableStatus(false);
+}
+function showOrderUpdate(order){
+  const notice=document.getElementById('orderUpdateNotice');if(!notice)return;
+  notice.textContent=(ORDER_STATUS_LABELS[order.status]||'Статус обновлён')+' · Заказ №'+order.id;
+  notice.hidden=false;clearTimeout(tableOrdering.noticeTimer);
+  tableOrdering.noticeTimer=setTimeout(()=>{notice.hidden=true;},4500);
+}
+function startTableLive(){
+  if(!tableOrdering.ready||document.hidden||typeof GuestOrderLive==='undefined')return;
+  if(!tableOrdering.live)tableOrdering.live=new GuestOrderLive({
+    url:SUPABASE_URL,key:SUPABASE_PUBLISHABLE_KEY,tableToken:tableOrdering.tableToken,
+    onChange:()=>refreshTableStatus(false),
+    onConnection:connected=>{tableOrdering.liveConnected=connected;startTablePolling();renderOrderDetails();}
+  });
+  tableOrdering.live.start();
+}
+function stopTableLive(){tableOrdering.live?.stop();}
 function applyTableOrderState(data){
   tableOrdering.table=data.table||tableOrdering.table;tableOrdering.session=data.session??null;tableOrdering.orders=Array.isArray(data.orders)?data.orders:[];tableOrdering.requests=Array.isArray(data.requests)?data.requests:[];tableOrdering.ready=!!tableOrdering.table;
-  for(const order of tableOrdering.orders){const previous=tableOrdering.seenStatuses.get(String(order.id));if(previous&&previous!==order.status&&order.status==='ready')showToast('Заказ #'+order.id+' готов');tableOrdering.seenStatuses.set(String(order.id),order.status);}
+  for(const order of tableOrdering.orders){const previous=tableOrdering.seenStatuses.get(String(order.id));if(previous&&previous!==order.status)showOrderUpdate(order);tableOrdering.seenStatuses.set(String(order.id),order.status);}
   renderTableOrderPanel();updateOrderState();
 }
 function stopTablePolling(){if(tableOrdering.pollTimer){clearInterval(tableOrdering.pollTimer);tableOrdering.pollTimer=null;}}
-function startTablePolling(){stopTablePolling();if(!tableOrdering.ready||document.hidden)return;tableOrdering.pollTimer=setInterval(()=>refreshTableStatus(false),4000);}
+function startTablePolling(){stopTablePolling();if(!tableOrdering.ready||document.hidden)return;tableOrdering.pollTimer=setInterval(()=>refreshTableStatus(false),tableOrdering.liveConnected?30000:4000);}
 async function bootstrapTableOrdering(manual=false){
   if(!tableOrdering.tableToken||tableOrdering.loading)return;
   tableOrdering.loading=true;tableOrdering.lastError='';renderTableOrderPanel();updateOrderState();
   try{
     const data=await tableApiCall('bootstrap');
-    tableOrdering.loading=false;applyTableOrderState(data);startTablePolling();document.documentElement.classList.remove('guest-locked');document.getElementById('guestGate').hidden=true;
+    tableOrdering.loading=false;applyTableOrderState(data);startTablePolling();startTableLive();document.documentElement.classList.remove('guest-locked');document.getElementById('guestGate').hidden=true;
     if(manual)showToast('Стол подтверждён');
   }catch(error){
     tableOrdering.loading=false;tableOrdering.ready=false;tableOrdering.lastError=guestApiErrorMessage(error);stopTablePolling();renderTableOrderPanel();updateOrderState();
@@ -487,22 +515,25 @@ async function bootstrapTableOrdering(manual=false){
   }
 }
 async function refreshTableStatus(manual=false){
-  if(tableOrdering.loading||tableOrdering.statusLoading)return;
+  if(tableOrdering.loading)return;
+  if(tableOrdering.statusLoading){tableOrdering.refreshPending=true;return;}
   if(!tableOrdering.ready){if(manual)await bootstrapTableOrdering(true);return;}
   tableOrdering.statusLoading=true;
-  try{applyTableOrderState(await tableApiCall('status'));tableOrdering.lastError='';if(manual)showToast('Статус обновлён');}
+  const stateVersion=tableOrdering.stateVersion;
+  try{const data=await tableApiCall('status');if(stateVersion!==tableOrdering.stateVersion){tableOrdering.refreshPending=true;return;}tableOrdering.statusError='';tableOrdering.lastError='';applyTableOrderState(data);if(manual)showToast('Статус обновлён');}
   catch(error){
-    const message=guestApiErrorMessage(error);
+    if(stateVersion!==tableOrdering.stateVersion){tableOrdering.refreshPending=true;return;}
+    const message=guestApiErrorMessage(error);tableOrdering.statusError=message;renderTableOrderPanel();
     if([400,404,409].includes(Number(error?.status))){
       tableOrdering.ready=false;
       tableOrdering.session=null;
       tableOrdering.lastError=message;
-      stopTablePolling();
+      stopTableLive();stopTablePolling();
       renderTableOrderPanel();
       updateOrderState();
     }
     if(manual)showToast(message);
-  }finally{tableOrdering.statusLoading=false;}
+  }finally{tableOrdering.statusLoading=false;if(tableOrdering.refreshPending){tableOrdering.refreshPending=false;if(tableOrdering.ready)setTimeout(()=>refreshTableStatus(false),100);}}
 }
 async function requestTableService(kind){
   if(!tableOrdering.ready){showToast('Сначала подтвердите QR-код стола');return;}
@@ -525,10 +556,21 @@ async function initTableOrdering(){
   await bootstrapTableOrdering(false);
 }
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){stopTablePolling();return;}
-  if(tableOrdering.ready){refreshTableStatus(false);startTablePolling();}
+  if(document.hidden){stopTableLive();stopTablePolling();return;}
+  if(tableOrdering.ready){refreshTableStatus(false);startTablePolling();startTableLive();}
 });
-window.addEventListener('online',()=>{if(!tableOrdering.tableToken)return;if(tableOrdering.ready)refreshTableStatus(false);else bootstrapTableOrdering(false);});
+window.addEventListener('online',()=>{if(!tableOrdering.tableToken)return;if(tableOrdering.ready){refreshTableStatus(false);startTableLive();}else bootstrapTableOrdering(false);});
+// Stack fixed surfaces using their actual heights, including wrapped consent text.
+if(typeof ResizeObserver!=='undefined'){
+  const observer=new ResizeObserver(entries=>{
+    for(const {target} of entries){
+      const name=target.id==='cookieBar'?'--guest-cookie-height':'--guest-cart-height';
+      const height=target.getBoundingClientRect().height;
+      if(height)document.documentElement.style.setProperty(name,height+'px');
+    }
+  });
+  for(const id of ['cookieBar','cpShell']){const element=document.getElementById(id);if(element)observer.observe(element);}
+}
 
 
 async function fetchSupabaseRows(table,query){
@@ -1172,9 +1214,9 @@ async function placeOrder(){
   const clientRequestId=getOrderRequestId(payload);
   tableOrdering.submitting=true;updateOrderState();
   try{
-    const data=await tableApiCall('place-order',{...payload,clientRequestId});const orderId=data.orderId;clearOrderRequestId(clientRequestId);tableOrdering.lastPlacedOrderId=orderId;applyTableOrderState(data);clearCart(true);
+    const data=await tableApiCall('place-order',{...payload,clientRequestId});const orderId=data.orderId;clearOrderRequestId(clientRequestId);tableOrdering.stateVersion++;tableOrdering.lastPlacedOrderId=orderId;tableOrdering.statusError='';applyTableOrderState(data);clearCart(true);
     closeOv('cartOv');showToast(data.duplicate?'Заказ #'+orderId+' уже был отправлен':'Заказ #'+orderId+' отправлен на кухню');
-    setTimeout(()=>document.getElementById('tableOrderPanel')?.scrollIntoView({behavior:prefersReducedMotion()?'auto':'smooth',block:'center'}),120);
+    showOrderUpdate({id:orderId,status:'submitted'});
   }catch(error){showToast(guestApiErrorMessage(error));}finally{tableOrdering.submitting=false;updateOrderState();}
 }
 function openShare(mode='contact'){
@@ -1299,7 +1341,7 @@ function isFocusable(element){
 }
 function focusElement(element){
   if(!isFocusable(element))return false;
-  element.focus();
+  element.focus({preventScroll:true});
   return document.activeElement===element;
 }
 function getDialogFocusable(ov){
@@ -1352,7 +1394,7 @@ function restoreFocus(opener){
     return;
   }
   if(focusElement(opener))return;
-  [...document.querySelectorAll('#cpill.on,.contact-btn')].some(focusElement);
+  [...document.querySelectorAll('#orderTracker:not([hidden]),#cpill.on,.contact-btn')].some(focusElement);
 }
 function lockPageScroll(){
   if(document.body.classList.contains('modal-lock')) return;

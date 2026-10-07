@@ -76,6 +76,25 @@ export function background(promise: Promise<unknown>) {
   if(typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(promise.catch(()=>{}));
   else promise.catch(()=>{});
 }
+// Public Broadcast only invalidates a table's cache; it never carries order data.
+// Guests must still present their QR capability to table-api to read current orders.
+export async function broadcastTableChange(sessionId: string) {
+  if(!sessionId)return;
+  const sessions=await db(`table_sessions?select=table_id&id=eq.${sessionId}&limit=1`);
+  if(!sessions?.[0])return;
+  const tables=await db(`restaurant_tables?select=qr_token&id=eq.${sessions[0].table_id}&is_active=eq.true&limit=1`);
+  if(!tables?.[0]?.qr_token)return;
+  const response=await fetch(`${supabaseUrl}/realtime/v1/api/broadcast`,{
+    method:'POST',signal:AbortSignal.timeout(5000),
+    headers:{apikey:serviceKey,'Content-Type':'application/json'},
+    body:JSON.stringify({messages:[{topic:'table-orders:'+tables[0].qr_token,event:'order-changed',payload:{},private:false}]})
+  });
+  if(!response.ok)throw new Error('Order broadcast unavailable: '+response.status);
+}
+export async function broadcastOrderChange(orderId: number) {
+  const orders=await db(`orders?select=table_session_id&id=eq.${orderId}&limit=1`);
+  if(orders?.[0])await broadcastTableChange(orders[0].table_session_id);
+}
 export async function pushAction(req: Request, body: any, role: string) {
   if(body.action==='report-client-incident'){
     if(!(await budget(req,'client-report:'+role,30)))return reply({error:'Слишком много сообщений'},429);

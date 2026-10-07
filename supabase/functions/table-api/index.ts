@@ -1,4 +1,4 @@
-import { db, reply, cors, uuid, budget, incident, notify, background, settings } from '../_shared/product.ts';
+import { db, reply, cors, uuid, budget, incident, notify, background, settings, broadcastTableChange } from '../_shared/product.ts';
 
 async function state(sessionId: string, guest: string) {
   if(!sessionId) return {orders:[],requests:[]};
@@ -27,6 +27,7 @@ Deno.serve(async (req: Request)=>{
       const result=await db('rpc/place_guest_order',{method:'POST',body:JSON.stringify({p_table_token:tableToken,p_guest_token:guestToken,p_request_id:requestId,p_session_id:uuid(body.sessionId)||null,p_payment_method:body.paymentMethod,p_comment:String(body.comment||''),p_items:body.items})});
       session=(await db(`table_sessions?select=id,table_id,status,opened_at&id=eq.${result.sessionId}&limit=1`))[0];
       if(!result.duplicate) background(notify(['kitchen'],'Новый заказ',`Стол ${table.table_number} · #${result.orderId}`,'/kitchen'));
+      if(!result.duplicate) background(broadcastTableChange(session.id));
       return reply({ok:true,...result,table,session,...await state(session.id,guestToken)},result.duplicate?200:201);
     }
     if(body.action==='service') {
