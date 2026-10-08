@@ -3,7 +3,7 @@
   function dialog(id,title){const el=document.createElement('dialog');el.className='product-dialog';el.id=id;el.setAttribute('aria-label',title);document.body.append(el);return el;}
   function iconButton(icon,title,fn){const b=document.createElement('button');b.type='button';b.className='product-button product-icon';b.title=title;b.setAttribute('aria-label',title);b.innerHTML='<i data-lucide="'+icon+'"></i>';b.onclick=fn;return b;}
   const settingsDialog=document.getElementById('restaurantSettings'),inbox=dialog('incidentInbox','Уведомления'),importDialog=dialog('menuImport','Импорт меню');
-  let settingsLoaded=false,settingsLoading=false,settingsDirty=false,pinDirty=false,settingsSaving=false,pinSaving=false,settingsRevision=0,pinRevision=0;
+  let settingsLoaded=false,settingsLoading=false,settingsDirty=false,pinDirty=false,settingsSaving=false,pinSaving=false,settingsRevision=0,pinRevision=0,settingsUploads=0;
   const paymentDialog=dialog('adminPayment','Подтверждение оплаты');
   window.openAdminPayment=id=>{
     const o=orderState?.orders.find(o=>Number(o.id)===Number(id));if(!o||o.paid_at||o.status==='cancelled')return;
@@ -16,13 +16,14 @@
   const fieldNames={restaurant_name:'Название',subtitle:'Описание',city:'Город',schedule_open:'Открытие',schedule_close:'Закрытие',phone_number:'Телефон',whatsapp_number:'WhatsApp',address_text:'Адрес',map_url:'Ссылка на карту',instagram_url:'Instagram',canonical_url:'Адрес сайта',logo_url:'Логотип',banner_url:'Обложка'};
   window.loadRestaurantSettings=async(force=false)=>{
     if(!pin||settingsLoading||(!force&&settingsLoaded))return;
+    if(settingsUploads){notify('Дождитесь загрузки изображения');return;}
     if(settingsSaving||pinSaving){notify('Сохранение ещё выполняется');return;}
     if(force&&(settingsDirty||pinDirty)){notify('Сначала сохраните изменения в настройках');return;}
     const revision=settingsRevision+pinRevision;
     settingsLoading=true;settingsDialog.setAttribute('aria-busy','true');document.getElementById('retrySettings').hidden=true;
     try{
       const {settings:s}=await api('settings');
-      if(settingsLoaded&&(revision!==settingsRevision+pinRevision||settingsDirty||pinDirty||settingsSaving||pinSaving))return;
+      if(settingsLoaded&&(revision!==settingsRevision+pinRevision||settingsDirty||pinDirty||settingsSaving||pinSaving||settingsUploads))return;
       const fields=keys=>'<div class="product-grid">'+keys.map(key=>'<label>'+fieldNames[key]+'<input name="'+key+'" value="'+escape(s[key]||'')+'" '+(key==='restaurant_name'?'required':'')+'></label>').join('')+'</div>';
       settingsDialog.innerHTML='<form class="product-form" id="restaurantForm">'+
         '<fieldset class="settings-group"><legend>Ресторан</legend>'+fields(['restaurant_name','subtitle','city','address_text','schedule_open','schedule_close','phone_number','whatsapp_number','map_url','instagram_url'])+'</fieldset>'+
@@ -38,7 +39,7 @@
       pinForm.addEventListener('input',markPinDirty);pinForm.addEventListener('change',markPinDirty);
       settingsDialog.querySelector('#settingsCancel').onclick=()=>switchSection('overview');
       form.onsubmit=async e=>{
-        e.preventDefault();if(settingsSaving)return;settingsSaving=true;
+        e.preventDefault();if(settingsSaving)return;if(settingsUploads){notify('Дождитесь загрузки изображения');return;}settingsSaving=true;
         const savedRevision=settingsRevision,button=form.querySelector('[type=submit]');button.disabled=true;document.getElementById('settingsError').textContent='';
         try{
           const values=Object.fromEntries(new FormData(form));values.public_menu_enabled=form.elements.public_menu_enabled.checked;
@@ -53,8 +54,9 @@
         try{await api('set-role-pin',values);if(values.role==='admin'){pin=values.newPin;sessionStorage.setItem('sushi-admin-pin',pin);}pinForm.reset();pinDirty=false;notify('PIN изменён');}
         catch(e){settingsDialog.querySelector('#pinError').textContent=e.message;}finally{pinSaving=false;controls.forEach(el=>el.disabled=false);}
       };
-      settingsDialog.querySelector('#uploadLogo').onclick=()=>choosePhoto(form.elements.logo_url,settingsDialog.querySelector('#settingsError'));
-      settingsDialog.querySelector('#uploadBanner').onclick=()=>choosePhoto(form.elements.banner_url,settingsDialog.querySelector('#settingsError'));
+      const trackUpload=busy=>{settingsUploads+=busy?1:-1;if(busy)settingsRevision++;};
+      settingsDialog.querySelector('#uploadLogo').onclick=()=>choosePhoto(form.elements.logo_url,settingsDialog.querySelector('#settingsError'),trackUpload);
+      settingsDialog.querySelector('#uploadBanner').onclick=()=>choosePhoto(form.elements.banner_url,settingsDialog.querySelector('#settingsError'),trackUpload);
       settingsLoaded=true;settingsDirty=false;pinDirty=false;
     }catch(e){if(e.status===401){settingsLoaded=false;sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;}
       if(!settingsLoaded)settingsDialog.innerHTML='<p class="product-error" role="alert">'+escape(e.message)+'</p>';else notify(e.message);document.getElementById('retrySettings').hidden=false;}
@@ -80,13 +82,14 @@
     }catch(_){reports.innerHTML='<p class="product-error">Не удалось обновить данные оплат</p>';}
   }
   setInterval(refreshProduct,15000);setTimeout(refreshProduct,1200);document.addEventListener('visibilitychange',refreshProduct);document.getElementById('loginForm').addEventListener('submit',()=>setTimeout(refreshProduct,1000));
-  function choosePhoto(target,error){
+  function choosePhoto(target,error,onBusy=()=>{}){
     const input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';
-    input.onchange=async()=>{const file=input.files[0];if(!file)return;error.textContent='Загружаем фото…';try{
+    input.onchange=async()=>{const file=input.files[0];if(!file)return;let started=false;error.textContent='Загружаем фото…';try{
       if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880)throw new Error('JPG, PNG или WebP, до 5 МБ');
+      onBusy(true);started=true;
       const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('Не удалось прочитать фото'));reader.readAsDataURL(file);});
       const result=await api('upload-image',{mime:file.type,data});target.value=result.url;target.dispatchEvent(new Event('input',{bubbles:true}));error.textContent='';
-    }catch(e){error.textContent=e.message;}};input.click();
+    }catch(e){error.textContent=e.message;}finally{if(started)onBusy(false);}};input.click();
   }
   const photoButton=document.createElement('button');photoButton.type='button';photoButton.className='product-button';photoButton.innerHTML='<i data-lucide="image-up"></i> Загрузить фото';document.getElementById('dishImage').parentElement.append(photoButton);
   const photoError=document.createElement('p');photoError.className='product-error';photoButton.after(photoError);photoButton.onclick=()=>choosePhoto(document.getElementById('dishImage'),photoError);

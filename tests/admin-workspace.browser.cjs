@@ -102,6 +102,17 @@ const output=path.resolve(__dirname,'../artifacts/admin-workspace');fs.mkdirSync
     await refreshSettings();
     assert.ok(await page.$eval('#restaurantForm [name=restaurant_name]',el=>el.value.includes('ещё не сохранено')));
     console.log('PASS edits made during saving stay marked as unsaved and survive refresh');
+    await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('#restaurantForm');
+    const photo=path.join(output,'qa-logo.png');fs.writeFileSync(photo,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPFkAAAAASUVORK5CYII=','base64'));
+    const delayedUpload=await holdAction('upload-image'),chooser=page.waitForFileChooser();
+    await click('#uploadLogo');await(await chooser).accept([photo]);await delayedUpload.seen;
+    await refreshSettings();
+    await delayedUpload.release();
+    await page.waitForFunction(()=>document.querySelector('#restaurantForm [name=logo_url]').value.includes('/storage/v1/object/public/'));
+    const uploaded=await page.$eval('#restaurantForm [name=logo_url]',el=>el.value);
+    await delayedUpload.close();await refreshSettings();
+    assert.equal(await page.$eval('#restaurantForm [name=logo_url]',el=>el.value),uploaded);
+    console.log('PASS settings refresh preserves an image being uploaded');
     for(const scheme of ['light','dark']){
       await page.emulateMediaFeatures([{name:'prefers-color-scheme',value:scheme},{name:'prefers-reduced-motion',value:'reduce'}]);
       for(const width of [320,390,760,764,768,1440]){
