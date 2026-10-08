@@ -33,7 +33,7 @@ const output=path.resolve(__dirname,'../artifacts/admin-workspace');fs.mkdirSync
     page.on('request',intercept);
     return {seen,release:()=>held.continue(),close:async()=>{page.off('request',intercept);await page.setRequestInterception(false);}};
   };
-  const ids=()=>page.$eval('#ordersList [data-order-id]',rows=>rows.map(x=>Number(x.dataset.orderId)));
+  const ids=()=>page.$$eval('#ordersList [data-order-id]',rows=>rows.map(x=>Number(x.dataset.orderId)));
   try{
     await reset();
     await call('confirm-payment',{orderId:1044,paymentMethod:'kaspi'},'staff-orders');
@@ -110,12 +110,18 @@ const output=path.resolve(__dirname,'../artifacts/admin-workspace');fs.mkdirSync
           await click('#adminNav [data-section='+section+']');
           await page.waitForFunction(name=>document.querySelector('[data-page="'+name+'"]').hidden===false,{},section);
           assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+2),section+' overflow '+width);
-          assert.ok(await page.$eval('#adminNav button',els=>els.every(el=>el.scrollWidth<=el.clientWidth+2)), 'navigation fits '+width);
+          assert.ok(await page.$$eval('#adminNav button',els=>els.every(el=>el.scrollWidth<=el.clientWidth+2)), 'navigation fits '+width);
           const unreachable=await page.$$eval('#pageSettings input,#pageSettings select',els=>els.filter(el=>el.getClientRects().length).some(el=>{const b=el.getBoundingClientRect();return b.left<0||b.right>document.documentElement.clientWidth+2;}));
           assert.equal(unreachable,false,'settings fields fit '+width);
           await page.screenshot({path:path.join(output,section+'-'+width+'-'+scheme+'.png')});
         }
       }
+    }
+    await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
+    for(const scheme of ['light','dark']){
+      await page.emulateMediaFeatures([{name:'prefers-color-scheme',value:scheme}]);
+      const violations=await page.evaluate(async()=>{const r=await axe.run(document.getElementById('app'));return r.violations.filter(v=>['serious','critical'].includes(v.impact)).map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}));});
+      assert.deepEqual(violations,[],scheme+' settings accessibility');
     }
     assert.deepEqual(errors,[]);console.log('PASS responsive admin views and settings in both themes');
   }catch(e){await page.screenshot({path:path.join(output,'failure.png')});console.error(e);process.exitCode=1;}
