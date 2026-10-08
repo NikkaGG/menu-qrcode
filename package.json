@@ -12,7 +12,7 @@
     "test:palette": "node tests/operations.palette.cjs",
     "test:postgres": "node tests/product.postgres.cjs",
     "test:product": "node tests/product.browser.cjs",
-    "test:guest": "node --test tests/guest-live.test.cjs && node tests/guest-tracker.browser.cjs",
+    "test:guest": "node --test tests/guest-live.test.cjs && node tests/guest-tracker.browser.cjs && node tests/guest-tracker-interactions.browser.cjs",
     "test:production": "node tests/product.production.cjs",
     "build:excel": "esbuild scripts/excel-entry.js --bundle --minify --format=iife --outfile=vendor/read-excel-file.js",
     "test:legacy": "node --test tests/regression.test.js"

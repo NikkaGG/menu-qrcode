@@ -457,7 +457,7 @@ function renderTableOrderPanel(){
   document.getElementById('orderTrackerMeta').textContent=orders.length===1?'Заказ №'+main.id:orders.length+' '+({one:'заказ',few:'заказа',many:'заказов',other:'заказа'})[new Intl.PluralRules('ru').select(orders.length)]+' · посмотреть детали';
   document.getElementById('orderTrackerTotal').textContent=fmt(tableOrdersTotal(orders));
   document.getElementById('orderTrackerIcon').innerHTML=svgIcon(['ready','served'].includes(main.status)?'check':main.status==='cancelled'?'x':'receipt');
-  tracker.setAttribute('aria-label',label+'. '+document.getElementById('orderTrackerMeta').textContent+'. '+fmt(tableOrdersTotal(orders))+'. Посмотреть детали');
+  tracker.setAttribute('aria-label',document.getElementById('orderTrackerStatus').textContent+'. '+document.getElementById('orderTrackerMeta').textContent+'. '+fmt(tableOrdersTotal(orders))+'. Посмотреть детали');
   renderOrderDetails(orders);
 }
 function renderOrderDetails(orders=trackedTableOrders()){
@@ -473,8 +473,9 @@ function renderOrderDetails(orders=trackedTableOrders()){
   document.getElementById('orderDetailsTitle').textContent=orders.length===1?'Ваш заказ':'Заказы за столом';
   document.getElementById('orderDetailsConnection').textContent=tableOrdering.statusError?'Связь прервалась. Сохранённые данные — повторяем проверку автоматически.':tableOrdering.liveConnected?'Статусы обновляются в реальном времени':'Статусы проверяются автоматически';
 }
-function openOrderDetails(){
+function openOrderDetails(fromHistory=false){
   if(!trackedTableOrders().length)return;
+  if(!fromHistory)pushMenuOverlayState('orderDetailsOv');
   renderOrderDetails();openOv('orderDetailsOv',document.getElementById('orderTracker'));refreshTableStatus(false);
 }
 function showOrderUpdate(order){
@@ -1432,7 +1433,9 @@ function openOv(id,openerOverride){
 function closeOv(id,shouldRestoreFocus=true,fromHistory=false){
   const ov=document.getElementById(id);
   if(!ov)return;
-  if(!fromHistory&&(id==='prodOv'||id==='cartOv')&&history.state?.menuOverlay===id){history.back();return;}
+  if(!fromHistory&&(id==='prodOv'||id==='cartOv'||id==='orderDetailsOv')&&history.state?.menuOverlay===id){history.back();return;}
+  const closeGeneration=(dialogFocusGenerations.get(ov)||0)+1;
+  dialogFocusGenerations.set(ov,closeGeneration);
   const opener=dialogOpeners.get(ov);
   const refreshFavoritesAfterClose=id==='prodOv'&&favoritesRefreshPending;
   if(id==='prodOv'){activeProductId=null;if(!fromHistory)clearProductUrlParam();}
@@ -1443,6 +1446,7 @@ function closeOv(id,shouldRestoreFocus=true,fromHistory=false){
   syncDialogAccessibility();
   if(shouldRestoreFocus&&getTopmostOpenDialog())restoreFocus(opener);
   runAfterMotion(()=>{
+    if(dialogFocusGenerations.get(ov)!==closeGeneration)return;
     unlockPageScroll();
     if(shouldRestoreFocus&&!getTopmostOpenDialog())restoreFocus(opener);
     if(refreshFavoritesAfterClose){
@@ -1452,7 +1456,7 @@ function closeOv(id,shouldRestoreFocus=true,fromHistory=false){
       syncFavoritesUi();
       requestAnimationFrame(()=>window.scrollTo(0,restoreY));
     }
-  },20);
+  },id==='orderDetailsOv'?180:20);
 }
 function bgClose(e,id){if(e.target&&e.target.id===id)closeOv(id);}
 function handleDialogKeydown(e){
@@ -1482,11 +1486,13 @@ function handleDialogKeydown(e){
 }
 document.addEventListener('keydown',handleDialogKeydown);
 window.addEventListener('popstate',()=>{
-  const state=history.state||{},prod=document.getElementById('prodOv'),cartOv=document.getElementById('cartOv');
+  const state=history.state||{},prod=document.getElementById('prodOv'),cartOv=document.getElementById('cartOv'),details=document.getElementById('orderDetailsOv');
   if(prod?.classList.contains('on')&&state.menuOverlay!=='prodOv')closeOv('prodOv',true,true);
   if(cartOv?.classList.contains('on')&&state.menuOverlay!=='cartOv')closeOv('cartOv',true,true);
+  if(details?.classList.contains('on')&&state.menuOverlay!=='orderDetailsOv')closeOv('orderDetailsOv',true,true);
   if(state.menuOverlay==='prodOv'&&!prod?.classList.contains('on')&&menuReady)openProd(state.productId,null,true);
   if(state.menuOverlay==='cartOv'&&!cartOv?.classList.contains('on'))openCart(true);
+  if(state.menuOverlay==='orderDetailsOv'&&!details?.classList.contains('on'))openOrderDetails(true);
 });
 function showToast(msg){
   const el=document.getElementById('toastEl');if(!el)return;
