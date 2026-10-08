@@ -38,6 +38,7 @@ jobs:
           npm run test:browser
           npm run test:controls
           npm run test:product
+          node tests/admin-workspace.browser.cjs
           MENU_TEST_ORIGIN=http://127.0.0.1:4173 npm run test:guest
           npx wrangler pages dev dist-pages --ip 127.0.0.1 --port 4176 --binding MENU_SUPABASE_URL=http://127.0.0.1:4173 --binding MENU_SUPABASE_PUBLISHABLE_KEY=local-only --show-interactive-dev-session=false > /tmp/menu-pages.log 2>&1 &
           PAGES_PID=$!
@@ -50,4 +51,5 @@ jobs:
           path: |
             artifacts/ui-audit/
             artifacts/guest-tracker/
+            artifacts/admin-workspace/
 
