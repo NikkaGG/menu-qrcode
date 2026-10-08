@@ -2,7 +2,8 @@
   const escape=h;
   function dialog(id,title){const el=document.createElement('dialog');el.className='product-dialog';el.id=id;el.setAttribute('aria-label',title);document.body.append(el);return el;}
   function iconButton(icon,title,fn){const b=document.createElement('button');b.type='button';b.className='product-button product-icon';b.title=title;b.setAttribute('aria-label',title);b.innerHTML='<i data-lucide="'+icon+'"></i>';b.onclick=fn;return b;}
-  const settingsDialog=dialog('restaurantSettings','Настройки ресторана'),inbox=dialog('incidentInbox','Уведомления'),importDialog=dialog('menuImport','Импорт меню');
+  const settingsDialog=document.getElementById('restaurantSettings'),inbox=dialog('incidentInbox','Уведомления'),importDialog=dialog('menuImport','Импорт меню');
+  let settingsLoaded=false,settingsLoading=false,settingsDirty=false,pinDirty=false,settingsSaving=false,pinSaving=false,settingsRevision=0,pinRevision=0,settingsUploads=0;
   const paymentDialog=dialog('adminPayment','Подтверждение оплаты');
   window.openAdminPayment=id=>{
     const o=orderState?.orders.find(o=>Number(o.id)===Number(id));if(!o||o.paid_at||o.status==='cancelled')return;
@@ -10,22 +11,59 @@
     paymentDialog.querySelector('select').value=o.payment_method;paymentDialog.querySelector('#cancelAdminPayment').onclick=()=>paymentDialog.close();paymentDialog.querySelector('form').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('[type=submit]');button.disabled=true;try{const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-role':'admin','x-staff-pin':pin,'x-device-id':ProductDevice},body:JSON.stringify({action:'confirm-payment',orderId:Number(id),paymentMethod:e.target.elements.paymentMethod.value}),signal:AbortSignal.timeout(12000)});const result=await response.json();if(!response.ok)throw new Error(result.error);paymentDialog.close();await loadOrders(false,true);await refreshProduct();notify('Оплата подтверждена');}catch(e){paymentDialog.querySelector('.product-error').textContent=e.message;}finally{button.disabled=false;}};paymentDialog.showModal();
   };
   const top=document.querySelector('.admin-top-actions');
-  top.prepend(iconButton('settings','Настройки ресторана',openSettings));
+
   const bell=iconButton('bell','Уведомления администратора',openInbox);top.prepend(bell);
   const fieldNames={restaurant_name:'Название',subtitle:'Описание',city:'Город',schedule_open:'Открытие',schedule_close:'Закрытие',phone_number:'Телефон',whatsapp_number:'WhatsApp',address_text:'Адрес',map_url:'Ссылка на карту',instagram_url:'Instagram',canonical_url:'Адрес сайта',logo_url:'Логотип',banner_url:'Обложка'};
-  async function openSettings(){
+  window.loadRestaurantSettings=async(force=false)=>{
+    if(!pin||settingsLoading||(!force&&settingsLoaded))return;
+    if(settingsUploads){notify('Дождитесь загрузки изображения');return;}
+    if(settingsSaving||pinSaving){notify('Сохранение ещё выполняется');return;}
+    if(force&&(settingsDirty||pinDirty)){notify('Сначала сохраните изменения в настройках');return;}
+    const revision=settingsRevision+pinRevision;
+    settingsLoading=true;settingsDialog.setAttribute('aria-busy','true');document.getElementById('retrySettings').hidden=true;
     try{
       const {settings:s}=await api('settings');
-      settingsDialog.innerHTML='<h2>Настройки ресторана</h2><form class="product-form" id="restaurantForm"><div class="product-grid">'+Object.entries(fieldNames).map(([key,label])=>'<label>'+label+'<input name="'+key+'" value="'+escape(s[key]||'')+'" '+(key==='restaurant_name'?'required':'')+'></label>').join('')+'</div><label>Часовой пояс<input name="timezone" value="'+escape(s.timezone||'Asia/Qyzylorda')+'" required></label><label class="choice"><input name="public_menu_enabled" type="checkbox" '+(s.public_menu_enabled?'checked':'')+'>Меню для просмотра</label><a href="/?view=menu" target="_blank" rel="noopener">Открыть меню для просмотра</a><div class="product-actions"><button class="product-button" id="uploadLogo" type="button">Загрузить логотип</button><button class="product-button" id="uploadBanner" type="button">Загрузить обложку</button></div><p class="product-error" id="settingsError"></p><div class="product-actions"><button type="button" id="settingsCancel">Закрыть</button><button class="primary" type="submit">Сохранить</button></div></form><section class="product-section"><h2>Доступ сотрудников</h2><form id="rolePinForm" class="product-form"><label>Роль<select name="role"><option value="admin">Администратор</option><option value="waiter">Официант</option><option value="kitchen">Кухня</option></select></label><label>Новый общий PIN<input name="newPin" type="password" inputmode="numeric" pattern="[0-9]{1,12}" maxlength="12" required autocomplete="new-password"></label><button class="product-button" type="submit">Изменить PIN</button><p class="product-error" id="pinError"></p></form></section>';
+      if(settingsLoaded&&(revision!==settingsRevision+pinRevision||settingsDirty||pinDirty||settingsSaving||pinSaving||settingsUploads))return;
+      const fields=keys=>'<div class="product-grid">'+keys.map(key=>'<label>'+fieldNames[key]+'<input name="'+key+'" value="'+escape(s[key]||'')+'" '+(key==='restaurant_name'?'required':'')+'></label>').join('')+'</div>';
+      settingsDialog.innerHTML='<form class="product-form" id="restaurantForm">'+
+        '<fieldset class="settings-group"><legend>Ресторан</legend>'+fields(['restaurant_name','subtitle','city','address_text','schedule_open','schedule_close','phone_number','whatsapp_number','map_url','instagram_url'])+'</fieldset>'+
+        '<fieldset class="settings-group"><legend>Оформление меню</legend>'+fields(['logo_url','banner_url'])+'<div class="product-actions"><button class="product-button" id="uploadLogo" type="button">Загрузить логотип</button><button class="product-button" id="uploadBanner" type="button">Загрузить обложку</button></div></fieldset>'+
+        '<fieldset class="settings-group"><legend>Публикация</legend><p class="settings-description">Меню для просмотра открывается по общей ссылке. Заказы гости оформляют по QR-коду на столе.</p>'+fields(['canonical_url'])+'<label>Часовой пояс<input name="timezone" value="'+escape(s.timezone||'Asia/Qyzylorda')+'" required></label><label class="choice"><input name="public_menu_enabled" type="checkbox" '+(s.public_menu_enabled?'checked':'')+'>Разрешить просмотр без QR</label><a href="/?view=menu" target="_blank" rel="noopener">Открыть меню для просмотра ↗</a></fieldset>'+
+        '<p class="product-error" id="settingsError" role="alert"></p><p id="settingsFeedback" role="status"></p><div class="product-actions"><button class="primary" type="submit">Сохранить настройки</button><button type="button" id="settingsCancel">На главную</button></div></form>'+
+        '<section class="settings-section"><h2>Доступ сотрудников</h2><p class="settings-description">У каждой роли свой общий PIN. Действия учитываются по роли и устройству.</p><form id="rolePinForm" class="product-form"><label>Роль<select name="role"><option value="admin">Администратор</option><option value="waiter">Официант</option><option value="kitchen">Кухня</option></select></label><label>Новый общий PIN<input name="newPin" type="password" inputmode="numeric" pattern="[0-9]{1,12}" maxlength="12" required autocomplete="new-password"></label><button class="product-button" type="submit">Изменить PIN</button><p class="product-error" id="pinError" role="alert"></p></form></section>';
       const form=settingsDialog.querySelector('#restaurantForm');
-      settingsDialog.querySelector('#settingsCancel').onclick=()=>settingsDialog.close();
-      form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;try{const values=Object.fromEntries(new FormData(form));values.public_menu_enabled=form.elements.public_menu_enabled.checked;await api('save-settings',{settings:values});notify('Настройки сохранены');settingsDialog.close();}catch(e){settingsDialog.querySelector('#settingsError').textContent=e.message;}finally{button.disabled=false;}};
-      settingsDialog.querySelector('#rolePinForm').onsubmit=async e=>{e.preventDefault();const values=Object.fromEntries(new FormData(e.target)),button=e.target.querySelector('button');button.disabled=true;try{await api('set-role-pin',values);if(values.role==='admin'){pin=values.newPin;sessionStorage.setItem('sushi-admin-pin',pin);}e.target.reset();notify('PIN изменён');}catch(e){settingsDialog.querySelector('#pinError').textContent=e.message;}finally{button.disabled=false;}};
-      settingsDialog.querySelector('#uploadLogo').onclick=()=>choosePhoto(form.elements.logo_url,settingsDialog.querySelector('#settingsError'));
-      settingsDialog.querySelector('#uploadBanner').onclick=()=>choosePhoto(form.elements.banner_url,settingsDialog.querySelector('#settingsError'));
-      settingsDialog.showModal();
-    }catch(e){notify(e.message);}
-  }
+      const markSettingsDirty=()=>{settingsDirty=true;settingsRevision++;document.getElementById('settingsFeedback').textContent='Есть несохранённые изменения';};
+      form.addEventListener('input',markSettingsDirty);form.addEventListener('change',markSettingsDirty);
+      const pinForm=settingsDialog.querySelector('#rolePinForm');
+      const markPinDirty=()=>{pinDirty=true;pinRevision++;};
+      pinForm.addEventListener('input',markPinDirty);pinForm.addEventListener('change',markPinDirty);
+      settingsDialog.querySelector('#settingsCancel').onclick=()=>switchSection('overview');
+      form.onsubmit=async e=>{
+        e.preventDefault();if(settingsSaving)return;if(settingsUploads){notify('Дождитесь загрузки изображения');return;}settingsSaving=true;
+        const savedRevision=settingsRevision,button=form.querySelector('[type=submit]');button.disabled=true;document.getElementById('settingsError').textContent='';
+        try{
+          const values=Object.fromEntries(new FormData(form));values.public_menu_enabled=form.elements.public_menu_enabled.checked;
+          await api('save-settings',{settings:values});settingsDirty=settingsRevision!==savedRevision;document.getElementById('settingsFeedback').textContent=settingsDirty?'Есть несохранённые изменения':'Настройки сохранены';
+          window.RestaurantName=values.restaurant_name;document.querySelectorAll('.admin-brand b,.admin-mobile-menu-head b').forEach(el=>el.textContent=values.restaurant_name);document.title=values.restaurant_name+' · Администратор';notify(settingsDirty?'Отправленные настройки сохранены. Новый черновик ещё не сохранён':'Настройки сохранены');
+        }catch(e){document.getElementById('settingsError').textContent=e.message;}
+        finally{settingsSaving=false;button.disabled=false;}
+      };
+      pinForm.onsubmit=async e=>{
+        e.preventDefault();if(pinSaving)return;pinSaving=true;
+        const values=Object.fromEntries(new FormData(pinForm)),controls=[...pinForm.elements];controls.forEach(el=>el.disabled=true);settingsDialog.querySelector('#pinError').textContent='';
+        try{await api('set-role-pin',values);if(values.role==='admin'){pin=values.newPin;sessionStorage.setItem('sushi-admin-pin',pin);}pinForm.reset();pinDirty=false;notify('PIN изменён');}
+        catch(e){settingsDialog.querySelector('#pinError').textContent=e.message;}finally{pinSaving=false;controls.forEach(el=>el.disabled=false);}
+      };
+      const trackUpload=busy=>{settingsUploads+=busy?1:-1;if(busy)settingsRevision++;};
+      settingsDialog.querySelector('#uploadLogo').onclick=()=>choosePhoto(form.elements.logo_url,settingsDialog.querySelector('#settingsError'),trackUpload);
+      settingsDialog.querySelector('#uploadBanner').onclick=()=>choosePhoto(form.elements.banner_url,settingsDialog.querySelector('#settingsError'),trackUpload);
+      settingsLoaded=true;settingsDirty=false;pinDirty=false;
+    }catch(e){if(e.status===401){settingsLoaded=false;sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;}
+      if(!settingsLoaded)settingsDialog.innerHTML='<p class="product-error" role="alert">'+escape(e.message)+'</p>';else notify(e.message);document.getElementById('retrySettings').hidden=false;}
+    finally{settingsLoading=false;settingsDialog.setAttribute('aria-busy','false');}
+  };
+  document.getElementById('retrySettings').onclick=()=>window.loadRestaurantSettings(true);
+  if(pin&&currentSection==='settings')window.loadRestaurantSettings();
   async function openInbox(){
     try{const {incidents:rows}=await api('incidents');
       inbox.innerHTML='<h2>Уведомления</h2><div class="product-list">'+(rows.length?rows.map(r=>'<article><b>'+escape(r.message)+'</b><small>'+escape(r.source)+' · '+escape(new Date(r.last_seen_at).toLocaleString('ru-RU'))+' · '+r.occurrences+'</small>'+(r.resolved_at?'<small>Решено</small>':'<button class="product-button" data-resolve="'+r.id+'" type="button">Отметить решённым</button>')+'</article>').join(''):'<p>Сбоев не зарегистрировано</p>')+'</div><div class="product-actions"><button type="button" id="closeInbox">Закрыть</button></div>';
@@ -44,13 +82,14 @@
     }catch(_){reports.innerHTML='<p class="product-error">Не удалось обновить данные оплат</p>';}
   }
   setInterval(refreshProduct,15000);setTimeout(refreshProduct,1200);document.addEventListener('visibilitychange',refreshProduct);document.getElementById('loginForm').addEventListener('submit',()=>setTimeout(refreshProduct,1000));
-  function choosePhoto(target,error){
+  function choosePhoto(target,error,onBusy=()=>{}){
     const input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';
-    input.onchange=async()=>{const file=input.files[0];if(!file)return;error.textContent='Загружаем фото…';try{
+    input.onchange=async()=>{const file=input.files[0];if(!file)return;let started=false;error.textContent='Загружаем фото…';try{
       if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>5242880)throw new Error('JPG, PNG или WebP, до 5 МБ');
+      onBusy(true);started=true;
       const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(new Error('Не удалось прочитать фото'));reader.readAsDataURL(file);});
       const result=await api('upload-image',{mime:file.type,data});target.value=result.url;target.dispatchEvent(new Event('input',{bubbles:true}));error.textContent='';
-    }catch(e){error.textContent=e.message;}};input.click();
+    }catch(e){error.textContent=e.message;}finally{if(started)onBusy(false);}};input.click();
   }
   const photoButton=document.createElement('button');photoButton.type='button';photoButton.className='product-button';photoButton.innerHTML='<i data-lucide="image-up"></i> Загрузить фото';document.getElementById('dishImage').parentElement.append(photoButton);
   const photoError=document.createElement('p');photoError.className='product-error';photoButton.after(photoError);photoButton.onclick=()=>choosePhoto(document.getElementById('dishImage'),photoError);

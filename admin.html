@@ -11,6 +11,48 @@
 <link rel="preload" href="/fonts/SFProText_Bold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/ops.css?v=20261005-monochrome">
 <link rel="stylesheet" href="/product-ui.css?v=20261005">
+<style>
+/* Daily administration: one flat workspace with clear controls. */
+.admin-daily-tools{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 20px}
+.admin-daily-tools p,.admin-settings-intro p{margin:0;color:var(--ops-muted);font-size:13px}
+.admin-daily-tools>div{display:flex;gap:8px;flex-wrap:wrap}
+.admin-order-refinements{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:-8px 0 24px}
+.admin-order-refinements label{display:grid;gap:6px;font-size:12px;color:var(--ops-muted);min-width:160px}
+.admin-order-refinements select{width:100%;min-width:0}
+.admin-order-refinements button{margin-left:auto}
+.admin-payment-state{display:block;font-size:10px;line-height:1.5;margin-top:3px}
+.admin-settings{max-width:960px}.admin-settings-intro{margin-bottom:24px;display:flex;gap:12px;align-items:center}
+.admin-settings .settings-group{border:0;border-top:1px solid var(--ops-line);padding:24px 0;margin:0;min-width:0}
+.admin-settings legend{padding:0 12px 0 0;font-size:17px;font-weight:650;color:var(--ops-text)}
+.admin-settings .product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.admin-settings label{min-width:0}.admin-settings input,.admin-settings select{width:100%;min-width:0;max-width:100%}
+.admin-settings input,.admin-settings select{background:var(--ops-surface);color:var(--ops-text);border-color:var(--ops-line)}
+.admin-settings .product-form .choice{display:flex;align-items:center;gap:10px}
+.admin-settings input[type=checkbox]{width:18px;height:18px;min-height:18px;flex:0 0 18px;accent-color:var(--ops-accent)}
+.admin-settings .settings-description{font-size:12px;color:var(--ops-muted);line-height:1.6;margin:0 0 16px}
+.admin-settings .settings-section{padding:24px 0;border-top:1px solid var(--ops-line);margin-top:28px}
+.admin-settings .product-actions{flex-wrap:wrap}
+.admin-settings .product-actions button,.admin-settings .product-button{background:var(--ops-surface);color:var(--ops-text);border-color:var(--ops-line)}
+.admin-settings .product-actions .primary{background:var(--ops-accent);color:var(--ops-accent-contrast);border-color:var(--ops-accent)}
+.admin-settings .product-error{color:var(--ops-text)}
+.admin-settings #rolePinForm{max-width:520px}
+.admin-workspace .admin-attention-item{background:transparent;border-radius:0;padding:14px 0;border-bottom:1px solid var(--ops-line)}
+.admin-workspace .admin-attention-item>div{min-width:0;flex:1}
+.admin-workspace .admin-attention-item b,.admin-workspace .admin-attention-item small{overflow-wrap:anywhere}
+.admin-workspace .admin-attention-item button,.admin-workspace .admin-attention-item a{flex-shrink:0;min-height:44px}
+@media(max-width:760px){
+  .admin-workspace .admin-nav{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .admin-workspace .admin-nav button{font-size:9px;min-width:0}.admin-workspace .admin-nav i{right:0}
+  .admin-daily-tools{align-items:start;flex-direction:column;gap:12px}
+  .admin-daily-tools>div{width:100%}.admin-daily-tools a,.admin-daily-tools button{flex:1;text-align:center;min-width:0}
+  .admin-order-refinements{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .admin-order-refinements label{min-width:0}.admin-order-refinements button{grid-column:1/-1;margin:0}
+  .admin-settings .product-grid{grid-template-columns:1fr}
+  .admin-workspace .admin-top{align-items:flex-start}
+  .admin-workspace .admin-top-actions{flex-wrap:wrap;justify-content:flex-end}
+  .admin-workspace .admin-attention-item{gap:10px}
+}
+</style>
 </head>
 <body class="ops ops-admin admin-workspace">
 <div class="login" id="login">
@@ -35,7 +77,7 @@
       <nav class="admin-nav" id="adminNav">
         <button type="button" data-section="overview" class="on">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/><path d="M9 20v-6h6v6"/></svg>
-          <span>Главное</span>
+          <span>Сегодня</span>
         </button>
         <button type="button" data-section="orders">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
@@ -51,7 +93,11 @@
         </button>
         <button type="button" data-section="reports">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V9M12 19V5M19 19v-7"/></svg>
-          <span>Статистика</span>
+          <span>Отчёты</span>
+        </button>
+        <button type="button" data-section="settings" aria-label="Настройки ресторана">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg>
+          <span>Настройки</span>
         </button>
       </nav>
 
@@ -79,7 +125,7 @@
       <header class="admin-top">
         <div>
           <span class="admin-eyebrow" id="pageEyebrow">Sushi Crazy</span>
-          <h1 id="pageTitle">Главное</h1>
+          <h1 id="pageTitle">Сегодня</h1>
           <p id="pageSubtitle">Короткая сводка по ресторану.</p>
         </div>
         <div class="admin-top-actions">
@@ -108,7 +154,11 @@
       </div>
 
       <section class="admin-page on" id="pageOverview" data-page="overview">
-        <section class="admin-kpis" id="stats"></section>
+        <div class="admin-daily-tools"><p>Текущая работа зала и кухни</p><div>
+          <button type="button" class="admin-secondary-btn" id="quickStopList">Стоп-лист</button>
+          <a class="admin-secondary-btn" href="/?view=menu" target="_blank" rel="noopener">Посмотреть меню ↗</a>
+        </div></div>
+        <section class="admin-kpis" id="stats" aria-label="Состояние ресторана"></section>
 
         <section class="admin-home-grid">
           <article class="admin-panel admin-attention-panel">
@@ -121,31 +171,13 @@
 
           <article class="admin-panel admin-recent-orders">
             <div class="admin-panel-head">
-              <div><h2>Последние заказы</h2></div>
+              <div><h2>Заказы в работе</h2></div>
               <button type="button" class="panel-link" data-jump="orders">Все заказы</button>
             </div>
             <div class="admin-mini-table" id="recentOrders"><div class="admin-empty">Загружаем заказы…</div></div>
           </article>
         </section>
 
-        <section class="admin-dashboard-grid">
-          <article class="admin-panel admin-chart-panel">
-            <div class="admin-panel-head"><div><h2>Заказы за 7 дней</h2><p>Сумма оформленных заказов по дням.</p></div></div>
-            <div class="chart admin-chart" id="chart"></div>
-          </article>
-          <article class="admin-panel">
-            <div class="admin-panel-head"><div><h2>Способы оплаты</h2><p>Распределение за последние 7 дней.</p></div></div>
-            <div class="payments admin-payments" id="payments"></div>
-          </article>
-        </section>
-
-        <section class="admin-panel admin-table-ranking">
-          <div class="admin-panel-head">
-            <div><h2>Активные столы</h2><p>Столы с наибольшим количеством заказов за 30 дней.</p></div>
-            <button type="button" class="panel-link" data-jump="tables">Все столы</button>
-          </div>
-          <div id="tableRanking"></div>
-        </section>
       </section>
 
       <section class="admin-page" id="pageOrders" data-page="orders" hidden>
@@ -160,11 +192,16 @@
             <button type="button" data-filter="served" aria-selected="false">Поданы <span id="orderCountServed">0</span></button>
             <button type="button" data-filter="cancelled" aria-selected="false">Отменены <span id="orderCountCancelled">0</span></button>
           </div>
-          <label class="orders-payment-filter"><span>Оплата</span>
+          <label class="orders-payment-filter"><span>Способ оплаты</span>
             <select id="orderPayment"><option value="all">Все</option><option value="kaspi">Kaspi</option><option value="card">Карта</option><option value="cash">Наличные</option></select>
           </label>
         </div>
 
+        <div class="admin-order-refinements">
+          <label>Получение оплаты<select id="orderPaid"><option value="all">Все</option><option value="unpaid">Не оплачено</option><option value="paid">Оплачено</option></select></label>
+          <label>Этап заказа<select id="orderStage"><option value="all">Все этапы</option><option value="submitted">Новые</option><option value="accepted">Приняты</option><option value="preparing">Готовятся</option><option value="ready">Готовы к подаче</option><option value="served">Поданы</option><option value="cancelled">Отменены</option></select></label>
+          <button type="button" class="admin-secondary-btn" id="clearOrderFilters">Сбросить фильтры</button>
+        </div>
         <div class="admin-list-heading">
           <div><b id="ordersResultTitle">Все заказы</b><span id="ordersResultMeta">Загрузка…</span></div>
           <p id="ordersScopeNote">История показывает последние 200 заказов.</p>
@@ -246,6 +283,28 @@
           <article class="admin-panel report-panel"><div class="admin-panel-head"><div><h2>Способы оплаты</h2><p>Выбор гостей.</p></div></div><div class="payments admin-payments" id="reportPayments30"></div></article>
           <article class="admin-panel report-panel"><div class="admin-panel-head"><div><h2>Столы</h2><p>Топ по сумме заказов.</p></div></div><div class="report-table-ranking" id="reportTables30"></div></article>
         </section>
+        <section class="admin-dashboard-grid">
+          <article class="admin-panel admin-chart-panel">
+            <div class="admin-panel-head"><div><h2>Заказы за 7 дней</h2><p>Сумма оформленных заказов по дням.</p></div></div>
+            <div class="chart admin-chart" id="chart"></div>
+          </article>
+          <article class="admin-panel">
+            <div class="admin-panel-head"><div><h2>Способы оплаты</h2><p>Распределение за последние 7 дней.</p></div></div>
+            <div class="payments admin-payments" id="payments"></div>
+          </article>
+        </section>
+
+        <section class="admin-panel admin-table-ranking">
+          <div class="admin-panel-head">
+            <div><h2>Активные столы</h2><p>Столы с наибольшим количеством заказов за 30 дней.</p></div>
+            <button type="button" class="panel-link" data-jump="tables">Все столы</button>
+          </div>
+          <div id="tableRanking"></div>
+        </section>
+      </section>
+      <section class="admin-page" id="pageSettings" data-page="settings" hidden>
+        <div class="admin-settings-intro"><p>Данные ресторана, оформление меню и доступ сотрудников.</p><button type="button" class="admin-secondary-btn" id="retrySettings" hidden>Повторить загрузку</button></div>
+        <div id="restaurantSettings" class="admin-settings"><div class="admin-empty">Загружаем настройки…</div></div>
       </section>
     </div>
   </div>
@@ -340,7 +399,7 @@ const STAFF_API=window.MenuConfig.supabaseUrl+'/functions/v1/staff-orders';
 const API_TIMEOUT_MS=12000;
 let pin=sessionStorage.getItem('sushi-admin-pin')||'';
 let state=null,refreshBusy=false,currentSection='overview',tableFilter='all',tableQuery='',currentQrTable=null,editTableId=null,rotateTableId=null;
-let orderState=null,orderLoading=false,orderFilter='all',orderQuery='',orderPayment='all';
+let orderState=null,orderLoading=false,orderFilter='all',orderQuery='',orderPayment='all',orderPaid='all',orderStage='all';
 let menuState=null,menuLoading=false,menuFilter='all',menuQuery='',menuCategory='all',editDishId=null;
 const busyTables=new Set(),busyDishes=new Set(),busyCategories=new Set();
 let pollTimer=null,toastTimer=null;
@@ -434,14 +493,16 @@ function setConnection(ok,message=''){
 }
 
 function renderStats(a){
+  const orders=orderState?.orders;
+  const active=orders?orders.filter(o=>activeOrderStatuses.has(String(o.status||''))).length:'—';
   const cards=[
-    ['Заказы за 24 часа',a.orders24,'оформлено за последние сутки'],
-    ['Оплачено за 24 часа',paidFinancial?money(paidFinancial.paid24):'—','подтверждено сотрудником'],
-    ['Средний оплаченный заказ',paidFinancial?money(paidFinancial.averagePaidCheck):'—','за последние 30 дней'],
-    ['Не оплачено',paidFinancial?money(paidFinancial.unpaidTotal):'—','все незакрытые счета']
+    ['active','Активные заказы',active,'сейчас в работе'],
+    ['open','Открытые столы',Number(a.openTables||0),'обслуживание продолжается'],
+    ['paid','Оплачено сегодня',paidFinancial?money(paidFinancial.shiftPaid):'—','получено за календарную смену'],
+    ['unpaid','Не оплачено',paidFinancial?money(paidFinancial.unpaidTotal):'—','все незакрытые счета']
   ];
   document.getElementById('stats').innerHTML=cards.map(x=>
-    '<article class="admin-kpi"><span>'+h(x[0])+'</span><strong>'+h(x[1])+'</strong><small>'+h(x[2])+'</small></article>'
+    '<article class="admin-kpi" data-metric="'+x[0]+'"><span>'+h(x[1])+'</span><strong>'+h(x[2])+'</strong><small>'+h(x[3])+'</small></article>'
   ).join('');
 }
 function renderChart(a){
@@ -524,32 +585,23 @@ function overviewOrderRow(order){
 }
 function renderLiveOperations(){
   if(!state)return;
-  const a=state.analytics||{},orders=orderState?.orders||[];
-  const active=orders.filter(order=>activeOrderStatuses.has(String(order.status||'')));
-  const disabled=(state.tables||[]).filter(table=>!table.is_active);
-  const overdue=active.filter(order=>elapsedMinutes(order)>=20);
-  const requests=Number(a.openRequests||0);
-  const stop=menuState?.dishes?.filter(dish=>!dish.is_available).length||0;
-
+  renderStats(state.analytics||{});
+  const orders=orderState?.orders;
+  const active=(orders||[]).filter(order=>activeOrderStatuses.has(String(order.status||'')));
+  const requests=Number(state.analytics?.openRequests||0);
   const issues=[];
-  if(requests>0)issues.push({tone:'warning',icon:'/apple-emoji/bell.png',title:'Гости ждут внимания',copy:requests+' открытых запросов',href:'/staff',action:'Открыть зал'});
-  if(overdue.length)issues.push({tone:'danger',icon:'/apple-emoji/receipt.png',title:'Долгое ожидание',copy:overdue.length+' заказов ждут 20 минут или дольше',jump:'orders',action:'Заказы'});
-  if(disabled.length)issues.push({tone:'muted',icon:'/apple-emoji/place-setting.png',title:'QR выключены',copy:disabled.length+' столов без активного QR',jump:'tables',action:'Столы'});
-  if(stop>0)issues.push({tone:'muted',icon:'/apple-emoji/receipt.png',title:'Стоп-лист',copy:stop+' позиций сейчас недоступно',jump:'menu',action:'Меню'});
-
-  const attention=document.getElementById('attentionList'),attentionCount=document.getElementById('attentionCount');
-  if(attentionCount)attentionCount.textContent=issues.length;
-  if(attention){
-    attention.innerHTML=issues.length?issues.map(issue=>
-      '<article class="admin-attention-item '+issue.tone+'"><img src="'+h(issue.icon)+'" alt=""><div><b>'+h(issue.title)+'</b><small>'+h(issue.copy)+'</small></div>'+
-      (issue.href?'<a href="'+h(issue.href)+'" target="_blank">'+h(issue.action)+'</a>':'<button type="button" data-live-jump="'+h(issue.jump)+'">'+h(issue.action)+'</button>')+'</article>'
-    ).join(''):'<div class="admin-all-clear"><span>✓</span><div><b>Всё спокойно</b><small>Срочных действий сейчас нет.</small></div></div>';
+  if(requests>0)issues.push({icon:'/apple-emoji/bell.png',title:'Запросы гостей',copy:requests+' открытых запросов',href:'/staff',action:'Открыть зал'});
+  for(const order of active.filter(o=>o.status==='ready'||elapsedMinutes(o)>=20).sort((x,y)=>(y.status==='ready')-(x.status==='ready')||Date.parse(x.created_at)-Date.parse(y.created_at)).slice(0,8)){
+    const table=order.table||{},label=table.label||('Стол '+(table.table_number||'—'));
+    issues.push({icon:'/apple-emoji/receipt.png',title:(order.status==='ready'?'Готов к подаче':'Долгое ожидание')+' · #'+order.id,copy:label+' · '+elapsedMinutes(order)+' мин с оформления',orderId:order.id,action:'Открыть'});
   }
-
-  const recent=document.getElementById('recentOrders');
-  if(recent){
-    recent.innerHTML=orders.length?orders.slice(0,6).map(overviewOrderRow).join(''):'<div class="admin-empty">Заказов пока нет</div>';
-  }
+  const attention=document.getElementById('attentionList');
+  document.getElementById('attentionCount').textContent=issues.length;
+  attention.innerHTML=issues.length?issues.map(issue=>
+    '<article class="admin-attention-item"><img src="'+h(issue.icon)+'" alt=""><div><b>'+h(issue.title)+'</b><small>'+h(issue.copy)+'</small></div>'+
+    (issue.href?'<a href="'+h(issue.href)+'" target="_blank" rel="noopener">'+h(issue.action)+'</a>':'<button type="button" data-attention-order="'+h(issue.orderId)+'">'+h(issue.action)+'</button>')+'</article>'
+  ).join(''):orders?'<div class="admin-all-clear"><span>✓</span><div><b>Всё спокойно</b><small>Срочных действий сейчас нет.</small></div></div>':'<div class="admin-empty">Проверяем текущие заказы…</div>';
+  document.getElementById('recentOrders').innerHTML=orders?active.length?active.slice(0,6).map(overviewOrderRow).join(''):'<div class="admin-empty">Все заказы завершены</div>':'<div class="admin-empty">Загружаем заказы…</div>';
 }
 function renderOperational(){
   renderLiveOperations();
@@ -615,6 +667,9 @@ function orderMatches(order){
   if(orderFilter==='served'&&status!=='served')return false;
   if(orderFilter==='cancelled'&&status!=='cancelled')return false;
   if(orderPayment!=='all'&&order.payment_method!==orderPayment)return false;
+  if(orderPaid==='paid'&&!order.paid_at)return false;
+  if(orderPaid==='unpaid'&&(order.paid_at||status==='cancelled'))return false;
+  if(orderStage!=='all'&&status!==orderStage)return false;
   if(orderQuery){
     const items=(order.items||[]).map(item=>[item.name,item.item_comment].join(' ')).join(' ');
     const table=order.table||{};
@@ -636,7 +691,7 @@ function orderCard(order){
   return '<button type="button" class="admin-data-row '+(status==='cancelled'?'is-cancelled':'')+'" data-order-id="'+h(order.id)+'">'+
     '<strong>#'+h(order.id)+'</strong><span>'+h(when)+'</span><span>'+h(label)+'</span>'+
     '<span><i class="order-status '+orderStatusClass(status)+'">'+h(orderStatusLabels[status]||status||'—')+'</i></span>'+
-    '<span>'+h(payLabels[order.payment_method]||order.payment_method||'—')+'</span>'+
+    '<span>'+h(payLabels[order.payment_method]||order.payment_method||'—')+'<small class="admin-payment-state">'+(status==='cancelled'?'Отменён':order.paid_at?'Оплачен':'Не оплачено')+'</small></span>'+
     '<b>'+h(money(order.total))+'</b><span class="admin-row-arrow">›</span></button>';
 }
 function openOrderDrawer(orderId){
@@ -853,16 +908,17 @@ function render(){
 }
 
 function switchSection(section,updateHash=true){
-  if(!['overview','orders','reports','tables','menu'].includes(section))section='overview';
+  if(!['overview','orders','reports','tables','menu','settings'].includes(section))section='overview';
   currentSection=section;
   document.querySelectorAll('.admin-page').forEach(page=>{const on=page.dataset.page===section;page.hidden=!on;page.classList.toggle('on',on)});
   document.querySelectorAll('#adminNav [data-section]').forEach(btn=>btn.classList.toggle('on',btn.dataset.section===section));
   const copies={
-    overview:[window.RestaurantName||'Sushi Crazy','Главное','Короткая сводка по ресторану.'],
+    overview:[window.RestaurantName||'Sushi Crazy','Сегодня','Текущие заказы, столы и полученные оплаты.'],
     orders:['Операции','Заказы','Все заказы и их текущие статусы.'],
-    reports:['Аналитика','Статистика','Продажи и показатели за последние 30 дней.'],
+    reports:['Аналитика','Отчёты','Полученные оплаты и оформленные заказы показаны отдельно.'],
     tables:['Управление','Столы','Статусы столов и настройки QR-кодов.'],
-    menu:['Управление','Меню','Блюда, категории и стоп-лист.']
+    menu:['Управление','Меню','Блюда, категории и стоп-лист.'],
+    settings:['Ресторан','Настройки','Информация, оформление и доступ сотрудников.']
   };
   const copy=copies[section];
   document.getElementById('pageEyebrow').textContent=copy[0];
@@ -870,6 +926,8 @@ function switchSection(section,updateHash=true){
   document.getElementById('pageSubtitle').textContent=copy[2];
   if(pin&&(section==='orders'||section==='overview'||section==='tables'))loadOrders(true,true);
   if(pin&&(section==='menu'||section==='overview'))loadMenu(true,true);
+  if(pin&&section==='settings')window.loadRestaurantSettings?.();
+  document.querySelectorAll('#adminNav [data-section]').forEach(btn=>{if(btn.dataset.section===section)btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current')});
   if(updateHash)history.replaceState(null,'','#'+section);
   window.scrollTo({top:0,behavior:'auto'});
   document.querySelector('.admin-content')?.scrollTo({top:0,behavior:'auto'});
@@ -884,6 +942,7 @@ async function refresh(silent=true){
     document.getElementById('login').hidden=true;document.getElementById('app').hidden=false;document.getElementById('loginError').textContent='';
     if(currentSection==='orders'||currentSection==='overview'||currentSection==='tables')loadOrders(true,true);
     if(currentSection==='menu'||currentSection==='overview')loadMenu(true,true);
+    if(currentSection==='settings')window.loadRestaurantSettings?.();
     startPolling();
     if(!silent)notify('Данные обновлены');
   }catch(error){
@@ -1041,7 +1100,7 @@ function logout(){stopPolling();sessionStorage.removeItem('sushi-admin-pin');loc
 document.getElementById('loginForm').addEventListener('submit',event=>{event.preventDefault();pin=document.getElementById('pin').value.trim();sessionStorage.setItem('sushi-admin-pin',pin);document.getElementById('loginError').textContent='';refresh(false)});
 document.getElementById('adminNav').addEventListener('click',event=>{const btn=event.target.closest('[data-section]');if(btn)switchSection(btn.dataset.section)});
 document.querySelectorAll('[data-jump]').forEach(btn=>btn.addEventListener('click',()=>switchSection(btn.dataset.jump)));
-document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='orders'?loadOrders(false,true):currentSection==='menu'?loadMenu(false,true):refresh(false));
+document.getElementById('refreshBtn').addEventListener('click',()=>currentSection==='settings'?window.loadRestaurantSettings?.(true):currentSection==='orders'?loadOrders(false,true):currentSection==='menu'?loadMenu(false,true):refresh(false));
 document.getElementById('orderSearch').addEventListener('input',event=>{orderQuery=event.target.value.trim();renderOrders()});
 document.getElementById('orderFilters').addEventListener('click',event=>{const btn=event.target.closest('button[data-filter]');if(!btn)return;orderFilter=btn.dataset.filter;document.querySelectorAll('#orderFilters button').forEach(x=>x.setAttribute('aria-selected',String(x===btn)));renderOrders()});
 document.getElementById('orderPayment').addEventListener('change',event=>{orderPayment=event.target.value;renderOrders()});
@@ -1050,7 +1109,19 @@ document.getElementById('recentOrders').addEventListener('click',event=>{const r
 document.getElementById('closeOrderDrawerBtn').addEventListener('click',closeOrderDrawer);
 document.getElementById('closeOrderDrawerBackdrop').addEventListener('click',closeOrderDrawer);
 document.getElementById('exportReportsCsv').addEventListener('click',exportReportsCsv);
-document.getElementById('attentionList').addEventListener('click',event=>{const btn=event.target.closest('[data-live-jump]');if(btn)switchSection(btn.dataset.liveJump)});
+document.getElementById('attentionList').addEventListener('click',event=>{const btn=event.target.closest('[data-attention-order]');if(btn)openOrderDrawer(btn.dataset.attentionOrder)});
+document.getElementById('orderPaid').addEventListener('change',event=>{orderPaid=event.target.value;renderOrders()});
+document.getElementById('orderStage').addEventListener('change',event=>{orderStage=event.target.value;renderOrders()});
+document.getElementById('clearOrderFilters').addEventListener('click',()=>{
+  orderFilter='all';orderQuery='';orderPayment='all';orderPaid='all';orderStage='all';
+  document.getElementById('orderSearch').value='';
+  for(const id of ['orderPayment','orderPaid','orderStage'])document.getElementById(id).value='all';
+  document.querySelectorAll('#orderFilters button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.filter==='all')));renderOrders();
+});
+document.getElementById('quickStopList').addEventListener('click',()=>{
+  menuFilter='stop';menuQuery='';menuCategory='all';document.getElementById('menuSearch').value='';
+  document.querySelectorAll('#menuFilters button').forEach(btn=>btn.setAttribute('aria-selected',String(btn.dataset.filter==='stop')));switchSection('menu');renderMenu();
+});
 document.getElementById('openCreateTableBtn').addEventListener('click',openCreateTable);
 document.getElementById('closeCreateBtn').addEventListener('click',closeCreateTable);
 document.getElementById('cancelCreateBtn').addEventListener('click',closeCreateTable);
@@ -1094,6 +1165,6 @@ if(pin)refresh(true);
 </script>
 <script>addNotificationButton('admin',api,notify);</script>
 <script src="/vendor/read-excel-file.js"></script>
-<script src="/admin-product.js"></script>
+<script src="/admin-product.js?v=20261008-admin-workspace"></script>
 </body>
 </html>
