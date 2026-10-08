@@ -17,7 +17,23 @@ const output=path.resolve(__dirname,'../artifacts/admin-workspace');fs.mkdirSync
     await page.waitForSelector(selector,{visible:true});
     for(let i=0;i<3;i++){try{await page.click(selector);return;}catch(e){if(i===2||!/detached/i.test(e.message))throw e;}}
   };
-  const ids=()=>page.$$eval('#ordersList [data-order-id]',rows=>rows.map(x=>Number(x.dataset.orderId)));
+  const refreshSettings=()=>page.evaluate(async()=>{
+    const original=window.loadRestaurantSettings;let pending;
+    window.loadRestaurantSettings=(...args)=>{pending=original(...args);return pending;};
+    try{document.getElementById('refreshBtn').click();await pending;}finally{window.loadRestaurantSettings=original;}
+  });
+  const holdAction=async action=>{
+    await page.setRequestInterception(true);let held,resolveHeld;
+    const seen=new Promise(resolve=>resolveHeld=resolve);
+    const intercept=req=>{
+      const body=req.postData();
+      if(!held&&req.url().includes('/admin-api')&&body&&JSON.parse(body).action===action){held=req;resolveHeld();}
+      else req.continue().catch(()=>{});
+    };
+    page.on('request',intercept);
+    return {seen,release:()=>held.continue(),close:async()=>{page.off('request',intercept);await page.setRequestInterception(false);}};
+  };
+  const ids=()=>page.$eval('#ordersList [data-order-id]',rows=>rows.map(x=>Number(x.dataset.orderId)));
   try{
     await reset();
     await call('confirm-payment',{orderId:1044,paymentMethod:'kaspi'},'staff-orders');
@@ -62,34 +78,39 @@ const output=path.resolve(__dirname,'../artifacts/admin-workspace');fs.mkdirSync
     assert.equal(await page.$eval('#restaurantForm [name=restaurant_name]',el=>el.value),'Несохранённый черновик');
     console.log('PASS refresh preserves settings draft');
     await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('#rolePinForm');
-    await page.type('#rolePinForm [name=newPin]','987654');await click('#refreshBtn');
+    await page.type('#rolePinForm [name=newPin]','987654');await refreshSettings();
     assert.equal(await page.$eval('#rolePinForm [name=newPin]',el=>el.value),'987654');
     console.log('PASS refresh preserves staff PIN draft');
     await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('#restaurantForm');
-    await page.setRequestInterception(true);
-    let held=null,holding=true;let releaseSeen;
-    const intercepted=new Promise(resolve=>releaseSeen=resolve);
-    const intercept=req=>{
-      const body=req.postData();
-      if(holding&&req.url().includes('/admin-api')&&body&&JSON.parse(body).action==='settings'){held=req;holding=false;releaseSeen();}
-      else req.continue();
-    };
-    page.on('request',intercept);
-    await click('#refreshBtn');await intercepted;
+    const delayedRefresh=await holdAction('settings');
+    const refreshing=refreshSettings();await delayedRefresh.seen;
     await page.type('#restaurantForm [name=restaurant_name]',' — новый черновик');
-    await held.continue();
-    await page.waitForResponse(r=>r.url().includes('/admin-api')&&r.request().postData()?.includes('"settings"')).catch(()=>{});
+    await delayedRefresh.release();await refreshing;await delayedRefresh.close();
     assert.ok(await page.$eval('#restaurantForm [name=restaurant_name]',el=>el.value.includes('новый черновик')));
-    page.off('request',intercept);await page.setRequestInterception(false);
     console.log('PASS delayed settings refresh preserves edits made while loading');
+    await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('#restaurantForm');
+    const delayedSave=await holdAction('save-settings');
+    await page.$eval('#restaurantForm [name=restaurant_name]',el=>{el.value='Сохранённый снимок';el.dispatchEvent(new Event('input',{bubbles:true}));});
+    await click('#restaurantForm [type=submit]');await delayedSave.seen;
+    await page.type('#restaurantForm [name=restaurant_name]',' — ещё не сохранено');
+    await refreshSettings();
+    await delayedSave.release();
+    await page.waitForFunction(()=>document.querySelector('#restaurantForm [type=submit]').disabled===false);
+    await delayedSave.close();
+    assert.equal((await call('settings')).settings.restaurant_name,'Сохранённый снимок');
+    assert.ok(await page.$eval('#settingsFeedback',el=>el.textContent.includes('несохранённые')));
+    await refreshSettings();
+    assert.ok(await page.$eval('#restaurantForm [name=restaurant_name]',el=>el.value.includes('ещё не сохранено')));
+    console.log('PASS edits made during saving stay marked as unsaved and survive refresh');
     for(const scheme of ['light','dark']){
       await page.emulateMediaFeatures([{name:'prefers-color-scheme',value:scheme},{name:'prefers-reduced-motion',value:'reduce'}]);
-      for(const width of [320,390,1440]){
+      for(const width of [320,390,760,764,768,1440]){
         await page.setViewport({width,height:width===1440?1000:844});
         for(const section of ['overview','orders','menu','settings']){
           await click('#adminNav [data-section='+section+']');
           await page.waitForFunction(name=>document.querySelector('[data-page="'+name+'"]').hidden===false,{},section);
           assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+2),section+' overflow '+width);
+          assert.ok(await page.$eval('#adminNav button',els=>els.every(el=>el.scrollWidth<=el.clientWidth+2)), 'navigation fits '+width);
           const unreachable=await page.$$eval('#pageSettings input,#pageSettings select',els=>els.filter(el=>el.getClientRects().length).some(el=>{const b=el.getBoundingClientRect();return b.left<0||b.right>document.documentElement.clientWidth+2;}));
           assert.equal(unreachable,false,'settings fields fit '+width);
           await page.screenshot({path:path.join(output,section+'-'+width+'-'+scheme+'.png')});
