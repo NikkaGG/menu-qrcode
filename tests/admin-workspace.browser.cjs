@@ -130,7 +130,8 @@ const output=path.resolve(__dirname,'../artifacts/admin-workspace');fs.mkdirSync
     }
     await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
     for(const scheme of ['light','dark']){
-      await page.emulateMediaFeatures([{name:'prefers-color-scheme',value:scheme}]);
+      await page.emulateMediaFeatures([{name:'prefers-color-scheme',value:scheme},{name:'prefers-reduced-motion',value:'reduce'}]);
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       const violations=await page.evaluate(async()=>{const r=await axe.run(document.getElementById('app'));return r.violations.filter(v=>['serious','critical'].includes(v.impact)).map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}));});
       assert.deepEqual(violations,[],scheme+' settings accessibility');
     }
