@@ -105,6 +105,27 @@ async function call(endpoint, body, role) {
       for(let i=0;i<12;i++)tableOrdering.orders.push({...base,id:9100+i,status:'served'});
       renderOrderDetails();
     });
+    const readingShift=await page.evaluate(()=>{
+      const orders=trackedTableOrders();
+      orders[0].status='preparing';renderOrderDetails(orders);
+      const label=document.querySelectorAll('.guest-order-number')[4].textContent;
+      const find=()=>[...document.querySelectorAll('.guest-order-number')].find(el=>el.textContent===label);
+      orderDetailsList.scrollTop+=find().getBoundingClientRect().top-orderDetailsList.getBoundingClientRect().top-8;
+      const before=find().getBoundingClientRect().top;
+      orders[0].status='served';renderOrderDetails(orders);
+      return find().getBoundingClientRect().top-before;
+    });
+    assert.ok(Math.abs(readingShift)<2,'Completing an order above the reader must not move the visible order: '+readingShift+'px');
+    const itemShift=await page.evaluate(()=>{
+      const orders=trackedTableOrders();
+      orders[0].status='preparing';renderOrderDetails(orders);
+      const find=()=>orderDetailsList.querySelector('.guest-order-item');
+      orderDetailsList.scrollTop+=find().getBoundingClientRect().top-orderDetailsList.getBoundingClientRect().top-8;
+      const before=find().getBoundingClientRect().top;
+      orders[0].status='served';renderOrderDetails(orders);
+      return find().getBoundingClientRect().top-before;
+    });
+    assert.ok(Math.abs(itemShift)<2,'Completing the order being read must preserve the visible dish: '+itemShift+'px');
     for(const width of [320,430,1440]){
       await page.setViewport({width,height:740,isMobile:true,hasTouch:true});
       const layout=await page.evaluate(()=>{

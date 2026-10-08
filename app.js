@@ -463,13 +463,31 @@ function renderTableOrderPanel(){
 }
 function renderOrderDetails(orders=trackedTableOrders()){
   const list=document.getElementById('orderDetailsList');if(!list)return;
-  // Keep the reader's position when a status update redraws the open sheet.
-  const scrollTop=list.scrollTop;
   const markup=orders.map(order=>{
     const when=new Date(order.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-    return '<article class="guest-order-card"><div class="guest-order-head"><div><span class="guest-order-number">Заказ №'+tableEscapeHtml(order.id)+'</span><span class="guest-order-time">'+when+(order.isMine?' · ваш заказ':' · заказ за этим столом')+'</span></div><span class="guest-order-state" data-status="'+tableEscapeHtml(order.status)+'">'+tableEscapeHtml(ORDER_STATUS_LABELS[order.status]||'Обновляем')+'</span></div>'+tableOrderStatusMarkup(order)+'<div class="guest-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="guest-order-summary"><span>Сумма заказа</span><strong>'+fmt(Number(order.total||0))+'</strong></div><div class="guest-order-payment"><span>'+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||'Расчёт с официантом')+'</span><span>'+(order.paid_at?'Оплачен':'Оплата официанту')+'</span></div>'+(order.comment?'<div class="guest-order-comment"><span>Комментарий к заказу</span>'+tableEscapeHtml(order.comment)+'</div>':'')+'</article>';
+    return '<article class="guest-order-card" data-order-id="'+tableEscapeHtml(order.id)+'"><div class="guest-order-head"><div><span class="guest-order-number">Заказ №'+tableEscapeHtml(order.id)+'</span><span class="guest-order-time">'+when+(order.isMine?' · ваш заказ':' · заказ за этим столом')+'</span></div><span class="guest-order-state" data-status="'+tableEscapeHtml(order.status)+'">'+tableEscapeHtml(ORDER_STATUS_LABELS[order.status]||'Обновляем')+'</span></div>'+tableOrderStatusMarkup(order)+'<div class="guest-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="guest-order-summary"><span>Сумма заказа</span><strong>'+fmt(Number(order.total||0))+'</strong></div><div class="guest-order-payment"><span>'+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||'Расчёт с официантом')+'</span><span>'+(order.paid_at?'Оплачен':'Оплата официанту')+'</span></div>'+(order.comment?'<div class="guest-order-comment"><span>Комментарий к заказу</span>'+tableEscapeHtml(order.comment)+'</div>':'')+'</article>';
   }).join('');
-  if(list.innerHTML!==markup){list.innerHTML=markup;list.scrollTop=scrollTop;}
+  if(list.innerHTML!==markup){
+    const scrollTop=list.scrollTop;
+    const parts='.guest-order-head,.guest-order-item,.guest-order-summary,.guest-order-payment,.guest-order-comment';
+    let anchor=null;
+    // A completed order loses its timeline. Keep the visible row in place,
+    // including when the changing order is above the reader's viewport.
+    if(scrollTop>0&&document.getElementById('orderDetailsOv')?.classList.contains('on')){
+      const top=list.getBoundingClientRect().top;
+      const visible=[...list.querySelectorAll(parts)].find(el=>el.getBoundingClientRect().bottom>top);
+      if(visible){
+        const card=visible.closest('.guest-order-card');
+        anchor={id:card.dataset.orderId,index:[...card.querySelectorAll(parts)].indexOf(visible),offset:visible.getBoundingClientRect().top-top};
+      }
+    }
+    list.innerHTML=markup;list.scrollTop=scrollTop;
+    if(anchor){
+      const card=[...list.querySelectorAll('.guest-order-card')].find(el=>el.dataset.orderId===anchor.id);
+      const row=card?.querySelectorAll(parts)[anchor.index];
+      if(row)list.scrollTop+=row.getBoundingClientRect().top-list.getBoundingClientRect().top-anchor.offset;
+    }
+  }
   document.getElementById('orderDetailsTotal').textContent=fmt(tableOrdersTotal(orders));
   document.getElementById('orderDetailsTitle').textContent=orders.length===1?'Ваш заказ':'Заказы за столом';
   const connection=document.getElementById('orderDetailsConnection');
