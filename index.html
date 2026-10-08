@@ -4,7 +4,7 @@
 <script>document.documentElement.classList.add('guest-locked');</script>
 <script src="/api/config"></script>
 <link rel="stylesheet" href="/product-ui.css?v=20261005">
-<link rel="stylesheet" href="/guest-orders.css?v=20261007-tracker-fix">
+<link rel="stylesheet" href="/guest-orders.css?v=20261008-flat-orders">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sushi Crazy — суши, фастфуд и пицца</title>
@@ -147,10 +147,10 @@
 <div class="ov" id="orderDetailsOv" role="dialog" aria-modal="true" aria-labelledby="orderDetailsTitle" onclick="bgClose(event,'orderDetailsOv')">
   <div class="sheet order-details-sheet" onclick="event.stopPropagation()">
     <div class="handle" aria-hidden="true"></div>
-    <div class="order-details-heading"><div><span class="order-details-eyebrow">Всё о вашем заказе</span><h2 id="orderDetailsTitle">Заказы</h2></div><button class="order-details-close" id="orderDetailsClose" type="button" onclick="closeOv('orderDetailsOv')" aria-label="Закрыть детали заказа" data-dialog-initial-focus><span class="ui-icon svg-slot" data-icon="x"></span></button></div>
+    <div class="order-details-heading"><div><h2 id="orderDetailsTitle">Заказы</h2></div><button class="order-details-close" id="orderDetailsClose" type="button" onclick="closeOv('orderDetailsOv')" aria-label="Закрыть детали заказа" data-dialog-initial-focus><span class="ui-icon svg-slot" data-icon="x"></span></button></div>
     <div class="order-details-connection" id="orderDetailsConnection" role="status"></div>
     <div class="order-details-list" id="orderDetailsList"></div>
-    <div class="order-details-foot"><span>Итого без отменённых заказов</span><strong id="orderDetailsTotal"></strong></div>
+    <div class="order-details-foot"><div><span>Итого за столом</span><small>Без отменённых заказов</small></div><strong id="orderDetailsTotal"></strong></div>
   </div>
 </div>
 <div class="cart-pill-shell" id="cpShell">
@@ -289,8 +289,9 @@
 <div class="toast" id="toastEl"></div>
 
 <script src="/guest-order-live.js?v=20261007"></script>
-<script src="/app.js?v=20261007-order-tracker-fix"></script>
+<script src="/app.js?v=20261008-flat-orders"></script>
 
 </body>
 </html>
+
 

@@ -421,6 +421,7 @@ function clearOrderRequestId(requestId){
 
 function tableStatusStep(status){return ['submitted','accepted','preparing','ready','served'].indexOf(status);}
 function tableOrderStatusMarkup(order){
+  if(order.status==='served')return '';
   if(order.status==='cancelled')return '<div class="table-order-cancelled">Заказ отменён</div>';
   const current=tableStatusStep(order.status),steps=[['submitted','Отправлен'],['accepted','Принят'],['preparing','Готовится'],['ready','Готов'],['served','Подан']];
   return '<div class="table-status-steps">'+steps.map((step,index)=>'<div class="table-status-step '+(index<=current?'done ':'')+(index===current?'active':'')+'"><i></i><span>'+step[1]+'</span></div>').join('')+'</div>';
@@ -466,12 +467,14 @@ function renderOrderDetails(orders=trackedTableOrders()){
   const scrollTop=list.scrollTop;
   const markup=orders.map(order=>{
     const when=new Date(order.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-    return '<article class="guest-order-card"><div class="guest-order-head"><div><span class="guest-order-number">Заказ №'+tableEscapeHtml(order.id)+'</span><span class="guest-order-time">'+when+(order.isMine?' · ваш заказ':' · заказ за этим столом')+'</span></div><span class="guest-order-state" data-status="'+tableEscapeHtml(order.status)+'">'+tableEscapeHtml(ORDER_STATUS_LABELS[order.status]||'Обновляем')+'</span></div>'+tableOrderStatusMarkup(order)+'<div class="guest-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="guest-order-summary"><span>Сумма заказа</span><strong>'+fmt(Number(order.total||0))+'</strong></div><div class="guest-order-payment"><span>'+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||'Расчёт с официантом')+'</span><span>'+(order.paid_at?'Оплачен':'Оплата официанту')+'</span></div>'+(order.comment?'<div class="guest-order-comment">'+tableEscapeHtml(order.comment)+'</div>':'')+'</article>';
+    return '<article class="guest-order-card"><div class="guest-order-head"><div><span class="guest-order-number">Заказ №'+tableEscapeHtml(order.id)+'</span><span class="guest-order-time">'+when+(order.isMine?' · ваш заказ':' · заказ за этим столом')+'</span></div><span class="guest-order-state" data-status="'+tableEscapeHtml(order.status)+'">'+tableEscapeHtml(ORDER_STATUS_LABELS[order.status]||'Обновляем')+'</span></div>'+tableOrderStatusMarkup(order)+'<div class="guest-order-items">'+tableOrderItemsMarkup(order)+'</div><div class="guest-order-summary"><span>Сумма заказа</span><strong>'+fmt(Number(order.total||0))+'</strong></div><div class="guest-order-payment"><span>'+tableEscapeHtml(TABLE_PAYMENT_LABELS[order.payment_method]||'Расчёт с официантом')+'</span><span>'+(order.paid_at?'Оплачен':'Оплата официанту')+'</span></div>'+(order.comment?'<div class="guest-order-comment"><span>Комментарий к заказу</span>'+tableEscapeHtml(order.comment)+'</div>':'')+'</article>';
   }).join('');
   if(list.innerHTML!==markup){list.innerHTML=markup;list.scrollTop=scrollTop;}
   document.getElementById('orderDetailsTotal').textContent=fmt(tableOrdersTotal(orders));
   document.getElementById('orderDetailsTitle').textContent=orders.length===1?'Ваш заказ':'Заказы за столом';
-  document.getElementById('orderDetailsConnection').textContent=tableOrdering.statusError?'Связь прервалась. Сохранённые данные — повторяем проверку автоматически.':tableOrdering.liveConnected?'Статусы обновляются в реальном времени':'Статусы проверяются автоматически';
+  const connection=document.getElementById('orderDetailsConnection');
+  connection.textContent=tableOrdering.statusError?'Связь прервалась. Показываем сохранённые данные и повторяем проверку.':tableOrdering.liveConnected?'Обновляется в реальном времени':'Обновляется автоматически';
+  connection.dataset.offline=tableOrdering.statusError?'true':'false';
 }
 function openOrderDetails(fromHistory=false){
   if(!trackedTableOrders().length)return;
@@ -1913,3 +1916,4 @@ function addDishToCart(id){
     const key=String(item.id)+(choices.length?':'+choices.sort().join(','):'');changeCartQuantity(key,1,false);dialog.close();
   };dialog.showModal();
 }
+
