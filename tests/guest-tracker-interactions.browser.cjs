@@ -87,6 +87,9 @@ assert.ok(['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
     });
     await check('repeated close, Forward and Escape keep focus and scroll on a narrow phone', async () => {
       await page.setViewport({width: 320, height: 740, isMobile: true, hasTouch: true});
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const scrollBefore = await page.evaluate(() => scrollY);
+      console.log('Narrow viewport scroll before opening: ' + scrollBefore);
       for (let attempt = 0; attempt < 3; attempt++) {
         await open();
         await page.click('#orderDetailsClose');
@@ -97,7 +100,8 @@ assert.ok(['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
         await page.waitForFunction(() => !document.body.classList.contains('modal-lock'));
         assert.equal(page.url(), menuUrl);
         assert.equal(await page.evaluate(() => document.activeElement.id), 'orderTracker');
-        assert.ok(Math.abs(await page.evaluate(() => scrollY) - 900) < 3);
+        const scrollAfter = await page.evaluate(() => scrollY);
+        assert.ok(Math.abs(scrollAfter - scrollBefore) < 3, 'Scroll changed after details: ' + scrollBefore + ' -> ' + scrollAfter);
       }
     });
     await check('rapid Back, Forward and Escape do not unlock during a second closing animation', async () => {
