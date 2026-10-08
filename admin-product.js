@@ -3,7 +3,7 @@
   function dialog(id,title){const el=document.createElement('dialog');el.className='product-dialog';el.id=id;el.setAttribute('aria-label',title);document.body.append(el);return el;}
   function iconButton(icon,title,fn){const b=document.createElement('button');b.type='button';b.className='product-button product-icon';b.title=title;b.setAttribute('aria-label',title);b.innerHTML='<i data-lucide="'+icon+'"></i>';b.onclick=fn;return b;}
   const settingsDialog=document.getElementById('restaurantSettings'),inbox=dialog('incidentInbox','Уведомления'),importDialog=dialog('menuImport','Импорт меню');
-  let settingsLoaded=false,settingsLoading=false,settingsDirty=false;
+  let settingsLoaded=false,settingsLoading=false,settingsDirty=false,pinDirty=false,settingsSaving=false,pinSaving=false,settingsRevision=0,pinRevision=0;
   const paymentDialog=dialog('adminPayment','Подтверждение оплаты');
   window.openAdminPayment=id=>{
     const o=orderState?.orders.find(o=>Number(o.id)===Number(id));if(!o||o.paid_at||o.status==='cancelled')return;
@@ -16,10 +16,13 @@
   const fieldNames={restaurant_name:'Название',subtitle:'Описание',city:'Город',schedule_open:'Открытие',schedule_close:'Закрытие',phone_number:'Телефон',whatsapp_number:'WhatsApp',address_text:'Адрес',map_url:'Ссылка на карту',instagram_url:'Instagram',canonical_url:'Адрес сайта',logo_url:'Логотип',banner_url:'Обложка'};
   window.loadRestaurantSettings=async(force=false)=>{
     if(!pin||settingsLoading||(!force&&settingsLoaded))return;
-    if(force&&settingsDirty){notify('Сначала сохраните изменения в настройках');return;}
-    settingsLoading=true;document.getElementById('retrySettings').hidden=true;
+    if(settingsSaving||pinSaving){notify('Сохранение ещё выполняется');return;}
+    if(force&&(settingsDirty||pinDirty)){notify('Сначала сохраните изменения в настройках');return;}
+    const revision=settingsRevision+pinRevision;
+    settingsLoading=true;settingsDialog.setAttribute('aria-busy','true');document.getElementById('retrySettings').hidden=true;
     try{
       const {settings:s}=await api('settings');
+      if(settingsLoaded&&(revision!==settingsRevision+pinRevision||settingsDirty||pinDirty||settingsSaving||pinSaving))return;
       const fields=keys=>'<div class="product-grid">'+keys.map(key=>'<label>'+fieldNames[key]+'<input name="'+key+'" value="'+escape(s[key]||'')+'" '+(key==='restaurant_name'?'required':'')+'></label>').join('')+'</div>';
       settingsDialog.innerHTML='<form class="product-form" id="restaurantForm">'+
         '<fieldset class="settings-group"><legend>Ресторан</legend>'+fields(['restaurant_name','subtitle','city','address_text','schedule_open','schedule_close','phone_number','whatsapp_number','map_url','instagram_url'])+'</fieldset>'+
@@ -28,28 +31,34 @@
         '<p class="product-error" id="settingsError" role="alert"></p><p id="settingsFeedback" role="status"></p><div class="product-actions"><button class="primary" type="submit">Сохранить настройки</button><button type="button" id="settingsCancel">На главную</button></div></form>'+
         '<section class="settings-section"><h2>Доступ сотрудников</h2><p class="settings-description">У каждой роли свой общий PIN. Действия учитываются по роли и устройству.</p><form id="rolePinForm" class="product-form"><label>Роль<select name="role"><option value="admin">Администратор</option><option value="waiter">Официант</option><option value="kitchen">Кухня</option></select></label><label>Новый общий PIN<input name="newPin" type="password" inputmode="numeric" pattern="[0-9]{1,12}" maxlength="12" required autocomplete="new-password"></label><button class="product-button" type="submit">Изменить PIN</button><p class="product-error" id="pinError" role="alert"></p></form></section>';
       const form=settingsDialog.querySelector('#restaurantForm');
-      form.addEventListener('input',()=>{settingsDirty=true;document.getElementById('settingsFeedback').textContent='Есть несохранённые изменения';});
-      form.addEventListener('change',()=>{settingsDirty=true;});
+      const markSettingsDirty=()=>{settingsDirty=true;settingsRevision++;document.getElementById('settingsFeedback').textContent='Есть несохранённые изменения';};
+      form.addEventListener('input',markSettingsDirty);form.addEventListener('change',markSettingsDirty);
+      const pinForm=settingsDialog.querySelector('#rolePinForm');
+      const markPinDirty=()=>{pinDirty=true;pinRevision++;};
+      pinForm.addEventListener('input',markPinDirty);pinForm.addEventListener('change',markPinDirty);
       settingsDialog.querySelector('#settingsCancel').onclick=()=>switchSection('overview');
       form.onsubmit=async e=>{
-        e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;document.getElementById('settingsError').textContent='';
+        e.preventDefault();if(settingsSaving)return;settingsSaving=true;
+        const savedRevision=settingsRevision,button=form.querySelector('[type=submit]');button.disabled=true;document.getElementById('settingsError').textContent='';
         try{
           const values=Object.fromEntries(new FormData(form));values.public_menu_enabled=form.elements.public_menu_enabled.checked;
-          await api('save-settings',{settings:values});settingsDirty=false;document.getElementById('settingsFeedback').textContent='Настройки сохранены';
-          window.RestaurantName=values.restaurant_name;document.querySelectorAll('.admin-brand b,.admin-mobile-menu-head b').forEach(el=>el.textContent=values.restaurant_name);document.title=values.restaurant_name+' · Администратор';notify('Настройки сохранены');
+          await api('save-settings',{settings:values});settingsDirty=settingsRevision!==savedRevision;document.getElementById('settingsFeedback').textContent=settingsDirty?'Есть несохранённые изменения':'Настройки сохранены';
+          window.RestaurantName=values.restaurant_name;document.querySelectorAll('.admin-brand b,.admin-mobile-menu-head b').forEach(el=>el.textContent=values.restaurant_name);document.title=values.restaurant_name+' · Администратор';notify(settingsDirty?'Отправленные настройки сохранены. Новый черновик ещё не сохранён':'Настройки сохранены');
         }catch(e){document.getElementById('settingsError').textContent=e.message;}
-        finally{button.disabled=false;}
+        finally{settingsSaving=false;button.disabled=false;}
       };
-      settingsDialog.querySelector('#rolePinForm').onsubmit=async e=>{
-        e.preventDefault();const values=Object.fromEntries(new FormData(e.target)),button=e.target.querySelector('button');button.disabled=true;
-        try{await api('set-role-pin',values);if(values.role==='admin'){pin=values.newPin;sessionStorage.setItem('sushi-admin-pin',pin);}e.target.reset();notify('PIN изменён');}
-        catch(e){settingsDialog.querySelector('#pinError').textContent=e.message;}finally{button.disabled=false;}
+      pinForm.onsubmit=async e=>{
+        e.preventDefault();if(pinSaving)return;pinSaving=true;
+        const values=Object.fromEntries(new FormData(pinForm)),controls=[...pinForm.elements];controls.forEach(el=>el.disabled=true);settingsDialog.querySelector('#pinError').textContent='';
+        try{await api('set-role-pin',values);if(values.role==='admin'){pin=values.newPin;sessionStorage.setItem('sushi-admin-pin',pin);}pinForm.reset();pinDirty=false;notify('PIN изменён');}
+        catch(e){settingsDialog.querySelector('#pinError').textContent=e.message;}finally{pinSaving=false;controls.forEach(el=>el.disabled=false);}
       };
       settingsDialog.querySelector('#uploadLogo').onclick=()=>choosePhoto(form.elements.logo_url,settingsDialog.querySelector('#settingsError'));
       settingsDialog.querySelector('#uploadBanner').onclick=()=>choosePhoto(form.elements.banner_url,settingsDialog.querySelector('#settingsError'));
-      settingsLoaded=true;
-    }catch(e){if(!settingsLoaded)settingsDialog.innerHTML='<p class="product-error" role="alert">'+escape(e.message)+'</p>';else notify(e.message);document.getElementById('retrySettings').hidden=false;}
-    finally{settingsLoading=false;}
+      settingsLoaded=true;settingsDirty=false;pinDirty=false;
+    }catch(e){if(e.status===401){settingsLoaded=false;sessionStorage.removeItem('sushi-admin-pin');pin='';stopPolling();document.getElementById('login').hidden=false;document.getElementById('app').hidden=true;}
+      if(!settingsLoaded)settingsDialog.innerHTML='<p class="product-error" role="alert">'+escape(e.message)+'</p>';else notify(e.message);document.getElementById('retrySettings').hidden=false;}
+    finally{settingsLoading=false;settingsDialog.setAttribute('aria-busy','false');}
   };
   document.getElementById('retrySettings').onclick=()=>window.loadRestaurantSettings(true);
   if(pin&&currentSection==='settings')window.loadRestaurantSettings();

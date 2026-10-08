@@ -26,15 +26,21 @@
 .admin-settings legend{padding:0 12px 0 0;font-size:17px;font-weight:650;color:var(--ops-text)}
 .admin-settings .product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .admin-settings label{min-width:0}.admin-settings input,.admin-settings select{width:100%;min-width:0;max-width:100%}
+.admin-settings input,.admin-settings select{background:var(--ops-surface);color:var(--ops-text);border-color:var(--ops-line)}
+.admin-settings .product-form .choice{display:flex;align-items:center;gap:10px}
+.admin-settings input[type=checkbox]{width:18px;height:18px;min-height:18px;flex:0 0 18px;accent-color:var(--ops-accent)}
 .admin-settings .settings-description{font-size:12px;color:var(--ops-muted);line-height:1.6;margin:0 0 16px}
 .admin-settings .settings-section{padding:24px 0;border-top:1px solid var(--ops-line);margin-top:28px}
 .admin-settings .product-actions{flex-wrap:wrap}
+.admin-settings .product-actions button,.admin-settings .product-button{background:var(--ops-surface);color:var(--ops-text);border-color:var(--ops-line)}
+.admin-settings .product-actions .primary{background:var(--ops-accent);color:var(--ops-accent-contrast);border-color:var(--ops-accent)}
+.admin-settings .product-error{color:var(--ops-text)}
 .admin-settings #rolePinForm{max-width:520px}
 .admin-workspace .admin-attention-item{background:transparent;border-radius:0;padding:14px 0;border-bottom:1px solid var(--ops-line)}
 .admin-workspace .admin-attention-item>div{min-width:0;flex:1}
 .admin-workspace .admin-attention-item b,.admin-workspace .admin-attention-item small{overflow-wrap:anywhere}
 .admin-workspace .admin-attention-item button,.admin-workspace .admin-attention-item a{flex-shrink:0;min-height:44px}
-@media(max-width:767px){
+@media(max-width:760px){
   .admin-workspace .admin-nav{grid-template-columns:repeat(6,minmax(0,1fr))}
   .admin-workspace .admin-nav button{font-size:9px;min-width:0}.admin-workspace .admin-nav i{right:0}
   .admin-daily-tools{align-items:start;flex-direction:column;gap:12px}
