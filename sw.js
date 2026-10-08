@@ -1,12 +1,12 @@
-const CACHE_NAME='menu-qr-product-v22-order-interactions';
+const CACHE_NAME='menu-qr-product-v23-flat-orders';
 const OFFLINE_URL='/offline.html';
 const PRECACHE=[
   '/',
   OFFLINE_URL,
   '/styles.css?v=20261002-checkout-v1',
-  '/app.js?v=20261007-order-tracker-fix',
+  '/app.js?v=20261008-flat-orders',
   '/guest-order-live.js?v=20261007',
-  '/guest-orders.css?v=20261007-tracker-fix',
+  '/guest-orders.css?v=20261008-flat-orders',
   '/manifest.webmanifest',
   '/icons/app-192.png',
   '/icons/app-512.png'
@@ -73,3 +73,4 @@ self.addEventListener('fetch',event=>{
     event.respondWith(staleWhileRevalidate(request));
   }
 });
+

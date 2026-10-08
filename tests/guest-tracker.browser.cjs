@@ -81,10 +81,61 @@ async function call(endpoint, body, role) {
     await page.waitForFunction(() => document.getElementById('orderDetailsClose').getBoundingClientRect().bottom<=innerHeight);
     assert.equal(await page.$$eval('#orderDetailsList article', els => els.length), 2);
     await page.waitForFunction(() => {const ov=document.getElementById('orderDetailsOv');return ov.classList.contains('on') && Number(getComputedStyle(ov).opacity)===1 && Math.abs(new DOMMatrix(getComputedStyle(ov.querySelector('.sheet')).transform).m42)<1;});
-    for (const width of [390,320,1440]) {
+    const progress=await page.$eval('.table-status-step.active',el=>({connector:getComputedStyle(el,'::before').content,border:getComputedStyle(el.querySelector('i')).borderTopWidth,height:el.querySelector('i').getBoundingClientRect().height}));
+    assert.ok(['none','normal'].includes(progress.connector),'The legacy connector must not create a second progress line');
+    assert.equal(progress.border,'0px','A progress bar must not inherit the legacy dot border');
+    assert.equal(progress.height,3);
+    assert.equal(await page.$eval('.guest-order-state[data-status="served"]',el=>el.closest('article').querySelector('.table-status-steps')),null,'Served order details keep their status without repeating an active timeline');
+    for (const width of [390,320,430,1440]) {
       await page.setViewport({width,height:844,isMobile:true,hasTouch:true});
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1), 'No horizontal overflow');
       await page.screenshot({path:path.join(out,'details-'+width+'.png')});
+    }
+    // Stress only the isolated guest view: long names, notes, many orders and cancelled totals.
+    const totalBefore=await page.$eval('#orderDetailsTotal',el=>el.textContent);
+    await page.evaluate(()=>{
+      const base=tableOrdering.orders[0];
+      tableOrdering.orders.push({...base,id:9001,status:'cancelled',total:999999,comment:'Без лука.\nКомментарий с <угловыми скобками>.',order_items:[{name:'Очень длинное название блюда без сокращений '.repeat(4),quantity:2,line_total:999999,item_comment:'Пожелания к блюду '.repeat(8)}]});
+      renderOrderDetails();
+    });
+    assert.equal(await page.$eval('#orderDetailsTotal',el=>el.textContent),totalBefore,'Cancelled orders must not increase the table total');
+    assert.ok(await page.$eval('#orderDetailsList',el=>el.textContent.includes('<угловыми скобками>')),'Notes remain readable as text');
+    await page.evaluate(()=>{
+      const base=tableOrdering.orders[0];
+      for(let i=0;i<12;i++)tableOrdering.orders.push({...base,id:9100+i,status:'served'});
+      renderOrderDetails();
+    });
+    const readingShift=await page.evaluate(()=>{
+      const orders=trackedTableOrders();
+      orders[0].status='preparing';renderOrderDetails(orders);
+      const label=document.querySelectorAll('.guest-order-number')[4].textContent;
+      const find=()=>[...document.querySelectorAll('.guest-order-number')].find(el=>el.textContent===label);
+      orderDetailsList.scrollTop+=find().getBoundingClientRect().top-orderDetailsList.getBoundingClientRect().top-8;
+      const before=find().getBoundingClientRect().top;
+      orders[0].status='served';renderOrderDetails(orders);
+      return find().getBoundingClientRect().top-before;
+    });
+    assert.ok(Math.abs(readingShift)<2,'Completing an order above the reader must not move the visible order: '+readingShift+'px');
+    const itemShift=await page.evaluate(()=>{
+      const orders=trackedTableOrders();
+      orders[0].status='preparing';renderOrderDetails(orders);
+      const find=()=>orderDetailsList.querySelector('.guest-order-item');
+      orderDetailsList.scrollTop+=find().getBoundingClientRect().top-orderDetailsList.getBoundingClientRect().top-8;
+      const before=find().getBoundingClientRect().top;
+      orders[0].status='served';renderOrderDetails(orders);
+      return find().getBoundingClientRect().top-before;
+    });
+    assert.ok(Math.abs(itemShift)<2,'Completing the order being read must preserve the visible dish: '+itemShift+'px');
+    for(const width of [320,430,1440]){
+      await page.setViewport({width,height:740,isMobile:true,hasTouch:true});
+      const layout=await page.evaluate(()=>{
+        const list=orderDetailsList,foot=document.querySelector('.order-details-foot'),footRect=foot.getBoundingClientRect();
+        list.scrollTop=list.scrollHeight;
+        return {overflow:list.scrollWidth>list.clientWidth+1,scrollable:list.scrollHeight>list.clientHeight,footerInside:footRect.top>=0&&footRect.bottom<=innerHeight,listBeforeFooter:list.getBoundingClientRect().bottom<=footRect.top+1};
+      });
+      assert.equal(layout.overflow,false,'Long names and notes must wrap inside the order list');
+      assert.ok(layout.scrollable&&layout.footerInside&&layout.listBeforeFooter,'Many orders scroll while the total remains visible');
+      await page.screenshot({path:path.join(out,'details-long-'+width+'.png')});
     }
     await page.click('#orderDetailsClose');
     await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});
@@ -97,3 +148,4 @@ async function call(endpoint, body, role) {
     process.exitCode = 1;
   } finally {await browser.close();}
 })();
+

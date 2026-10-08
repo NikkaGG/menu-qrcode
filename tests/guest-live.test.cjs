@@ -4,6 +4,22 @@ const path=require('node:path');
 const load=require('../scripts/edge-loader.cjs');
 const vm=require('node:vm');
 const fs=require('node:fs');
+const guestSource=fs.readFileSync(path.resolve(__dirname,'../app.js'),'utf8');
+function orderProgress(status){
+  const context=vm.createContext({});
+  vm.runInContext(guestSource.slice(guestSource.indexOf('function tableStatusStep('),guestSource.indexOf('function tableOrderItemsMarkup(')),context);
+  return context.tableOrderStatusMarkup({status});
+}
+test('served orders no longer present an in-progress delivery timeline',()=>{
+  assert.equal(orderProgress('served'),'');
+});
+test('an active order shows its current stage and cancellation has no delivery timeline',()=>{
+  const preparing=orderProgress('preparing');
+  assert.match(preparing,/<div class="table-status-step done active"><i[^>]*><\/i><span>Готовится<\/span>/);
+  assert.equal((preparing.match(/class="table-status-step /g)||[]).length,5);
+  assert.match(orderProgress('cancelled'),/Заказ отменён/);
+  assert.doesNotMatch(orderProgress('cancelled'),/table-status-steps/);
+});
 test('a status request started before checkout cannot erase the newly placed order',async()=>{
   const source=fs.readFileSync(path.resolve(__dirname,'../app.js'),'utf8');
   const fn=source.slice(source.indexOf('async function refreshTableStatus('),source.indexOf('async function requestTableService('));
@@ -54,3 +70,4 @@ test('disabled or missing tables do not broadcast',async()=>{
   });
   await api.broadcastTableChange('session-one');assert.equal(broadcast,0);
 });
+
