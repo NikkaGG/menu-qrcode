@@ -35,7 +35,7 @@ body.cookie-visible.cart-has-items .order-update-notice{bottom:calc(var(--guest-
 .order-details-close svg{width:19px;height:19px}
 .order-details-connection{color:#737a83;font-size:11px;line-height:1.5;margin:2px 0 22px;flex-shrink:0}
 .order-details-connection[data-offline=true]{color:#946c2c}
-.order-details-list{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;scrollbar-width:thin;scrollbar-color:#d5d8dd transparent;-webkit-overflow-scrolling:touch}
+.order-details-list{overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1;padding-inline-end:8px;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#d5d8dd transparent;-webkit-overflow-scrolling:touch}
 .guest-order-card{border:0;border-radius:0;padding:0 0 22px;margin:0;background:transparent;box-shadow:none}
 .guest-order-card+.guest-order-card{border-top:1px solid #e6e8eb;padding-top:22px}
 .guest-order-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}

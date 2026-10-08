@@ -126,16 +126,18 @@ async function call(endpoint, body, role) {
       return find().getBoundingClientRect().top-before;
     });
     assert.ok(Math.abs(itemShift)<2,'Completing the order being read must preserve the visible dish: '+itemShift+'px');
-    for(const width of [320,430,1440]){
-      await page.setViewport({width,height:740,isMobile:true,hasTouch:true});
+    for(const [width,height] of [[320,740],[430,740],[430,600],[1440,740]]){
+      await page.setViewport({width,height,isMobile:true,hasTouch:true});
       const layout=await page.evaluate(()=>{
         const list=orderDetailsList,foot=document.querySelector('.order-details-foot'),footRect=foot.getBoundingClientRect();
         list.scrollTop=list.scrollHeight;
-        return {overflow:list.scrollWidth>list.clientWidth+1,scrollable:list.scrollHeight>list.clientHeight,footerInside:footRect.top>=0&&footRect.bottom<=innerHeight,listBeforeFooter:list.getBoundingClientRect().bottom<=footRect.top+1};
+        const listRect=list.getBoundingClientRect(),payment=list.querySelector('article:last-child .guest-order-payment').getBoundingClientRect();
+        return {overflow:list.scrollWidth>list.clientWidth+1,scrollable:list.scrollHeight>list.clientHeight,footerInside:footRect.top>=0&&footRect.bottom<=innerHeight,listBeforeFooter:listRect.bottom<=footRect.top+1,paymentVisible:payment.top>=listRect.top&&payment.bottom<=listRect.bottom+1&&payment.right<=listRect.left+list.clientWidth+1};
       });
       assert.equal(layout.overflow,false,'Long names and notes must wrap inside the order list');
       assert.ok(layout.scrollable&&layout.footerInside&&layout.listBeforeFooter,'Many orders scroll while the total remains visible');
-      await page.screenshot({path:path.join(out,'details-long-'+width+'.png')});
+      assert.ok(layout.paymentVisible,'The final payment line must be fully readable after scrolling on '+width+'x'+height);
+      await page.screenshot({path:path.join(out,'details-long-'+width+'x'+height+'.png')});
     }
     await page.click('#orderDetailsClose');
     await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});

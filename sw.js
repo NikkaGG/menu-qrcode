@@ -1,4 +1,4 @@
-const CACHE_NAME='menu-qr-product-v23-flat-orders';
+const CACHE_NAME='menu-qr-product-v24-flat-orders';
 const OFFLINE_URL='/offline.html';
 const PRECACHE=[
   '/',
@@ -6,7 +6,7 @@ const PRECACHE=[
   '/styles.css?v=20261002-checkout-v1',
   '/app.js?v=20261008-flat-orders',
   '/guest-order-live.js?v=20261007',
-  '/guest-orders.css?v=20261008-flat-orders',
+  '/guest-orders.css?v=20261008-flat-orders-scrollbar',
   '/manifest.webmanifest',
   '/icons/app-192.png',
   '/icons/app-512.png'
