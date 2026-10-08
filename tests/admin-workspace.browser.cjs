@@ -61,6 +61,27 @@ const output=path.resolve(__dirname,'../artifacts/admin-workspace');fs.mkdirSync
     await click('#refreshBtn');
     assert.equal(await page.$eval('#restaurantForm [name=restaurant_name]',el=>el.value),'Несохранённый черновик');
     console.log('PASS refresh preserves settings draft');
+    await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('#rolePinForm');
+    await page.type('#rolePinForm [name=newPin]','987654');await click('#refreshBtn');
+    assert.equal(await page.$eval('#rolePinForm [name=newPin]',el=>el.value),'987654');
+    console.log('PASS refresh preserves staff PIN draft');
+    await page.reload({waitUntil:'networkidle0'});await page.waitForSelector('#restaurantForm');
+    await page.setRequestInterception(true);
+    let held=null,holding=true;let releaseSeen;
+    const intercepted=new Promise(resolve=>releaseSeen=resolve);
+    const intercept=req=>{
+      const body=req.postData();
+      if(holding&&req.url().includes('/admin-api')&&body&&JSON.parse(body).action==='settings'){held=req;holding=false;releaseSeen();}
+      else req.continue();
+    };
+    page.on('request',intercept);
+    await click('#refreshBtn');await intercepted;
+    await page.type('#restaurantForm [name=restaurant_name]',' — новый черновик');
+    await held.continue();
+    await page.waitForResponse(r=>r.url().includes('/admin-api')&&r.request().postData()?.includes('"settings"')).catch(()=>{});
+    assert.ok(await page.$eval('#restaurantForm [name=restaurant_name]',el=>el.value.includes('новый черновик')));
+    page.off('request',intercept);await page.setRequestInterception(false);
+    console.log('PASS delayed settings refresh preserves edits made while loading');
     for(const scheme of ['light','dark']){
       await page.emulateMediaFeatures([{name:'prefers-color-scheme',value:scheme},{name:'prefers-reduced-motion',value:'reduce'}]);
       for(const width of [320,390,1440]){
