@@ -2,7 +2,8 @@
   const escape=h;
   function dialog(id,title){const el=document.createElement('dialog');el.className='product-dialog';el.id=id;el.setAttribute('aria-label',title);document.body.append(el);return el;}
   function iconButton(icon,title,fn){const b=document.createElement('button');b.type='button';b.className='product-button product-icon';b.title=title;b.setAttribute('aria-label',title);b.innerHTML='<i data-lucide="'+icon+'"></i>';b.onclick=fn;return b;}
-  const settingsDialog=dialog('restaurantSettings','Настройки ресторана'),inbox=dialog('incidentInbox','Уведомления'),importDialog=dialog('menuImport','Импорт меню');
+  const settingsDialog=document.getElementById('restaurantSettings'),inbox=dialog('incidentInbox','Уведомления'),importDialog=dialog('menuImport','Импорт меню');
+  let settingsLoaded=false,settingsLoading=false,settingsDirty=false;
   const paymentDialog=dialog('adminPayment','Подтверждение оплаты');
   window.openAdminPayment=id=>{
     const o=orderState?.orders.find(o=>Number(o.id)===Number(id));if(!o||o.paid_at||o.status==='cancelled')return;
@@ -10,22 +11,48 @@
     paymentDialog.querySelector('select').value=o.payment_method;paymentDialog.querySelector('#cancelAdminPayment').onclick=()=>paymentDialog.close();paymentDialog.querySelector('form').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('[type=submit]');button.disabled=true;try{const response=await fetch(STAFF_API,{method:'POST',headers:{'Content-Type':'application/json','x-staff-role':'admin','x-staff-pin':pin,'x-device-id':ProductDevice},body:JSON.stringify({action:'confirm-payment',orderId:Number(id),paymentMethod:e.target.elements.paymentMethod.value}),signal:AbortSignal.timeout(12000)});const result=await response.json();if(!response.ok)throw new Error(result.error);paymentDialog.close();await loadOrders(false,true);await refreshProduct();notify('Оплата подтверждена');}catch(e){paymentDialog.querySelector('.product-error').textContent=e.message;}finally{button.disabled=false;}};paymentDialog.showModal();
   };
   const top=document.querySelector('.admin-top-actions');
-  top.prepend(iconButton('settings','Настройки ресторана',openSettings));
+
   const bell=iconButton('bell','Уведомления администратора',openInbox);top.prepend(bell);
   const fieldNames={restaurant_name:'Название',subtitle:'Описание',city:'Город',schedule_open:'Открытие',schedule_close:'Закрытие',phone_number:'Телефон',whatsapp_number:'WhatsApp',address_text:'Адрес',map_url:'Ссылка на карту',instagram_url:'Instagram',canonical_url:'Адрес сайта',logo_url:'Логотип',banner_url:'Обложка'};
-  async function openSettings(){
+  window.loadRestaurantSettings=async(force=false)=>{
+    if(!pin||settingsLoading||(!force&&settingsLoaded))return;
+    if(force&&settingsDirty){notify('Сначала сохраните изменения в настройках');return;}
+    settingsLoading=true;document.getElementById('retrySettings').hidden=true;
     try{
       const {settings:s}=await api('settings');
-      settingsDialog.innerHTML='<h2>Настройки ресторана</h2><form class="product-form" id="restaurantForm"><div class="product-grid">'+Object.entries(fieldNames).map(([key,label])=>'<label>'+label+'<input name="'+key+'" value="'+escape(s[key]||'')+'" '+(key==='restaurant_name'?'required':'')+'></label>').join('')+'</div><label>Часовой пояс<input name="timezone" value="'+escape(s.timezone||'Asia/Qyzylorda')+'" required></label><label class="choice"><input name="public_menu_enabled" type="checkbox" '+(s.public_menu_enabled?'checked':'')+'>Меню для просмотра</label><a href="/?view=menu" target="_blank" rel="noopener">Открыть меню для просмотра</a><div class="product-actions"><button class="product-button" id="uploadLogo" type="button">Загрузить логотип</button><button class="product-button" id="uploadBanner" type="button">Загрузить обложку</button></div><p class="product-error" id="settingsError"></p><div class="product-actions"><button type="button" id="settingsCancel">Закрыть</button><button class="primary" type="submit">Сохранить</button></div></form><section class="product-section"><h2>Доступ сотрудников</h2><form id="rolePinForm" class="product-form"><label>Роль<select name="role"><option value="admin">Администратор</option><option value="waiter">Официант</option><option value="kitchen">Кухня</option></select></label><label>Новый общий PIN<input name="newPin" type="password" inputmode="numeric" pattern="[0-9]{1,12}" maxlength="12" required autocomplete="new-password"></label><button class="product-button" type="submit">Изменить PIN</button><p class="product-error" id="pinError"></p></form></section>';
+      const fields=keys=>'<div class="product-grid">'+keys.map(key=>'<label>'+fieldNames[key]+'<input name="'+key+'" value="'+escape(s[key]||'')+'" '+(key==='restaurant_name'?'required':'')+'></label>').join('')+'</div>';
+      settingsDialog.innerHTML='<form class="product-form" id="restaurantForm">'+
+        '<fieldset class="settings-group"><legend>Ресторан</legend>'+fields(['restaurant_name','subtitle','city','address_text','schedule_open','schedule_close','phone_number','whatsapp_number','map_url','instagram_url'])+'</fieldset>'+
+        '<fieldset class="settings-group"><legend>Оформление меню</legend>'+fields(['logo_url','banner_url'])+'<div class="product-actions"><button class="product-button" id="uploadLogo" type="button">Загрузить логотип</button><button class="product-button" id="uploadBanner" type="button">Загрузить обложку</button></div></fieldset>'+
+        '<fieldset class="settings-group"><legend>Публикация</legend><p class="settings-description">Меню для просмотра открывается по общей ссылке. Заказы гости оформляют по QR-коду на столе.</p>'+fields(['canonical_url'])+'<label>Часовой пояс<input name="timezone" value="'+escape(s.timezone||'Asia/Qyzylorda')+'" required></label><label class="choice"><input name="public_menu_enabled" type="checkbox" '+(s.public_menu_enabled?'checked':'')+'>Разрешить просмотр без QR</label><a href="/?view=menu" target="_blank" rel="noopener">Открыть меню для просмотра ↗</a></fieldset>'+
+        '<p class="product-error" id="settingsError" role="alert"></p><p id="settingsFeedback" role="status"></p><div class="product-actions"><button class="primary" type="submit">Сохранить настройки</button><button type="button" id="settingsCancel">На главную</button></div></form>'+
+        '<section class="settings-section"><h2>Доступ сотрудников</h2><p class="settings-description">У каждой роли свой общий PIN. Действия учитываются по роли и устройству.</p><form id="rolePinForm" class="product-form"><label>Роль<select name="role"><option value="admin">Администратор</option><option value="waiter">Официант</option><option value="kitchen">Кухня</option></select></label><label>Новый общий PIN<input name="newPin" type="password" inputmode="numeric" pattern="[0-9]{1,12}" maxlength="12" required autocomplete="new-password"></label><button class="product-button" type="submit">Изменить PIN</button><p class="product-error" id="pinError" role="alert"></p></form></section>';
       const form=settingsDialog.querySelector('#restaurantForm');
-      settingsDialog.querySelector('#settingsCancel').onclick=()=>settingsDialog.close();
-      form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;try{const values=Object.fromEntries(new FormData(form));values.public_menu_enabled=form.elements.public_menu_enabled.checked;await api('save-settings',{settings:values});notify('Настройки сохранены');settingsDialog.close();}catch(e){settingsDialog.querySelector('#settingsError').textContent=e.message;}finally{button.disabled=false;}};
-      settingsDialog.querySelector('#rolePinForm').onsubmit=async e=>{e.preventDefault();const values=Object.fromEntries(new FormData(e.target)),button=e.target.querySelector('button');button.disabled=true;try{await api('set-role-pin',values);if(values.role==='admin'){pin=values.newPin;sessionStorage.setItem('sushi-admin-pin',pin);}e.target.reset();notify('PIN изменён');}catch(e){settingsDialog.querySelector('#pinError').textContent=e.message;}finally{button.disabled=false;}};
+      form.addEventListener('input',()=>{settingsDirty=true;document.getElementById('settingsFeedback').textContent='Есть несохранённые изменения';});
+      form.addEventListener('change',()=>{settingsDirty=true;});
+      settingsDialog.querySelector('#settingsCancel').onclick=()=>switchSection('overview');
+      form.onsubmit=async e=>{
+        e.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;document.getElementById('settingsError').textContent='';
+        try{
+          const values=Object.fromEntries(new FormData(form));values.public_menu_enabled=form.elements.public_menu_enabled.checked;
+          await api('save-settings',{settings:values});settingsDirty=false;document.getElementById('settingsFeedback').textContent='Настройки сохранены';
+          window.RestaurantName=values.restaurant_name;document.querySelectorAll('.admin-brand b,.admin-mobile-menu-head b').forEach(el=>el.textContent=values.restaurant_name);document.title=values.restaurant_name+' · Администратор';notify('Настройки сохранены');
+        }catch(e){document.getElementById('settingsError').textContent=e.message;}
+        finally{button.disabled=false;}
+      };
+      settingsDialog.querySelector('#rolePinForm').onsubmit=async e=>{
+        e.preventDefault();const values=Object.fromEntries(new FormData(e.target)),button=e.target.querySelector('button');button.disabled=true;
+        try{await api('set-role-pin',values);if(values.role==='admin'){pin=values.newPin;sessionStorage.setItem('sushi-admin-pin',pin);}e.target.reset();notify('PIN изменён');}
+        catch(e){settingsDialog.querySelector('#pinError').textContent=e.message;}finally{button.disabled=false;}
+      };
       settingsDialog.querySelector('#uploadLogo').onclick=()=>choosePhoto(form.elements.logo_url,settingsDialog.querySelector('#settingsError'));
       settingsDialog.querySelector('#uploadBanner').onclick=()=>choosePhoto(form.elements.banner_url,settingsDialog.querySelector('#settingsError'));
-      settingsDialog.showModal();
-    }catch(e){notify(e.message);}
-  }
+      settingsLoaded=true;
+    }catch(e){if(!settingsLoaded)settingsDialog.innerHTML='<p class="product-error" role="alert">'+escape(e.message)+'</p>';else notify(e.message);document.getElementById('retrySettings').hidden=false;}
+    finally{settingsLoading=false;}
+  };
+  document.getElementById('retrySettings').onclick=()=>window.loadRestaurantSettings(true);
+  if(pin&&currentSection==='settings')window.loadRestaurantSettings();
   async function openInbox(){
     try{const {incidents:rows}=await api('incidents');
       inbox.innerHTML='<h2>Уведомления</h2><div class="product-list">'+(rows.length?rows.map(r=>'<article><b>'+escape(r.message)+'</b><small>'+escape(r.source)+' · '+escape(new Date(r.last_seen_at).toLocaleString('ru-RU'))+' · '+r.occurrences+'</small>'+(r.resolved_at?'<small>Решено</small>':'<button class="product-button" data-resolve="'+r.id+'" type="button">Отметить решённым</button>')+'</article>').join(''):'<p>Сбоев не зарегистрировано</p>')+'</div><div class="product-actions"><button type="button" id="closeInbox">Закрыть</button></div>';
